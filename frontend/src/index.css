@@ -1,0 +1,31 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+
+  --color-cream: #faf7f0;
+
+  /*
+   * Text tokens that meet WCAG AA (>= 4.5:1) on white, cream and brand-50 backgrounds.
+   * stone-500 (4.49:1 on cream), stone-400 (2.6:1), red-600 (4.45:1 on cream) and the default
+   * placeholder (3.1:1) do not, so hints, placeholders, success and error text use these instead.
+   */
+  --color-muted: #6b625a; /* 5.97:1 white, 5.58:1 cream */
+  --color-success: #2f6b2a; /* 6.45:1 white, 6.03:1 cream */
+  --color-danger: oklch(0.505 0.213 27.518); /* = red-700, 6.42:1 white, 6.00:1 cream */
+  --color-nut: #8a5a2b;
+  --color-nut-light: #f4e9dc;
+
+  --color-brand-50: #f2f7ef;
+  --color-brand-100: #e1eddb;
+  --color-brand-200: #c3dbb8;
+  --color-brand-500: #4f8a3c;
+  --color-brand-600: #3d7130;
+  --color-brand-700: #2f5a26;
+  --color-brand-800: #244620;
+  --color-brand-900: #1b3518;
+}
+
+body {
+  @apply bg-cream font-sans text-stone-800 antialiased;
+}

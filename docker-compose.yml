@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: nutshop-db
+    environment:
+      POSTGRES_DB: nutshop
+      POSTGRES_USER: nutshop
+      POSTGRES_PASSWORD: nutshop
+    ports:
+      - "5432:5432"
+    volumes:
+      - nutshop-data:/var/lib/postgresql/data
+
+volumes:
+  nutshop-data:

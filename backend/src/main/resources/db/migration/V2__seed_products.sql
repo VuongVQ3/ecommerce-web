@@ -1,0 +1,32 @@
+INSERT INTO categories (name, slug) VALUES
+    ('Hạt dinh dưỡng', 'hat-dinh-duong'),
+    ('Hạt siêu thực phẩm', 'hat-sieu-thuc-pham'),
+    ('Hạt mix & granola', 'hat-mix-granola');
+
+INSERT INTO products (category_id, name, slug, description, origin, price, weight_grams, stock, calories, protein, fat, carbs, fiber) VALUES
+((SELECT id FROM categories WHERE slug = 'hat-dinh-duong'), 'Hạnh nhân rang mộc', 'hanh-nhan-rang-moc',
+ 'Hạnh nhân Mỹ rang mộc, không muối, không dầu. Giàu vitamin E, chất xơ và chất béo tốt, phù hợp cho người ăn kiêng và tập luyện.', 'Mỹ', 189000, 500, 120, 579, 21.2, 49.9, 21.6, 12.5),
+((SELECT id FROM categories WHERE slug = 'hat-dinh-duong'), 'Nhân óc chó vàng', 'nhan-oc-cho-vang',
+ 'Nhân óc chó tách vỏ, giữ trọn vị béo bùi tự nhiên. Nguồn omega-3 thực vật dồi dào, tốt cho tim mạch và trí não.', 'Mỹ', 249000, 500, 80, 654, 15.2, 65.2, 13.7, 6.7),
+((SELECT id FROM categories WHERE slug = 'hat-dinh-duong'), 'Hạt macca nứt vỏ', 'hat-macca-nut-vo',
+ 'Macca Đắk Lắk sấy nứt vỏ, kèm dụng cụ tách. Vị béo ngậy, giàu axit béo không bão hòa đơn.', 'Đắk Lắk, Việt Nam', 219000, 500, 100, 718, 7.9, 75.8, 13.8, 8.6),
+((SELECT id FROM categories WHERE slug = 'hat-dinh-duong'), 'Hạt điều rang mộc', 'hat-dieu-rang-moc',
+ 'Hạt điều Bình Phước loại A, rang mộc không muối. Giòn, thơm, giàu magie và kẽm.', 'Bình Phước, Việt Nam', 199000, 500, 150, 553, 18.2, 43.9, 30.2, 3.3),
+((SELECT id FROM categories WHERE slug = 'hat-dinh-duong'), 'Hạt dẻ cười không muối', 'hat-de-cuoi-khong-muoi',
+ 'Hạt dẻ cười (pistachio) rang không muối. Một trong những loại hạt có lượng calo thấp và protein cao nhất.', 'Mỹ', 289000, 500, 60, 560, 20.2, 45.3, 27.2, 10.6),
+((SELECT id FROM categories WHERE slug = 'hat-dinh-duong'), 'Hạt phỉ tách vỏ', 'hat-phi-tach-vo',
+ 'Hạt phỉ (hazelnut) tách vỏ, rang nhẹ. Vị thơm đặc trưng, giàu vitamin E và chất chống oxy hóa.', 'Thổ Nhĩ Kỳ', 169000, 250, 70, 628, 15.0, 60.8, 16.7, 9.7),
+((SELECT id FROM categories WHERE slug = 'hat-sieu-thuc-pham'), 'Hạt chia Úc', 'hat-chia-uc',
+ 'Hạt chia đen nhập khẩu Úc. Siêu giàu chất xơ và omega-3, ngâm với nước, sữa chua hoặc làm pudding.', 'Úc', 129000, 500, 200, 486, 16.5, 30.7, 42.1, 34.4),
+((SELECT id FROM categories WHERE slug = 'hat-sieu-thuc-pham'), 'Hạt lanh vàng', 'hat-lanh-vang',
+ 'Hạt lanh vàng (flaxseed) giàu lignan và chất xơ hòa tan. Nên xay trước khi dùng để hấp thu tốt nhất.', 'Canada', 89000, 500, 180, 534, 18.3, 42.2, 28.9, 27.3),
+((SELECT id FROM categories WHERE slug = 'hat-sieu-thuc-pham'), 'Hạt bí xanh tách vỏ', 'hat-bi-xanh-tach-vo',
+ 'Hạt bí xanh (pepitas) tách vỏ, giàu protein thực vật, sắt và magie. Ăn trực tiếp hoặc rắc salad.', 'Ấn Độ', 159000, 500, 110, 559, 30.2, 49.1, 10.7, 6.0),
+((SELECT id FROM categories WHERE slug = 'hat-sieu-thuc-pham'), 'Hạt diêm mạch 3 màu', 'hat-diem-mach-3-mau',
+ 'Quinoa trắng, đỏ, đen. Ngũ cốc không gluten chứa đủ 9 axit amin thiết yếu, thay thế cơm trong thực đơn eat clean.', 'Peru', 119000, 500, 140, 368, 14.1, 6.1, 64.2, 7.0),
+((SELECT id FROM categories WHERE slug = 'hat-sieu-thuc-pham'), 'Hạt hướng dương tách vỏ', 'hat-huong-duong-tach-vo',
+ 'Nhân hướng dương rang mộc, giàu vitamin E và selen. Món ăn vặt lành mạnh, tiện lợi.', 'Mỹ', 79000, 500, 160, 584, 20.8, 51.5, 20.0, 8.6),
+((SELECT id FROM categories WHERE slug = 'hat-mix-granola'), 'Hạt mix 5 loại', 'hat-mix-5-loai',
+ 'Hỗn hợp hạnh nhân, óc chó, macca, điều và bí xanh, không thêm đường. Khẩu phần dinh dưỡng cân bằng cho mỗi ngày.', 'Việt Nam', 229000, 500, 90, 590, 18.0, 50.0, 20.0, 8.0),
+((SELECT id FROM categories WHERE slug = 'hat-mix-granola'), 'Granola ăn kiêng không đường', 'granola-an-kieng-khong-duong',
+ 'Granola yến mạch nướng cùng các loại hạt và trái cây sấy, ngọt nhẹ từ mật ong, không đường tinh luyện.', 'Việt Nam', 139000, 500, 130, 450, 13.0, 20.0, 55.0, 9.0);
