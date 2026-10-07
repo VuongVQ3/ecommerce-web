@@ -46,6 +46,10 @@ Khi phát triển, Vite chuyển tiếp mọi request `/api` sang backend (cùng
 
 Nếu không có Client ID, nút Google sẽ tự ẩn.
 
+## Deploy
+
+Miễn phí trên Render + Neon, một Docker image chứa cả frontend lẫn API: xem [docs/deploy.md](docs/deploy.md).
+
 ## Kiểm thử
 
 ```bash

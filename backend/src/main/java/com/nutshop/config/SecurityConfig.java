@@ -67,6 +67,9 @@ public class SecurityConfig {
 			PATHS.matcher(HttpMethod.POST, "/api/cart/validate"),
 			PATHS.matcher("/error"));
 
+	/** The REST API. Everything else is the bundled React app (static files and client-side routes). */
+	static final RequestMatcher API = PATHS.matcher("/api/**");
+
 	/** Login, register and password reset: per IP (stops credential stuffing and reset-link spam). */
 	private static final Set<String> AUTH_LIMITED_PATHS = Set.of("/api/auth/login", "/api/auth/register",
 			"/api/auth/forgot-password", "/api/auth/reset-password");
@@ -77,7 +80,13 @@ public class SecurityConfig {
 		http.csrf(csrf -> csrf.disable()) // replaced by RequestedWithHeaderFilter (stateless, cookie-based auth)
 			.cors(Customizer.withDefaults())
 			.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC_ENDPOINTS).permitAll().anyRequest().authenticated())
+			.authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC_ENDPOINTS)
+				.permitAll()
+				.requestMatchers(API)
+				.authenticated()
+				// The React app itself is public; pages like /tai-khoan are guarded client-side and by the API
+				.anyRequest()
+				.permitAll())
 			.addFilterAfter(new RequestedWithHeaderFilter(), CorsFilter.class)
 			.addFilterAfter(new RateLimitFilter(authRateLimiter, AUTH_LIMITED_PATHS), RequestedWithHeaderFilter.class)
 			.addFilterAfter(new RateLimitFilter(cartValidateRateLimiter, Set.of("/api/cart/validate")),
@@ -93,11 +102,12 @@ public class SecurityConfig {
 
 	/**
 	 * Reads the access token from its httpOnly cookie (there is no Authorization header). Skipped on public
-	 * endpoints, so a stale or expired cookie can never block login, refresh or browsing products.
+	 * endpoints and on the static app, so a stale or expired cookie can never block login, refresh, browsing
+	 * products or loading the page itself.
 	 */
 	private static BearerTokenResolver bearerTokenResolver() {
 		return request -> {
-			if (PUBLIC_ENDPOINTS.matches(request) || request.getCookies() == null) {
+			if (!API.matches(request) || PUBLIC_ENDPOINTS.matches(request) || request.getCookies() == null) {
 				return null;
 			}
 			for (Cookie cookie : request.getCookies()) {
