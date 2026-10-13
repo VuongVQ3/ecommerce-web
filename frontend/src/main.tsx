@@ -8,7 +8,9 @@ import Layout from './components/Layout'
 import { ToastProvider } from './components/Toast'
 import CartPage from './pages/CartPage'
 import './index.css'
-import { AccountInfoPage, AccountLayout, AdminPage, OrdersPage } from './pages/AccountPages'
+import { AccountInfoPage, AccountLayout, AdminPage } from './pages/AccountPages'
+import CheckoutPage from './pages/CheckoutPage'
+import { MyOrderDetailPage, MyOrdersPage, OrderLookupPage, OrderSuccessPage } from './pages/OrderPages'
 import { LoginPage } from './pages/AuthPages'
 import { PrivacyPage, TermsPage } from './pages/LegalPages'
 import { RegisterPage } from './pages/RegisterPage'
@@ -39,6 +41,9 @@ const router = createBrowserRouter([
       { path: '/quen-mat-khau', element: <ForgotPasswordPage /> },
       { path: '/dat-lai-mat-khau', element: <ResetPasswordPage /> },
       { path: '/gio-hang', element: <CartPage /> },
+      { path: '/thanh-toan', element: <CheckoutPage /> },
+      { path: '/dat-hang-thanh-cong/:code', element: <OrderSuccessPage /> },
+      { path: '/tra-cuu-don-hang', element: <OrderLookupPage /> },
       { path: '/dieu-khoan', element: <TermsPage /> },
       { path: '/chinh-sach-bao-mat', element: <PrivacyPage /> },
       {
@@ -50,7 +55,8 @@ const router = createBrowserRouter([
             element: <AccountLayout />,
             children: [
               { index: true, element: <AccountInfoPage /> },
-              { path: 'don-hang', element: <OrdersPage /> },
+              { path: 'don-hang', element: <MyOrdersPage /> },
+              { path: 'don-hang/:code', element: <MyOrderDetailPage /> },
               { path: '*', element: <NotFoundPage /> },
             ],
           },

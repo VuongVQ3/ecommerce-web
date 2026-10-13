@@ -48,18 +48,6 @@ export function AccountInfoPage() {
   )
 }
 
-export function OrdersPage() {
-  return (
-    <div className="rounded-2xl border border-dashed border-stone-300 bg-white px-6 py-16 text-center">
-      <p className="text-4xl" aria-hidden>
-        📦
-      </p>
-      <p className="mt-3 font-semibold text-stone-900">Bạn chưa có đơn hàng nào</p>
-      <p className="mt-1 text-sm text-stone-500">Tính năng giỏ hàng và đặt hàng sẽ có trong phiên bản tiếp theo.</p>
-    </div>
-  )
-}
-
 /** Placeholder for /admin/*; only rendered for STAFF and ADMIN (see RequireAuth). */
 export function AdminPage() {
   const { user } = useAuth()

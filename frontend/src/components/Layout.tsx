@@ -213,6 +213,11 @@ export default function Layout() {
               <li>Không đường, không chất bảo quản</li>
               <li>Rõ nguồn gốc xuất xứ</li>
               <li>Đổi trả trong 7 ngày</li>
+              <li>
+                <Link to="/tra-cuu-don-hang" className="font-semibold text-brand-700 hover:underline">
+                  Tra cứu đơn hàng
+                </Link>
+              </li>
             </ul>
           </div>
           <div>

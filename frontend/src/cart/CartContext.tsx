@@ -70,6 +70,10 @@ interface CartContextValue {
   setQuantity: (productId: number, quantity: number) => Promise<CartResult>
   removeItem: (productId: number) => Promise<void>
   clear: () => Promise<void>
+  /** After an order: empty the local cart (the server already emptied a signed-in user's cart). */
+  resetAfterOrder: () => void
+  /** Re-price the cart from the server (e.g. after an out-of-stock answer at checkout). */
+  refresh: () => Promise<void>
   drawerOpen: boolean
   openDrawer: () => void
   closeDrawer: () => void
@@ -248,6 +252,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     await saveGuest([])
   }, [userId, applyView, saveGuest])
 
+  const resetAfterOrder = useCallback(() => {
+    clearGuestCart()
+    dispatch({ type: 'guest', guest: { mergeKey: readGuestCart().mergeKey, items: [] } })
+    applyView(Promise.resolve(EMPTY_VIEW))
+  }, [applyView])
+
+  const refresh = useCallback(async () => {
+    await (userId ? applyView(api.cart()) : priceGuestCart(readGuestCart().items))
+  }, [userId, applyView, priceGuestCart])
+
   const openDrawer = useCallback(() => dispatch({ type: 'drawer', open: true }), [])
   const closeDrawer = useCallback(() => dispatch({ type: 'drawer', open: false }), [])
 
@@ -267,11 +281,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setQuantity,
       removeItem,
       clear,
+      resetAfterOrder,
+      refresh,
       drawerOpen: state.drawerOpen,
       openDrawer,
       closeDrawer,
     }),
-    [state, confirmed, mode, addItem, setQuantity, removeItem, clear, openDrawer, closeDrawer],
+    [state, confirmed, mode, addItem, setQuantity, removeItem, clear, resetAfterOrder, refresh, openDrawer, closeDrawer],
   )
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

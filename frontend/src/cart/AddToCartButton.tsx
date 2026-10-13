@@ -45,7 +45,7 @@ export default function AddToCartButton({ product, quantity = 1, variant = 'card
       const { warning } = await addItem(product, quantity)
       toast({
         tone: 'success',
-        message: warning ?? `Đã thêm ${product.name}`,
+        message: warning ?? `Đã thêm ${product.name} vào giỏ`,
         action: { label: 'Xem giỏ hàng', onClick: openDrawer },
       })
       onAdded?.()

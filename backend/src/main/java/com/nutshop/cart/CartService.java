@@ -157,9 +157,8 @@ public class CartService {
 
 		long subtotal = lines.stream().mapToLong(CartLine::lineTotal).sum();
 		int totalQuantity = lines.stream().mapToInt(CartLine::requestedQuantity).sum();
-		boolean freeShipping = subtotal == 0 || subtotal >= props.freeShippingThreshold();
-		long shippingFee = freeShipping ? 0 : props.shippingFee();
-		long amountToFree = freeShipping ? 0 : props.freeShippingThreshold() - subtotal;
+		long shippingFee = props.shippingFeeFor(subtotal);
+		long amountToFree = shippingFee == 0 ? 0 : props.freeShippingThreshold() - subtotal;
 		boolean blocked = lines.stream()
 			.anyMatch(l -> l.status() == LineStatus.OUT_OF_STOCK || l.status() == LineStatus.UNAVAILABLE);
 		return new CartView(lines, totalQuantity, subtotal, shippingFee, amountToFree, props.freeShippingThreshold(),

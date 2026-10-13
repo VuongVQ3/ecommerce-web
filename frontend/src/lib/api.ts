@@ -134,17 +134,91 @@ export interface ProductQuery {
   size?: number
 }
 
+// ---- Orders (cash on delivery) ----
+
+export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'SHIPPING' | 'COMPLETED' | 'CANCELLED'
+
+export interface OrderItem {
+  productId: number
+  productName: string
+  unitPrice: number
+  weightGrams: number
+  quantity: number
+  lineTotal: number
+}
+
+export interface Order {
+  code: string
+  status: OrderStatus
+  statusLabel: string
+  canCancel: boolean
+  createdAt: string
+  customerName: string
+  phone: string
+  email: string | null
+  province: string
+  ward: string
+  addressLine: string
+  note: string | null
+  paymentMethod: 'COD'
+  items: OrderItem[]
+  subtotal: number
+  shippingFee: number
+  total: number
+  history: { status: OrderStatus; label: string; at: string; reason: string | null }[]
+}
+
+export interface OrderSummary {
+  code: string
+  status: OrderStatus
+  statusLabel: string
+  createdAt: string
+  itemCount: number
+  firstItemName: string | null
+  total: number
+}
+
+export interface PlaceOrderInput {
+  items: CartLineInput[]
+  customerName: string
+  phone: string
+  email?: string
+  provinceCode: number
+  wardCode: number
+  addressLine: string
+  note?: string
+  /** Generated once per checkout visit: resubmitting returns the same order. */
+  idempotencyKey: string
+}
+
+/** One product that could not be reserved (409 OUT_OF_STOCK, property "items"). */
+export interface Shortage {
+  productId: number
+  name: string
+  requested: number
+  available: number
+}
+
 export class ApiError extends Error {
   readonly status: number
   readonly fieldErrors: Record<string, string>
   /** Machine-readable error code from the backend, e.g. EMAIL_EXISTS. */
   readonly code?: string
+  /** The whole problem body, for errors that carry data (e.g. the out-of-stock "items"). */
+  readonly details: Record<string, unknown>
 
-  constructor(message: string, status: number, fieldErrors: Record<string, string> = {}, code?: string) {
+  constructor(
+    message: string,
+    status: number,
+    fieldErrors: Record<string, string> = {},
+    code?: string,
+    details: Record<string, unknown> = {},
+  ) {
     super(message)
     this.status = status
     this.fieldErrors = fieldErrors
     this.code = code
+    this.details = details
   }
 }
 
@@ -229,7 +303,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     // 5xx details are not written for users (and may be English): show a generic message instead.
     // 503 is the exception: the backend uses it for "try again later" messages meant for users.
     const message = res.status >= 500 && res.status !== 503 ? GENERIC_ERROR : (body?.detail ?? GENERIC_ERROR)
-    throw new ApiError(message, res.status, body?.errors ?? {}, body?.code)
+    throw new ApiError(message, res.status, body?.errors ?? {}, body?.code, body ?? {})
   }
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
@@ -300,6 +374,32 @@ export const api = {
       '/api/cart/merge',
       post({ mergeKey, items }),
     ),
+
+  /**
+   * Public; a signed-in buyer's cookie links the order to their account. A guest with a stale cookie must not be
+   * sent to the login page: if the session cannot be refreshed (server then clears the cookies) we simply retry
+   * once as a guest. The idempotencyKey makes the retry safe.
+   */
+  placeOrder: async (input: PlaceOrderInput): Promise<Order> => {
+    const send = () => apiRequest<Order>('/api/orders', { ...post(input), redirectOnAuthFailure: false })
+    try {
+      return await send()
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) return send()
+      throw err
+    }
+  },
+
+  myOrders: (page = 0, signal?: AbortSignal) =>
+    apiRequest<Page<OrderSummary>>(`/api/orders/me?page=${page}&size=10`, { signal }),
+
+  myOrder: (code: string, signal?: AbortSignal) =>
+    apiRequest<Order>(`/api/orders/me/${encodeURIComponent(code)}`, { signal }),
+
+  cancelOrder: (code: string) => apiRequest<Order>(`/api/orders/me/${encodeURIComponent(code)}/cancel`, post()),
+
+  lookupOrder: (code: string, phone: string) =>
+    apiRequest<Order>(`/api/orders/lookup?code=${encodeURIComponent(code)}&phone=${encodeURIComponent(phone)}`),
 
   // Cart: guests (public). Same shape as a signed-in cart, priced by the server.
   cartValidate: (items: CartLineInput[], signal?: AbortSignal) =>

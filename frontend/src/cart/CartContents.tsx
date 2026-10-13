@@ -14,7 +14,7 @@ const STATUS_NOTE: Partial<Record<CartLine['status'], (l: CartLine) => string>> 
   UNAVAILABLE: () => 'Sản phẩm đã ngừng kinh doanh. Vui lòng xoá khỏi giỏ để thanh toán.',
 }
 
-function Line({ line, onNavigate }: { line: CartLine; onNavigate?: () => void }) {
+function Line({ line, onNavigate, highlighted }: { line: CartLine; onNavigate?: () => void; highlighted?: boolean }) {
   const { setQuantity, removeItem, addItem } = useCart()
   const toast = useToast()
   const blocked = line.status === 'OUT_OF_STOCK' || line.status === 'UNAVAILABLE'
@@ -60,7 +60,7 @@ function Line({ line, onNavigate }: { line: CartLine; onNavigate?: () => void })
   )
 
   return (
-    <li className="flex gap-3 py-4">
+    <li className={`flex gap-3 py-4 ${highlighted ? '-mx-2 rounded-xl bg-amber-50 px-2 ring-2 ring-amber-300' : ''}`}>
       <ProductImage
         name={line.name}
         imageUrl={line.imageUrl}
@@ -109,11 +109,20 @@ function Line({ line, onNavigate }: { line: CartLine; onNavigate?: () => void })
   )
 }
 
-export function CartLines({ lines, onNavigate }: { lines: CartLine[]; onNavigate?: () => void }) {
+/** `highlight`: product ids to mark, e.g. the ones that were short of stock at checkout. */
+export function CartLines({
+  lines,
+  onNavigate,
+  highlight = [],
+}: {
+  lines: CartLine[]
+  onNavigate?: () => void
+  highlight?: number[]
+}) {
   return (
     <ul className="divide-y divide-stone-100">
       {lines.map((line) => (
-        <Line key={line.productId} line={line} onNavigate={onNavigate} />
+        <Line key={line.productId} line={line} onNavigate={onNavigate} highlighted={highlight.includes(line.productId)} />
       ))}
     </ul>
   )

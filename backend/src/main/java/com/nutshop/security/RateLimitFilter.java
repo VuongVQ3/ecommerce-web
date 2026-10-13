@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -13,20 +14,27 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 
-/** Limits POSTs to the given paths per client IP, each path counted separately. Answers 429 with Retry-After. */
+/** Limits requests with the given method to the given paths per client IP, each path counted separately. 429 + Retry-After. */
 public class RateLimitFilter extends OncePerRequestFilter {
 
 	private final RateLimiter limiter;
+	private final HttpMethod method;
 	private final Set<String> paths;
 
-	public RateLimitFilter(RateLimiter limiter, Set<String> paths) {
+	public RateLimitFilter(RateLimiter limiter, HttpMethod method, Set<String> paths) {
 		this.limiter = limiter;
+		this.method = method;
 		this.paths = Set.copyOf(paths);
+	}
+
+	/** POST-only, the common case. */
+	public RateLimitFilter(RateLimiter limiter, Set<String> paths) {
+		this(limiter, HttpMethod.POST, paths);
 	}
 
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
-		return !"POST".equals(request.getMethod()) || !paths.contains(request.getRequestURI());
+		return !method.matches(request.getMethod()) || !paths.contains(request.getRequestURI());
 	}
 
 	@Override

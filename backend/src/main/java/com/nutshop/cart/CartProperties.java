@@ -15,4 +15,9 @@ public record CartProperties(int maxQtyPerItem, long freeShippingThreshold, long
 			throw new IllegalArgumentException("cart.max-qty-per-item must be between 1 and 99");
 		}
 	}
+
+	/** The one shipping rule, shared by carts and orders: free for an empty cart or from the threshold. */
+	public long shippingFeeFor(long subtotal) {
+		return subtotal == 0 || subtotal >= freeShippingThreshold ? 0 : shippingFee;
+	}
 }

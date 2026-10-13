@@ -165,6 +165,37 @@ export function PasswordChecklist({ id, value }: { id: string; value: string }) 
   )
 }
 
+interface SelectFieldProps extends Omit<ComponentProps<'select'>, 'id'> {
+  label: string
+  error?: string
+  hint?: ReactNode
+  placeholder: string
+  options: { value: string | number; label: string }[]
+}
+
+/** Native select (best on phones), with the same label/error/ARIA wiring as TextField. */
+export function SelectField({ label, error, hint, placeholder, options, className = '', ...select }: SelectFieldProps) {
+  const id = useId()
+  return (
+    <FieldShell id={id} label={label} error={error} hint={hint}>
+      <select
+        id={id}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedByIds(id, error, hint)}
+        className={`${inputClass(error)} appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2020%2020'%20fill='%236b625a'%3E%3Cpath%20d='M5.5%207.5l4.5%204.5%204.5-4.5'/%3E%3C/svg%3E")] bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat pr-10 disabled:cursor-not-allowed disabled:bg-stone-50 ${className}`}
+        {...select}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </FieldShell>
+  )
+}
+
 export function Checkbox({ label, ...input }: Omit<ComponentProps<'input'>, 'type' | 'id'> & { label: ReactNode }) {
   const id = useId()
   return (

@@ -65,7 +65,15 @@ public class SecurityConfig {
 			PATHS.matcher(HttpMethod.GET, "/api/categories"),
 			// Guest carts: priced from the products table, never from the client
 			PATHS.matcher(HttpMethod.POST, "/api/cart/validate"),
+			// Guests look up their order with code + phone
+			PATHS.matcher(HttpMethod.GET, "/api/orders/lookup"),
 			PATHS.matcher("/error"));
+
+	/**
+	 * Open to everyone, but the access cookie IS read when present, so a signed-in buyer's order is linked to their
+	 * account (guests simply have no cookie).
+	 */
+	static final RequestMatcher OPTIONAL_AUTH_ENDPOINTS = PATHS.matcher(HttpMethod.POST, "/api/orders");
 
 	/** The REST API. Everything else is the bundled React app (static files and client-side routes). */
 	static final RequestMatcher API = PATHS.matcher("/api/**");
@@ -76,11 +84,13 @@ public class SecurityConfig {
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http, @Qualifier("authRateLimiter") RateLimiter authRateLimiter,
-			@Qualifier("cartValidateRateLimiter") RateLimiter cartValidateRateLimiter) throws Exception {
+			@Qualifier("cartValidateRateLimiter") RateLimiter cartValidateRateLimiter,
+			@Qualifier("orderCreateRateLimiter") RateLimiter orderCreateRateLimiter,
+			@Qualifier("orderLookupRateLimiter") RateLimiter orderLookupRateLimiter) throws Exception {
 		http.csrf(csrf -> csrf.disable()) // replaced by RequestedWithHeaderFilter (stateless, cookie-based auth)
 			.cors(Customizer.withDefaults())
 			.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC_ENDPOINTS)
+			.authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC_ENDPOINTS, OPTIONAL_AUTH_ENDPOINTS)
 				.permitAll()
 				.requestMatchers(API)
 				.authenticated()
@@ -90,6 +100,10 @@ public class SecurityConfig {
 			.addFilterAfter(new RequestedWithHeaderFilter(), CorsFilter.class)
 			.addFilterAfter(new RateLimitFilter(authRateLimiter, AUTH_LIMITED_PATHS), RequestedWithHeaderFilter.class)
 			.addFilterAfter(new RateLimitFilter(cartValidateRateLimiter, Set.of("/api/cart/validate")),
+					RequestedWithHeaderFilter.class)
+			.addFilterAfter(new RateLimitFilter(orderCreateRateLimiter, Set.of("/api/orders")),
+					RequestedWithHeaderFilter.class)
+			.addFilterAfter(new RateLimitFilter(orderLookupRateLimiter, HttpMethod.GET, Set.of("/api/orders/lookup")),
 					RequestedWithHeaderFilter.class)
 			.oauth2ResourceServer(o -> o.bearerTokenResolver(bearerTokenResolver())
 				.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
@@ -127,6 +141,20 @@ public class SecurityConfig {
 	@Bean
 	RateLimiter authRateLimiter(@Value("${app.rate-limit.auth.max-requests}") int maxRequests,
 			@Value("${app.rate-limit.auth.window}") Duration window, Clock clock) {
+		return new RateLimiter(maxRequests, window, clock);
+	}
+
+	/** Per IP, for POST /api/orders (each order holds stock, so keep bulk fake orders expensive). */
+	@Bean
+	RateLimiter orderCreateRateLimiter(@Value("${app.rate-limit.order-create.max-requests}") int maxRequests,
+			@Value("${app.rate-limit.order-create.window}") Duration window, Clock clock) {
+		return new RateLimiter(maxRequests, window, clock);
+	}
+
+	/** Per IP, for GET /api/orders/lookup (stops guessing order codes / phone numbers). */
+	@Bean
+	RateLimiter orderLookupRateLimiter(@Value("${app.rate-limit.order-lookup.max-requests}") int maxRequests,
+			@Value("${app.rate-limit.order-lookup.window}") Duration window, Clock clock) {
 		return new RateLimiter(maxRequests, window, clock);
 	}
 

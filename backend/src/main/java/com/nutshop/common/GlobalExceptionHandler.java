@@ -28,6 +28,7 @@ public class GlobalExceptionHandler {
 		if (ex.getCode() != null) {
 			problem.setProperty("code", ex.getCode());
 		}
+		ex.getProperties().forEach(problem::setProperty);
 		return problem;
 	}
 

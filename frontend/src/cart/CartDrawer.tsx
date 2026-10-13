@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Spinner } from '../components/Feedback'
-import { useToast } from '../components/Toast'
 import { CartLines, CartSummary, EmptyCart } from './CartContents'
 import { useCart } from './CartContext'
 
@@ -13,7 +12,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabi
  */
 export default function CartDrawer() {
   const { drawerOpen, closeDrawer, view, lines, loading } = useCart()
-  const toast = useToast()
+  const navigate = useNavigate()
   const panel = useRef<HTMLDivElement>(null)
   const returnFocusTo = useRef<HTMLElement | null>(null)
 
@@ -93,7 +92,10 @@ export default function CartDrawer() {
               {view && (
                 <CartSummary
                   view={view}
-                  onCheckout={() => toast({ tone: 'info', message: 'Chức năng thanh toán đang được phát triển.' })}
+                  onCheckout={() => {
+                    closeDrawer()
+                    navigate('/thanh-toan')
+                  }}
                 />
               )}
               <Link

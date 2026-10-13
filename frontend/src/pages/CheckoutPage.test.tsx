@@ -1,0 +1,154 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { createMemoryRouter, RouterProvider, useLocation } from 'react-router'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ToastProvider } from '../components/Toast'
+import { api, ApiError, type CartView, type Order, type User } from '../lib/api'
+import CheckoutPage from './CheckoutPage'
+
+const auth = vi.hoisted(() => ({ current: { user: null as User | null, loading: false } }))
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth.current }))
+const resetAfterOrder = vi.hoisted(() => vi.fn())
+
+const view: CartView = {
+  items: [
+    {
+      productId: 7,
+      name: 'Hạt chia Úc',
+      slug: 'hat-chia-uc',
+      imageUrl: null,
+      categorySlug: 'hat-sieu-thuc-pham',
+      weightGrams: 500,
+      price: 129_000,
+      priceAtAdd: null,
+      quantity: 2,
+      requestedQuantity: 2,
+      maxPurchasable: 10,
+      lineTotal: 258_000,
+      status: 'OK',
+    },
+  ],
+  totalQuantity: 2,
+  subtotal: 258_000,
+  shippingFee: 30_000,
+  amountToFreeShipping: 242_000,
+  freeShippingThreshold: 500_000,
+  total: 288_000,
+  canCheckout: true,
+}
+vi.mock('../cart/CartContext', () => ({ useCart: () => ({ view, loading: false, resetAfterOrder }) }))
+
+const order = { code: 'HL261013ABCD', total: 288_000 } as Order
+
+function Where() {
+  const location = useLocation()
+  return <pre data-testid="where">{JSON.stringify({ path: location.pathname, state: location.state })}</pre>
+}
+
+function renderCheckout() {
+  const router = createMemoryRouter(
+    [
+      { path: '/thanh-toan', element: <CheckoutPage /> },
+      { path: '*', element: <Where /> },
+    ],
+    { initialEntries: ['/thanh-toan'] },
+  )
+  render(
+    <ToastProvider>
+      <RouterProvider router={router} />
+    </ToastProvider>,
+  )
+}
+
+const input = (label: string) => screen.getByLabelText(label, { selector: 'input' })
+const select = (label: string) => screen.getByLabelText(label, { selector: 'select' }) as HTMLSelectElement
+const change = (el: HTMLElement, value: string) => {
+  fireEvent.change(el, { target: { value } })
+  fireEvent.blur(el)
+}
+
+async function fillValidForm() {
+  change(input('Họ và tên'), 'Nguyễn Văn Khách')
+  change(input('Số điện thoại'), '+84 912 345 678')
+  await waitFor(() => expect(select('Tỉnh/Thành phố').disabled).toBe(false))
+  change(select('Tỉnh/Thành phố'), '1')
+  change(select('Phường/Xã'), '4')
+  change(input('Địa chỉ chi tiết'), '12 Phố Test')
+}
+
+beforeEach(() => {
+  auth.current = { user: null, loading: false }
+  resetAfterOrder.mockReset()
+})
+
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
+
+describe('CheckoutPage', () => {
+  it('ward options depend on the province and reset when it changes', async () => {
+    renderCheckout()
+    await waitFor(() => expect(select('Tỉnh/Thành phố').disabled).toBe(false))
+    expect(select('Tỉnh/Thành phố').options).toHaveLength(35) // placeholder + 34
+    expect(select('Phường/Xã').disabled).toBe(true)
+
+    change(select('Tỉnh/Thành phố'), '1')
+    expect(within(select('Phường/Xã')).getByRole('option', { name: 'Phường Ba Đình' })).toBeTruthy()
+    change(select('Phường/Xã'), '4')
+    expect(select('Phường/Xã').value).toBe('4')
+
+    change(select('Tỉnh/Thành phố'), '79')
+    expect(select('Phường/Xã').value).toBe('')
+    expect(within(select('Phường/Xã')).queryByRole('option', { name: 'Phường Ba Đình' })).toBeNull()
+  })
+
+  it('sends only ids and quantities, normalized phone, and the same idempotency key on retry', async () => {
+    const place = vi
+      .spyOn(api, 'placeOrder')
+      .mockRejectedValueOnce(new ApiError('Không kết nối được máy chủ. Vui lòng thử lại.', 0))
+      .mockResolvedValueOnce(order)
+    renderCheckout()
+    await fillValidForm()
+
+    fireEvent.click(screen.getByRole('button', { name: /Đặt hàng/ }))
+    expect(await screen.findByText('Không kết nối được máy chủ. Vui lòng thử lại.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Đặt hàng/ }))
+
+    await waitFor(() => expect(place).toHaveBeenCalledTimes(2))
+    const [first, second] = place.mock.calls.map((c) => c[0])
+    expect(first.items).toEqual([{ productId: 7, quantity: 2 }])
+    expect(first).toMatchObject({ phone: '0912345678', provinceCode: 1, wardCode: 4, customerName: 'Nguyễn Văn Khách' })
+    expect(JSON.stringify(first)).not.toMatch(/price|total/i)
+    expect(second.idempotencyKey).toBe(first.idempotencyKey)
+
+    const where = JSON.parse((await screen.findByTestId('where')).textContent!)
+    expect(where.path).toBe('/dat-hang-thanh-cong/HL261013ABCD')
+    expect(resetAfterOrder).toHaveBeenCalledOnce()
+  })
+
+  it('goes back to the cart with the shortages when stock ran out', async () => {
+    const shortage = { productId: 7, name: 'Hạt chia Úc', requested: 2, available: 1 }
+    vi.spyOn(api, 'placeOrder').mockRejectedValue(
+      new ApiError('Một số sản phẩm không còn đủ hàng', 409, {}, 'OUT_OF_STOCK', { items: [shortage] }),
+    )
+    renderCheckout()
+    await fillValidForm()
+    fireEvent.click(screen.getByRole('button', { name: /Đặt hàng/ }))
+
+    const where = JSON.parse((await screen.findByTestId('where')).textContent!)
+    expect(where).toEqual({ path: '/gio-hang', state: { shortages: [shortage] } })
+    expect(resetAfterOrder).not.toHaveBeenCalled()
+  })
+
+  it('prefills name, email and phone for a signed-in user', () => {
+    auth.current = {
+      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER' },
+      loading: false,
+    }
+    renderCheckout()
+    expect((input('Họ và tên') as HTMLInputElement).value).toBe('Trần An')
+    expect((input('Số điện thoại') as HTMLInputElement).value).toBe('0987654321')
+    expect((input('Email (không bắt buộc)') as HTMLInputElement).value).toBe('an@example.com')
+  })
+})

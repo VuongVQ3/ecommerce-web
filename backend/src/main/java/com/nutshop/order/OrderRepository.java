@@ -1,0 +1,28 @@
+package com.nutshop.order;
+
+import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+
+import java.util.Optional;
+import java.util.UUID;
+
+public interface OrderRepository extends JpaRepository<Order, UUID> {
+
+	@EntityGraph(attributePaths = "items")
+	Optional<Order> findByIdempotencyKey(String idempotencyKey);
+
+	@EntityGraph(attributePaths = "items")
+	Optional<Order> findByCode(String code);
+
+	/** Row lock so a cancel cannot race another status change of the same order. */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	Optional<Order> findWithLockByCodeAndUserId(String code, UUID userId);
+
+	boolean existsByCode(String code);
+
+	Page<Order> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
+}

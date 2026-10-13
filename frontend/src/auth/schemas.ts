@@ -53,6 +53,34 @@ export const registerSchema = z
 
 export const forgotPasswordSchema = z.object({ email })
 
+// Checkout: same rules as OrderDtos.PlaceOrderRequest. Province/ward are select values (codes as strings).
+export const checkoutSchema = z.object({
+  customerName: z.string().trim().min(2, 'Họ tên phải từ 2 đến 100 ký tự').max(100, 'Họ tên phải từ 2 đến 100 ký tự'),
+  phone: z
+    .string()
+    .trim()
+    .min(1, 'Vui lòng nhập số điện thoại')
+    .refine((v) => isValidPhone(normalizePhone(v)), PHONE_ERROR),
+  email: z
+    .string()
+    .trim()
+    .max(255, 'Email quá dài')
+    .refine((v) => v === '' || z.email().safeParse(v).success, 'Email không hợp lệ'),
+  provinceCode: z.string().min(1, 'Vui lòng chọn tỉnh/thành phố'),
+  wardCode: z.string().min(1, 'Vui lòng chọn phường/xã'),
+  addressLine: z.string().trim().min(1, 'Vui lòng nhập địa chỉ chi tiết').max(255, 'Địa chỉ tối đa 255 ký tự'),
+  note: z.string().trim().max(500, 'Ghi chú tối đa 500 ký tự'),
+})
+
+export const orderLookupSchema = z.object({
+  code: z.string().trim().min(1, 'Vui lòng nhập mã đơn hàng'),
+  phone: z
+    .string()
+    .trim()
+    .min(1, 'Vui lòng nhập số điện thoại')
+    .refine((v) => isValidPhone(normalizePhone(v)), PHONE_ERROR),
+})
+
 export const resetPasswordSchema = z.object({ newPassword })
 
 export type LoginForm = z.infer<typeof loginSchema>
