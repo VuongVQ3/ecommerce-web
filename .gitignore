@@ -1,0 +1,8 @@
+# Root-level tooling (Neon config packages)
+node_modules/
+
+# Secrets at the repo root: `neon deploy` pulls DATABASE_URL (with password) into ./.env
+/.env
+/.env.*
+!/.env.example
+.neon
