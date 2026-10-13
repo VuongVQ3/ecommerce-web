@@ -292,6 +292,18 @@ public class OrderService {
 		List<OrderItem> lines = List.copyOf(order.getItems());
 		order.changeStatus(next);
 		history.save(new OrderStatusHistory(order.getId(), from, next, actorId, reason));
+		// Tell the customer when the parcel leaves or the order is cancelled (after commit, best effort)
+		if (order.getEmail() != null && (next == OrderStatus.SHIPPING || next == OrderStatus.CANCELLED)) {
+			var mail = next == OrderStatus.SHIPPING ? emails.shipped(order) : emails.cancelled(order, reason);
+			afterCommit(() -> {
+				try {
+					emailSender.send(mail);
+				}
+				catch (RuntimeException ex) {
+					log.error("Could not send {} email for order {}", next, order.getCode(), ex);
+				}
+			});
+		}
 		for (OrderItem line : lines) {
 			if (next == OrderStatus.CANCELLED) {
 				inventory.release(line.getProductId(), line.getQuantity(), order.getId(), actorId, reason);
@@ -304,7 +316,7 @@ public class OrderService {
 
 	// ---- helpers ----------------------------------------------------------------------------------------------
 
-	private OrderResponse toResponse(Order order) {
+	OrderResponse toResponse(Order order) {
 		List<StatusChange> changes = history.findByOrderIdOrderByCreatedAtAsc(order.getId())
 			.stream()
 			.map(h -> new StatusChange(h.getToStatus().name(), h.getToStatus().label(), h.getCreatedAt(), h.getReason()))

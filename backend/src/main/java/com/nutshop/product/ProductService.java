@@ -25,11 +25,14 @@ public class ProductService {
 	private final ProductRepository products;
 	private final CategoryRepository categories;
 	private final CartProperties cartProps;
+	private final ProductImageRepository images;
 
-	public ProductService(ProductRepository products, CategoryRepository categories, CartProperties cartProps) {
+	public ProductService(ProductRepository products, CategoryRepository categories, CartProperties cartProps,
+			ProductImageRepository images) {
 		this.products = products;
 		this.categories = categories;
 		this.cartProps = cartProps;
+		this.images = images;
 	}
 
 	public List<CategoryResponse> listCategories() {
@@ -53,7 +56,8 @@ public class ProductService {
 
 	public ProductDetail getBySlug(String slug) {
 		return products.findBySlug(slug)
-			.map(p -> ProductDetail.from(p, cartProps.maxQtyPerItem()))
+			.map(p -> ProductDetail.from(p, cartProps.maxQtyPerItem(),
+					images.findByProductIdOrderByPrimaryDescPositionAsc(p.getId())))
 			.orElseThrow(() -> new NotFoundException("Không tìm thấy sản phẩm"));
 	}
 

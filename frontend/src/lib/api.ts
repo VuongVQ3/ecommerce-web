@@ -13,10 +13,25 @@ export interface ProductSummary {
   imageUrl: string | null
   calories: number
   protein: number
-  inStock: boolean
-  /** How many one shopper can put in the cart now (stock minus reserved, capped per item). */
+  /** Public stock: an exact count only when very low (≤ 5). */
+  stockStatus: StockStatus
+  /** How many one shopper can put in the cart now (exact when ≤ 5 left, otherwise the per-item cap). */
   maxPurchasable: number
   category: Category
+}
+
+export type StockLevel = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'
+
+export interface StockStatus {
+  status: StockLevel
+  /** Present only for LOW_STOCK. */
+  quantity: number | null
+}
+
+export interface ProductImageInfo {
+  url: string
+  width: number | null
+  height: number | null
 }
 
 export interface Nutrition {
@@ -37,9 +52,11 @@ export interface ProductDetail {
   weightGrams: number
   /** False when discontinued: the page stays visible but the product cannot be bought. */
   active: boolean
-  availableQuantity: number
+  stockStatus: StockStatus
   maxPurchasable: number
   imageUrl: string | null
+  /** Primary first. Empty when the product only has the legacy imageUrl (or none). */
+  images: ProductImageInfo[]
   nutritionPer100g: Nutrition
   category: Category
 }
@@ -263,7 +280,8 @@ export function onSessionExpired(handler: () => void): () => void {
  */
 async function send(path: string, init: RequestInit): Promise<Response> {
   const headers = new Headers(init.headers)
-  if (init.body) headers.set('Content-Type', 'application/json')
+  // FormData (file uploads) sets its own multipart Content-Type with the boundary
+  if (typeof init.body === 'string') headers.set('Content-Type', 'application/json')
   headers.set('X-Requested-With', 'XMLHttpRequest')
   try {
     return await fetch(`${API_BASE}${path}`, { ...init, headers, credentials: 'include' })
@@ -309,7 +327,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return res.json() as Promise<T>
 }
 
-const post = (body?: unknown): RequestOptions => ({
+export const post = (body?: unknown): RequestOptions => ({
   method: 'POST',
   body: body === undefined ? undefined : JSON.stringify(body),
 })

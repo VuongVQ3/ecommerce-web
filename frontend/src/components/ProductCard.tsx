@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import AddToCartButton from '../cart/AddToCartButton'
 import type { ProductSummary } from '../lib/api'
 import { formatPrice, formatWeight } from '../lib/format'
+import { stockLabel } from '../lib/images'
 import ProductImage from './ProductImage'
 
 /**
@@ -17,11 +18,16 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
           name={product.name}
           imageUrl={product.imageUrl}
           categorySlug={product.category.slug}
+          size={320}
           className="aspect-square w-full transition group-hover:scale-[1.02]"
         />
-        {!product.inStock && (
-          <span className="absolute top-3 left-3 rounded-full bg-stone-800/80 px-2.5 py-1 text-xs font-medium text-white">
-            Hết hàng
+        {product.stockStatus.status !== 'IN_STOCK' && (
+          <span
+            className={`absolute top-3 left-3 rounded-full px-2.5 py-1 text-xs font-medium text-white ${
+              product.stockStatus.status === 'OUT_OF_STOCK' ? 'bg-stone-800/80' : 'bg-amber-700/90'
+            }`}
+          >
+            {stockLabel(product.stockStatus)}
           </span>
         )}
       </Link>

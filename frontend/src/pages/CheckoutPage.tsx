@@ -38,6 +38,7 @@ function Summary({ view }: { view: CartView }) {
               name={line.name}
               imageUrl={line.imageUrl}
               categorySlug={line.categorySlug ?? ''}
+              size={48}
               className="size-12 shrink-0 rounded-lg [&>span]:text-xl"
             />
             <div className="min-w-0 flex-1">

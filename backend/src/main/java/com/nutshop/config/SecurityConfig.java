@@ -92,6 +92,9 @@ public class SecurityConfig {
 			.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC_ENDPOINTS, OPTIONAL_AUTH_ENDPOINTS)
 				.permitAll()
+				// Defense in depth: controllers also carry @Roles (products/categories are ADMIN only)
+				.requestMatchers(PATHS.matcher("/api/admin/**"))
+				.hasAnyRole("STAFF", "ADMIN")
 				.requestMatchers(API)
 				.authenticated()
 				// The React app itself is public; pages like /tai-khoan are guarded client-side and by the API
@@ -105,6 +108,8 @@ public class SecurityConfig {
 					RequestedWithHeaderFilter.class)
 			.addFilterAfter(new RateLimitFilter(orderLookupRateLimiter, HttpMethod.GET, Set.of("/api/orders/lookup")),
 					RequestedWithHeaderFilter.class)
+			.exceptionHandling(e -> e.accessDeniedHandler((req, res, ex) -> ProblemResponses.write(res,
+					HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập chức năng này")))
 			.oauth2ResourceServer(o -> o.bearerTokenResolver(bearerTokenResolver())
 				.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
 				.authenticationEntryPoint((req, res, ex) -> ProblemResponses.write(res, HttpStatus.UNAUTHORIZED,

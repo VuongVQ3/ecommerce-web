@@ -35,17 +35,28 @@ public class Product {
 	@Column(name = "weight_grams", nullable = false)
 	private Integer weightGrams;
 
-	/** Units physically in stock. */
-	@Column(name = "on_hand", nullable = false)
-	private Integer onHand;
+	/**
+	 * Units physically in stock. Never written through this entity (updatable = false): stock only changes via the
+	 * conditional UPDATEs in StockUpdateRepository, so saving an edited product can't overwrite a concurrent
+	 * reservation with a stale value.
+	 */
+	@Column(name = "on_hand", nullable = false, updatable = false)
+	private Integer onHand = 0;
 
-	/** Units held by orders not yet shipped. Adding to a cart never changes this. */
-	@Column(nullable = false)
-	private Integer reserved;
+	/** Units held by orders not yet shipped. Adding to a cart never changes this. Same rule as onHand. */
+	@Column(nullable = false, updatable = false)
+	private Integer reserved = 0;
 
 	/** False once discontinued: still visible on its page, but cannot be bought. */
 	@Column(nullable = false)
-	private boolean active;
+	private boolean active = true;
+
+	/** Back office highlights the product when available stock is at or below this. */
+	@Column(name = "low_stock_threshold", nullable = false)
+	private int lowStockThreshold = 10;
+
+	@Column(name = "updated_at", nullable = false)
+	private Instant updatedAt = Instant.now();
 
 	@Column(name = "image_url")
 	private String imageUrl;
@@ -70,6 +81,64 @@ public class Product {
 	private Instant createdAt;
 
 	protected Product() {
+	}
+
+	/** Editable fields of a product (stock is managed separately through inventory movements). */
+	public record Details(String name, String description, String origin, long price, int weightGrams,
+			BigDecimal calories, BigDecimal protein, BigDecimal fat, BigDecimal carbs, BigDecimal fiber,
+			int lowStockThreshold) {
+	}
+
+	/** New products start with no stock; stock arrives through an inventory import. */
+	public Product(Category category, String slug, Details details) {
+		this.category = category;
+		this.slug = slug;
+		apply(details);
+	}
+
+	public void update(Category category, String slug, Details details) {
+		this.category = category;
+		this.slug = slug;
+		apply(details);
+	}
+
+	private void apply(Details d) {
+		this.name = d.name();
+		this.description = d.description();
+		this.origin = d.origin();
+		this.price = d.price();
+		this.weightGrams = d.weightGrams();
+		this.calories = d.calories();
+		this.protein = d.protein();
+		this.fat = d.fat();
+		this.carbs = d.carbs();
+		this.fiber = d.fiber();
+		this.lowStockThreshold = d.lowStockThreshold();
+		this.updatedAt = Instant.now();
+	}
+
+	public void setActive(boolean active) {
+		this.active = active;
+		this.updatedAt = Instant.now();
+	}
+
+	/** URL of the primary image (null = emoji placeholder on the storefront). */
+	public void setImageUrl(String imageUrl) {
+		this.imageUrl = imageUrl;
+		this.updatedAt = Instant.now();
+	}
+
+	public int getLowStockThreshold() {
+		return lowStockThreshold;
+	}
+
+	public Instant getUpdatedAt() {
+		return updatedAt;
+	}
+
+	/** At or below the back-office alert threshold. */
+	public boolean isLowStock() {
+		return availableQuantity() <= lowStockThreshold;
 	}
 
 	public Long getId() {

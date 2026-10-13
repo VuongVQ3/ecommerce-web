@@ -36,6 +36,14 @@ public class InventoryMovement {
 
 	private String note;
 
+	/** IMPORT only: purchase price per unit (VND). */
+	@Column(name = "unit_cost", updatable = false)
+	private Long unitCost;
+
+	/** IMPORT only. */
+	@Column(updatable = false)
+	private String supplier;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt = Instant.now();
 
@@ -49,6 +57,34 @@ public class InventoryMovement {
 		this.orderId = orderId;
 		this.actorId = actorId;
 		this.note = note;
+	}
+
+	static InventoryMovement imported(Long productId, int quantity, Long unitCost, String supplier, String note,
+			UUID actorId) {
+		InventoryMovement m = new InventoryMovement(productId, quantity, Type.IMPORT, null, actorId, note);
+		m.unitCost = unitCost;
+		m.supplier = supplier;
+		return m;
+	}
+
+	public UUID getId() {
+		return id;
+	}
+
+	public UUID getActorId() {
+		return actorId;
+	}
+
+	public Long getUnitCost() {
+		return unitCost;
+	}
+
+	public String getSupplier() {
+		return supplier;
+	}
+
+	public Instant getCreatedAt() {
+		return createdAt;
 	}
 
 	public Long getProductId() {

@@ -15,6 +15,8 @@ Website bán các loại hạt ăn kiêng: hạnh nhân, óc chó, macca, hạt 
 - Danh sách sản phẩm: lọc theo danh mục, tìm kiếm, sắp xếp (giá, calo, protein), phân trang
 - Chi tiết sản phẩm kèm bảng dinh dưỡng trên 100g
 - Giỏ hàng: khách lưu localStorage, đã đăng nhập lưu database, tự gộp khi đăng nhập; giá luôn lấy từ server. Chi tiết: [docs/cart.md](docs/cart.md)
+- Đặt hàng COD, tra cứu đơn, huỷ đơn. Chi tiết: [docs/orders.md](docs/orders.md)
+- Trang quản trị `/admin`: đơn hàng, tồn kho, sản phẩm, ảnh (Cloudinary), danh mục, audit log. Chi tiết: [docs/admin.md](docs/admin.md)
 - 13 sản phẩm mẫu trong 3 danh mục
 
 ## Chạy trên máy
@@ -65,5 +67,6 @@ cd frontend && npm test && npm run build && npm run lint
 | GET | `/api/products?category=&q=&sort=&page=&size=` | Danh sách sản phẩm. `sort`: `price_asc`, `price_desc`, `calories_asc`, `protein_desc` |
 | GET | `/api/products/{slug}` | Chi tiết sản phẩm |
 | | `/api/auth/*` | Đăng ký, đăng nhập, refresh, đăng xuất, me, Google: xem [docs/auth.md](docs/auth.md) |
+| | `/api/admin/*` | Quản trị (STAFF/ADMIN): xem [docs/admin.md](docs/admin.md) |
 
 Biến môi trường của backend: xem [backend/.env.example](backend/.env.example) và [docs/auth.md](docs/auth.md#biến-môi-trường).

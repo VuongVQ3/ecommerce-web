@@ -1,0 +1,76 @@
+package com.nutshop.admin;
+
+import com.nutshop.product.Product;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
+import java.math.BigDecimal;
+
+/** Request bodies of the back office. */
+public final class AdminDtos {
+
+	private AdminDtos() {
+	}
+
+	public record ShipRequest(@NotBlank(message = "Vui lòng nhập đơn vị vận chuyển") @Size(max = 100) String carrier,
+			@NotBlank(message = "Vui lòng nhập mã vận đơn") @Size(max = 100) String trackingNumber) {
+	}
+
+	public record CancelRequest(
+			@NotBlank(message = "Vui lòng nhập lý do huỷ đơn") @Size(max = 500, message = "Lý do tối đa 500 ký tự") String reason) {
+	}
+
+	public record NoteRequest(
+			@NotBlank(message = "Vui lòng nhập ghi chú") @Size(max = 1000, message = "Ghi chú tối đa 1000 ký tự") String body) {
+	}
+
+	public record ImportRequest(
+			@NotNull(message = "Vui lòng nhập số lượng") @Min(value = 1, message = "Số lượng phải lớn hơn 0") @Max(value = 100000, message = "Số lượng quá lớn") Integer quantity,
+			@Min(value = 0, message = "Giá nhập không được âm") @Max(value = 1_000_000_000L, message = "Giá nhập quá lớn") Long unitCost,
+			@Size(max = 200, message = "Tên nhà cung cấp tối đa 200 ký tự") String supplier,
+			@Size(max = 500, message = "Ghi chú tối đa 500 ký tự") String note) {
+	}
+
+	public record StocktakeRequest(
+			@NotNull(message = "Vui lòng nhập số đếm thực tế") @Min(value = 0, message = "Số đếm không được âm") @Max(value = 1_000_000, message = "Số đếm quá lớn") Integer counted,
+			@NotBlank(message = "Vui lòng nhập lý do điều chỉnh") @Size(max = 500, message = "Lý do tối đa 500 ký tự") String reason) {
+	}
+
+	public record ActiveRequest(@NotNull Boolean active) {
+	}
+
+	public record CategoryRequest(
+			@NotBlank(message = "Vui lòng nhập tên danh mục") @Size(max = 100, message = "Tên tối đa 100 ký tự") String name,
+			@Size(max = 100, message = "Slug tối đa 100 ký tự") String slug) {
+	}
+
+	public record ProductRequest(
+			@NotBlank(message = "Vui lòng nhập tên sản phẩm") @Size(max = 200, message = "Tên tối đa 200 ký tự") String name,
+			@Size(max = 200, message = "Slug tối đa 200 ký tự") String slug,
+			@NotNull(message = "Vui lòng chọn danh mục") Long categoryId,
+			@NotBlank(message = "Vui lòng nhập mô tả") @Size(max = 2000, message = "Mô tả tối đa 2000 ký tự") String description,
+			@Size(max = 100, message = "Xuất xứ tối đa 100 ký tự") String origin,
+			@NotNull(message = "Vui lòng nhập giá") @Min(value = 1000, message = "Giá tối thiểu 1.000₫") @Max(value = 100_000_000L, message = "Giá quá lớn") Long price,
+			@NotNull(message = "Vui lòng nhập khối lượng") @Min(value = 1, message = "Khối lượng phải lớn hơn 0") @Max(value = 100_000, message = "Khối lượng quá lớn") Integer weightGrams,
+			@NotNull(message = "Bắt buộc") @DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "1000", message = "Giá trị quá lớn") BigDecimal calories,
+			@NotNull(message = "Bắt buộc") @DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal protein,
+			@NotNull(message = "Bắt buộc") @DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal fat,
+			@NotNull(message = "Bắt buộc") @DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal carbs,
+			@NotNull(message = "Bắt buộc") @DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal fiber,
+			@Min(value = 0, message = "Ngưỡng không được âm") @Max(value = 100_000, message = "Ngưỡng quá lớn") Integer lowStockThreshold) {
+
+		Product.Details details() {
+			return new Product.Details(name.trim(), description.trim(), blankToNull(origin), price, weightGrams,
+					calories, protein, fat, carbs, fiber, lowStockThreshold == null ? 10 : lowStockThreshold);
+		}
+
+		private static String blankToNull(String s) {
+			return s == null || s.isBlank() ? null : s.trim();
+		}
+	}
+}

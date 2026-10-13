@@ -64,6 +64,12 @@ public class Order {
 	@Column(nullable = false)
 	private OrderStatus status = OrderStatus.PENDING;
 
+	/** Set when the order is handed to the carrier (SHIPPING). */
+	private String carrier;
+
+	@Column(name = "tracking_number")
+	private String trackingNumber;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt = Instant.now();
 
@@ -72,6 +78,8 @@ public class Order {
 
 	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
 	@OrderBy("productName")
+	// Lists of orders load all their lines in a few batched queries instead of one per order
+	@org.hibernate.annotations.BatchSize(size = 50)
 	private List<OrderItem> items = new ArrayList<>();
 
 	protected Order() {
@@ -110,6 +118,19 @@ public class Order {
 	void changeStatus(OrderStatus next) {
 		this.status = next;
 		this.updatedAt = Instant.now();
+	}
+
+	void setShipment(String carrier, String trackingNumber) {
+		this.carrier = carrier;
+		this.trackingNumber = trackingNumber;
+	}
+
+	public String getCarrier() {
+		return carrier;
+	}
+
+	public String getTrackingNumber() {
+		return trackingNumber;
 	}
 
 	public UUID getId() {

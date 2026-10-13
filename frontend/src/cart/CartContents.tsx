@@ -65,6 +65,7 @@ function Line({ line, onNavigate, highlighted }: { line: CartLine; onNavigate?: 
         name={line.name}
         imageUrl={line.imageUrl}
         categorySlug={line.categorySlug ?? ''}
+        size={80}
         className={`size-20 shrink-0 rounded-xl [&>span]:text-3xl ${blocked ? 'opacity-50' : ''}`}
       />
       <div className="min-w-0 flex-1">

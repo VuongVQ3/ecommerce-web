@@ -65,6 +65,49 @@ class OrderEmails {
 		return new EmailMessage(order.getEmail(), "Xác nhận đơn hàng " + order.getCode() + " - Hạt Lành", html, text);
 	}
 
+	/** The order left the warehouse: carrier and tracking number so the customer can follow it. */
+	EmailMessage shipped(Order order) {
+		String html = """
+				<div style="font-family:Arial,sans-serif;font-size:15px;color:#292524;line-height:1.6;max-width:560px">
+				  <p>Xin chào %s,</p>
+				  <p>Đơn hàng <strong>%s</strong> đã được giao cho đơn vị vận chuyển.</p>
+				  <p>Đơn vị vận chuyển: <strong>%s</strong><br>Mã vận đơn: <strong>%s</strong></p>
+				  <p>Vui lòng chuẩn bị <strong>%s</strong> để thanh toán khi nhận hàng.</p>
+				</div>""".formatted(esc(order.getCustomerName()), esc(order.getCode()), esc(order.getCarrier()),
+				esc(order.getTrackingNumber()), money(order.getTotal()));
+		String text = """
+				Xin chào %s,
+
+				Đơn hàng %s đã được giao cho đơn vị vận chuyển.
+				Đơn vị vận chuyển: %s
+				Mã vận đơn: %s
+
+				Vui lòng chuẩn bị %s để thanh toán khi nhận hàng.""".formatted(order.getCustomerName(),
+				order.getCode(), order.getCarrier(), order.getTrackingNumber(), money(order.getTotal()));
+		return new EmailMessage(order.getEmail(), "Đơn hàng " + order.getCode() + " đang được giao - Hạt Lành", html,
+				text);
+	}
+
+	EmailMessage cancelled(Order order, String reason) {
+		String html = """
+				<div style="font-family:Arial,sans-serif;font-size:15px;color:#292524;line-height:1.6;max-width:560px">
+				  <p>Xin chào %s,</p>
+				  <p>Đơn hàng <strong>%s</strong> đã được huỷ.</p>
+				  <p>Lý do: %s</p>
+				  <p>Nếu bạn cần hỗ trợ, vui lòng liên hệ hotline 0900 000 000.</p>
+				</div>""".formatted(esc(order.getCustomerName()), esc(order.getCode()), esc(reason));
+		String text = """
+				Xin chào %s,
+
+				Đơn hàng %s đã được huỷ.
+				Lý do: %s
+
+				Nếu bạn cần hỗ trợ, vui lòng liên hệ hotline 0900 000 000.""".formatted(order.getCustomerName(),
+				order.getCode(), reason);
+		return new EmailMessage(order.getEmail(), "Đơn hàng " + order.getCode() + " đã được huỷ - Hạt Lành", html,
+				text);
+	}
+
 	private static String money(long amount) {
 		return VND.format(amount) + "₫";
 	}

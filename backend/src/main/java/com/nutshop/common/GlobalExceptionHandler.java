@@ -8,6 +8,9 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.LinkedHashMap;
@@ -66,5 +69,26 @@ public class GlobalExceptionHandler {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ");
 		problem.setProperty("errors", errors);
 		return problem;
+	}
+
+	/** Upload above spring.servlet.multipart.max-file-size (5MB). */
+	@ExceptionHandler(MaxUploadSizeExceededException.class)
+	ProblemDetail handleTooLarge(MaxUploadSizeExceededException ex) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Ảnh tối đa 5MB");
+		problem.setProperty("code", "IMAGE_TOO_LARGE");
+		return problem;
+	}
+
+	@ExceptionHandler(MissingServletRequestPartException.class)
+	ProblemDetail handleMissingPart(MissingServletRequestPartException ex) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Vui lòng chọn một ảnh");
+		problem.setProperty("code", "INVALID_IMAGE");
+		return problem;
+	}
+
+	/** e.g. an unknown order status or action in the URL. */
+	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
+	ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Tham số không hợp lệ: " + ex.getName());
 	}
 }

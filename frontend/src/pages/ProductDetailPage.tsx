@@ -6,6 +6,7 @@ import { ErrorMessage, Spinner } from '../components/Feedback'
 import ProductImage from '../components/ProductImage'
 import { api, ApiError, type Nutrition, type ProductDetail } from '../lib/api'
 import { formatPrice, formatWeight } from '../lib/format'
+import { stockLabel } from '../lib/images'
 import { useAsync } from '../lib/useAsync'
 import NotFoundPage from './NotFoundPage'
 
@@ -16,6 +17,47 @@ const NUTRITION_ROWS: { key: keyof Nutrition; label: string; unit: string }[] = 
   { key: 'carbs', label: 'Carbohydrate', unit: 'g' },
   { key: 'fiber', label: 'Chất xơ', unit: 'g' },
 ]
+
+/** Main photo plus thumbnails when the product has several images. */
+function Gallery({ product }: { product: ProductDetail }) {
+  const urls = product.images.length > 0 ? product.images.map((i) => i.url) : product.imageUrl ? [product.imageUrl] : []
+  const [index, setIndex] = useState(0)
+  const current = urls[Math.min(index, urls.length - 1)] ?? null
+  return (
+    <div>
+      <ProductImage
+        name={product.name}
+        imageUrl={current}
+        categorySlug={product.category.slug}
+        size={560}
+        className="aspect-square w-full rounded-3xl [&>span]:text-9xl"
+      />
+      {urls.length > 1 && (
+        <ul className="mt-3 flex gap-2" aria-label="Ảnh sản phẩm">
+          {urls.map((url, i) => (
+            <li key={url}>
+              <button
+                type="button"
+                onClick={() => setIndex(i)}
+                aria-label={`Xem ảnh ${i + 1}`}
+                aria-pressed={i === index}
+                className={`block overflow-hidden rounded-xl border-2 ${i === index ? 'border-brand-600' : 'border-transparent'}`}
+              >
+                <ProductImage
+                  name={`${product.name} – ảnh ${i + 1}`}
+                  imageUrl={url}
+                  categorySlug={product.category.slug}
+                  size={64}
+                  className="size-16"
+                />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 /** Quantity picker (bounded by maxPurchasable) + add button. Discontinued products get a notice instead. */
 function PurchaseBox({ product }: { product: ProductDetail }) {
@@ -38,7 +80,7 @@ function PurchaseBox({ product }: { product: ProductDetail }) {
       <div className="w-full sm:w-auto sm:flex-1">
         <AddToCartButton product={ref} quantity={quantity} variant="page" onAdded={() => setQuantity(1)} />
       </div>
-      {product.maxPurchasable > 0 && product.maxPurchasable < product.availableQuantity && (
+      {product.maxPurchasable > 0 && product.stockStatus.status === 'IN_STOCK' && (
         <p className="w-full text-sm text-muted">Tối đa {product.maxPurchasable} sản phẩm cho mỗi đơn.</p>
       )}
     </div>
@@ -60,7 +102,7 @@ export default function ProductDetailPage() {
   if (!product || product.slug !== slug) return <Spinner />
 
   const n = product.nutritionPer100g
-  const inStock = product.active && product.availableQuantity > 0
+  const inStock = product.active && product.stockStatus.status !== 'OUT_OF_STOCK'
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -75,12 +117,7 @@ export default function ProductDetailPage() {
       </nav>
 
       <div className="mt-6 grid gap-10 md:grid-cols-2">
-        <ProductImage
-          name={product.name}
-          imageUrl={product.imageUrl}
-          categorySlug={product.category.slug}
-          className="aspect-square w-full rounded-3xl [&>span]:text-9xl"
-        />
+        <Gallery key={product.id} product={product} />
 
         <div>
           <h1 className="text-3xl font-bold text-stone-900 md:text-4xl">{product.name}</h1>
@@ -97,7 +134,7 @@ export default function ProductDetailPage() {
             <div className="rounded-xl bg-white p-3">
               <dt className="text-stone-500">Tình trạng</dt>
               <dd className={`font-semibold ${inStock ? 'text-brand-700' : 'text-danger'}`}>
-                {!product.active ? 'Ngừng kinh doanh' : inStock ? `Còn hàng (${product.availableQuantity})` : 'Hết hàng'}
+                {stockLabel(product.stockStatus, product.active)}
               </dd>
             </div>
           </dl>
