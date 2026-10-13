@@ -117,7 +117,7 @@ function ImageManager({ product, onChange }: { product: AdminProduct; onChange: 
               />
               <div className="flex flex-wrap items-center justify-between gap-1 p-2 text-xs">
                 {img.primary ? (
-                  <span className="font-semibold text-brand-700">★ Ảnh chính</span>
+                  <span className="font-semibold text-brand-700"><span aria-hidden="true">★ </span>Ảnh chính</span>
                 ) : (
                   <button
                     type="button"

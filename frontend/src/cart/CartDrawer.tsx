@@ -1,10 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Spinner } from '../components/Feedback'
 import { CartLines, CartSummary, EmptyCart } from './CartContents'
+import { useFocusTrap } from '../lib/useFocusTrap'
 import { useCart } from './CartContext'
-
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 /**
  * Slide-over cart. Modal dialog: focus moves inside and stays there (Tab cycles), Esc or the backdrop closes it,
@@ -14,41 +13,8 @@ export default function CartDrawer() {
   const { drawerOpen, closeDrawer, view, lines, loading } = useCart()
   const navigate = useNavigate()
   const panel = useRef<HTMLDivElement>(null)
-  const returnFocusTo = useRef<HTMLElement | null>(null)
 
-  useEffect(() => {
-    if (!drawerOpen) return
-    returnFocusTo.current = document.activeElement as HTMLElement | null
-    panel.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus()
-    const { overflow } = document.body.style
-    document.body.style.overflow = 'hidden'
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        closeDrawer()
-        return
-      }
-      if (e.key !== 'Tab' || !panel.current) return
-      const items = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)]
-      if (items.length === 0) return
-      const first = items[0]
-      const last = items[items.length - 1]
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault()
-        last.focus()
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault()
-        first.focus()
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = overflow
-      returnFocusTo.current?.focus()
-    }
-  }, [drawerOpen, closeDrawer])
+  useFocusTrap(drawerOpen, panel, closeDrawer)
 
   if (!drawerOpen) return null
 

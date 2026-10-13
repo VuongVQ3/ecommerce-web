@@ -13,7 +13,7 @@ import { AccountInfoPage, AccountLayout } from './pages/AccountPages'
 import CheckoutPage from './pages/CheckoutPage'
 import { MyOrderDetailPage, MyOrdersPage, OrderLookupPage, OrderSuccessPage } from './pages/OrderPages'
 import { LoginPage } from './pages/AuthPages'
-import { PrivacyPage, TermsPage } from './pages/LegalPages'
+import { ContactPage, PrivacyPage, ReturnPolicyPage, ShippingPolicyPage, TermsPage } from './pages/PolicyPages'
 import { RegisterPage } from './pages/RegisterPage'
 import HomePage from './pages/HomePage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -80,7 +80,11 @@ const router = createBrowserRouter([
           { path: '/thanh-toan', element: <CheckoutPage /> },
           { path: '/dat-hang-thanh-cong/:code', element: <OrderSuccessPage /> },
           { path: '/tra-cuu-don-hang', element: <OrderLookupPage /> },
-          { path: '/dieu-khoan', element: <TermsPage /> },
+          { path: '/danh-muc/:slug', element: <ProductsPage /> },
+          { path: '/dieu-khoan-su-dung', element: <TermsPage /> },
+          { path: '/chinh-sach-doi-tra', element: <ReturnPolicyPage /> },
+          { path: '/chinh-sach-van-chuyen', element: <ShippingPolicyPage /> },
+          { path: '/lien-he', element: <ContactPage /> },
           { path: '/chinh-sach-bao-mat', element: <PrivacyPage /> },
           {
             // /tai-khoan/*: signed-in users only

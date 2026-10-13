@@ -45,7 +45,7 @@ const legalLinkClass = 'font-semibold text-brand-700 underline-offset-2 hover:un
 export function LegalLinks() {
   return (
     <>
-      <a href="/dieu-khoan" target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
+      <a href="/dieu-khoan-su-dung" target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
         Điều khoản sử dụng<span className="sr-only"> (mở trong tab mới)</span>
       </a>{' '}
       và{' '}

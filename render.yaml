@@ -7,7 +7,7 @@ services:
     plan: free
     region: singapore
     dockerfilePath: ./Dockerfile
-    healthCheckPath: /api/categories
+    healthCheckPath: /api/health
     autoDeploy: true
     envVars:
       # Neon: jdbc:postgresql://<host>/<database>?sslmode=require  (host looks like ep-xxx.ap-southeast-1.aws.neon.tech)
@@ -43,4 +43,21 @@ services:
       - key: ADMIN_EMAIL
         sync: false
       - key: CLOUDINARY_URL
+        sync: false
+      # Public base URL for canonical links, Open Graph and the sitemap (falls back to FRONTEND_URL).
+      # Set it when moving to a custom domain, e.g. https://hatlanh.vn
+      - key: SITE_URL
+        sync: false
+      # Business details for the footer and /lien-he; leave empty to hide a field
+      - key: BUSINESS_OWNER_NAME
+        sync: false
+      - key: BUSINESS_ADDRESS
+        sync: false
+      - key: BUSINESS_REGISTRATION_NUMBER
+        sync: false
+      - key: BUSINESS_HOTLINE
+        sync: false
+      - key: BUSINESS_EMAIL
+        sync: false
+      - key: BUSINESS_MOIT_URL
         sync: false

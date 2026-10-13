@@ -314,9 +314,6 @@ class CartE2ETest {
 
 		mvc.perform(get("/api/products").param("q", "Hạt test 10000"))
 			.andExpect(jsonPath("$.items", hasSize(0)));
-		mvc.perform(get("/api/products/" + slug))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.active").value(false))
-			.andExpect(jsonPath("$.maxPurchasable").value(0));
+		mvc.perform(get("/api/products/" + slug)).andExpect(status().isNotFound());
 	}
 }

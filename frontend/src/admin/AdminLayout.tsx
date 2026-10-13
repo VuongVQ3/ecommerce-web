@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import type { Role } from '../lib/api'
+import { BRAND, usePageMeta } from '../lib/usePageMeta'
 
 const NAV: { to: string; label: string; icon: string; roles: Role[]; end?: boolean }[] = [
   { to: '/admin', label: 'Tổng quan', icon: '📊', roles: ['STAFF', 'ADMIN'], end: true },
@@ -22,6 +23,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 export default function AdminLayout() {
   const { user, logout } = useAuth()
   const items = NAV.filter((n) => user && n.roles.includes(user.role))
+  usePageMeta(`Quản trị | ${BRAND}`)
 
   return (
     <div className="min-h-screen bg-stone-50 md:flex">

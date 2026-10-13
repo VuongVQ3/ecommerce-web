@@ -48,9 +48,9 @@ export function CountUp({ value, suffix = '', className = '' }: { value: number;
 /** Infinite horizontal ticker. The duplicate copy is hidden from assistive tech; hovering pauses it. */
 export function Marquee({ items, className = '' }: { items: string[]; className?: string }) {
   const row = (hidden: boolean) => (
-    <ul aria-hidden={hidden || undefined} className="flex shrink-0 items-center gap-8 pr-8">
+    <ul aria-hidden={hidden || undefined} className="flex shrink-0 items-center gap-8 bg-inherit pr-8">
       {items.map((item) => (
-        <li key={item} className="flex items-center gap-8 whitespace-nowrap">
+        <li key={item} className="flex items-center gap-8 bg-inherit whitespace-nowrap">
           {item}
           <span aria-hidden className="text-nut">✦</span>
         </li>
@@ -58,8 +58,8 @@ export function Marquee({ items, className = '' }: { items: string[]; className?
     </ul>
   )
   return (
-    <div className={`marquee group flex overflow-hidden ${className}`}>
-      <div className="marquee-track flex">
+    <div className={`marquee group flex overflow-hidden bg-inherit ${className}`}>
+      <div className="marquee-track flex bg-inherit">
         {row(false)}
         {row(true)}
       </div>

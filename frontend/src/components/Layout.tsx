@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { useCart } from '../cart/CartContext'
 import CartDrawer from '../cart/CartDrawer'
 import { LOGIN_PATH, REGISTER_PATH } from '../lib/redirect'
+import { telHref, useSiteInfo } from '../lib/siteInfo'
+import { useFocusTrap } from '../lib/useFocusTrap'
+import { BRAND } from '../lib/usePageMeta'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `text-sm font-medium transition ${isActive ? 'text-brand-700' : 'text-stone-600 hover:text-brand-700'}`
 
-function SearchBox({ className = '' }: { className?: string }) {
+function SearchBox({ className = '', autoFocus = false }: { className?: string; autoFocus?: boolean }) {
   const navigate = useNavigate()
   const [q, setQ] = useState('')
 
@@ -23,6 +26,8 @@ function SearchBox({ className = '' }: { className?: string }) {
         type="search"
         value={q}
         onChange={(e) => setQ(e.target.value)}
+        autoFocus={autoFocus}
+        enterKeyHint="search"
         placeholder="Tìm hạnh nhân, hạt chia..."
         aria-label="Tìm sản phẩm"
         className="w-full rounded-full border border-stone-200 bg-white px-4 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
@@ -144,7 +149,7 @@ function AccountMenu() {
           role="menu"
           className="absolute right-0 z-30 mt-2 w-56 rounded-2xl border border-stone-200 bg-white p-2 shadow-lg"
         >
-          <p className="truncate px-3 pt-1 pb-2 text-xs text-stone-500">{user.email}</p>
+          <p className="truncate px-3 pt-1 pb-2 text-xs text-muted">{user.email}</p>
           <Link role="menuitem" to="/tai-khoan" className={menuItemClass}>
             Tài khoản của tôi
           </Link>
@@ -172,15 +177,225 @@ function AccountMenu() {
   )
 }
 
+const POLICY_LINKS = [
+  { to: '/chinh-sach-doi-tra', label: 'Chính sách đổi trả' },
+  { to: '/chinh-sach-van-chuyen', label: 'Chính sách vận chuyển' },
+  { to: '/chinh-sach-bao-mat', label: 'Chính sách bảo mật' },
+  { to: '/dieu-khoan-su-dung', label: 'Điều khoản sử dụng' },
+  { to: '/lien-he', label: 'Liên hệ' },
+]
+
+const iconButtonClass = 'flex size-10 items-center justify-center rounded-full text-stone-700 hover:bg-stone-100'
+
+const drawerLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `block w-full rounded-xl px-4 py-3 text-left text-base font-medium ${
+    isActive ? 'bg-brand-50 text-brand-800' : 'text-stone-800 hover:bg-stone-100'
+  }`
+
+/** Phone menu: slide-over with the main links and the account actions. Tab stays inside, Esc closes. */
+function MobileMenu({ onClose }: { onClose: () => void }) {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const panel = useRef<HTMLDivElement>(null)
+  useFocusTrap(true, panel, onClose)
+  const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN'
+
+  const onLogout = async () => {
+    onClose()
+    navigate('/')
+    await logout()
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 md:hidden">
+      <div className="absolute inset-0 bg-stone-900/40" onClick={onClose} aria-hidden="true" />
+      <div
+        ref={panel}
+        id="mobile-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu"
+        className="absolute inset-y-0 right-0 flex w-[min(20rem,100%)] flex-col overflow-y-auto bg-white p-4 shadow-2xl"
+      >
+        <div className="mb-2 flex items-center justify-between">
+          <span className="px-2 text-lg font-extrabold text-brand-800">Hạt Lành</span>
+          <button type="button" data-autofocus onClick={onClose} aria-label="Đóng menu" className={`${iconButtonClass} text-2xl`}>
+            ×
+          </button>
+        </div>
+        <nav aria-label="Menu chính">
+          <NavLink to="/" end className={drawerLinkClass} onClick={onClose}>
+            Trang chủ
+          </NavLink>
+          <NavLink to="/san-pham" className={drawerLinkClass} onClick={onClose}>
+            Sản phẩm
+          </NavLink>
+          <NavLink to="/tra-cuu-don-hang" className={drawerLinkClass} onClick={onClose}>
+            Tra cứu đơn hàng
+          </NavLink>
+        </nav>
+        <div className="mt-4 border-t border-stone-200 pt-4">
+          {user ? (
+            <>
+              <p className="truncate px-4 pb-2 text-sm text-muted">{user.email}</p>
+              <NavLink to="/tai-khoan" end className={drawerLinkClass} onClick={onClose}>
+                Tài khoản của tôi
+              </NavLink>
+              <NavLink to="/tai-khoan/don-hang" className={drawerLinkClass} onClick={onClose}>
+                Đơn hàng của tôi
+              </NavLink>
+              {isStaff && (
+                <NavLink to="/admin" className={drawerLinkClass} onClick={onClose}>
+                  Trang quản trị
+                </NavLink>
+              )}
+              <button type="button" onClick={onLogout} className={drawerLinkClass({ isActive: false })}>
+                Đăng xuất
+              </button>
+            </>
+          ) : (
+            <div className="flex flex-col gap-2 px-2">
+              <Link
+                to={LOGIN_PATH}
+                onClick={onClose}
+                className="rounded-full border border-stone-300 px-4 py-3 text-center font-semibold text-stone-800"
+              >
+                Đăng nhập
+              </Link>
+              <Link
+                to={REGISTER_PATH}
+                onClick={onClose}
+                className="rounded-full bg-brand-600 px-4 py-3 text-center font-semibold text-white"
+              >
+                Đăng ký
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Business details come from the server config; anything not configured is simply not shown. */
+function Footer() {
+  const site = useSiteInfo()
+  const b = site?.business ?? {}
+  const hasContact = Boolean(b.hotline || b.email || b.address)
+  const hasLegal = Boolean(b.ownerName || b.registrationNumber || b.moitUrl)
+  return (
+    <footer className="mt-16 border-t border-stone-200 bg-white">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 text-sm text-stone-600 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <p className="text-base font-bold text-brand-800">
+            <span aria-hidden="true">🌰 </span>Hạt Lành
+          </p>
+          <p className="mt-2">Hạt dinh dưỡng cho người ăn kiêng, eat clean và tập luyện.</p>
+        </div>
+        <div>
+          <p className="font-semibold text-stone-900">Mua sắm</p>
+          <ul className="mt-2 space-y-1.5">
+            <li>
+              <Link to="/san-pham" className="hover:text-brand-700 hover:underline">
+                Tất cả sản phẩm
+              </Link>
+            </li>
+            <li>
+              <Link to="/tra-cuu-don-hang" className="hover:text-brand-700 hover:underline">
+                Tra cứu đơn hàng
+              </Link>
+            </li>
+          </ul>
+        </div>
+        <div>
+          <p className="font-semibold text-stone-900">Chính sách</p>
+          <ul className="mt-2 space-y-1.5">
+            {POLICY_LINKS.map((l) => (
+              <li key={l.to}>
+                <Link to={l.to} className="hover:text-brand-700 hover:underline">
+                  {l.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+        {hasContact && (
+          <div>
+            <p className="font-semibold text-stone-900">Liên hệ</p>
+            <ul className="mt-2 space-y-1.5">
+              {b.hotline && (
+                <li>
+                  Hotline:{' '}
+                  <a href={telHref(b.hotline)} className="font-semibold text-brand-700 hover:underline">
+                    {b.hotline}
+                  </a>
+                </li>
+              )}
+              {b.email && <li className="break-all select-text">Email: {b.email}</li>}
+              {b.address && <li>Địa chỉ: {b.address}</li>}
+            </ul>
+          </div>
+        )}
+      </div>
+      {hasLegal && (
+        <div className="border-t border-stone-100">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 text-xs text-stone-600">
+            <p>
+              {b.ownerName && <span>Chủ sở hữu: {b.ownerName}</span>}
+              {b.ownerName && b.registrationNumber && <span aria-hidden="true"> · </span>}
+              {b.registrationNumber && <span>Mã số ĐKKD: {b.registrationNumber}</span>}
+            </p>
+            {b.moitUrl && (
+              <a href={b.moitUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 hover:underline">
+                Đã thông báo Bộ Công Thương ↗
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </footer>
+  )
+}
+
+/** Titles of pages that do not set their own (products, categories, policies and 404 do). Same as the server's. */
+const ROUTE_TITLES: [RegExp, string][] = [
+  [/^\/$/, `${BRAND} – Hạt dinh dưỡng cho người ăn kiêng`],
+  [/^\/dang-nhap$/, `Đăng nhập | ${BRAND}`],
+  [/^\/dang-ky$/, `Đăng ký | ${BRAND}`],
+  [/^\/quen-mat-khau$/, `Quên mật khẩu | ${BRAND}`],
+  [/^\/dat-lai-mat-khau$/, `Đặt lại mật khẩu | ${BRAND}`],
+  [/^\/gio-hang$/, `Giỏ hàng | ${BRAND}`],
+  [/^\/thanh-toan$/, `Thanh toán | ${BRAND}`],
+  [/^\/tra-cuu-don-hang$/, `Tra cứu đơn hàng | ${BRAND}`],
+  [/^\/dat-hang-thanh-cong\//, `Đặt hàng thành công | ${BRAND}`],
+  [/^\/tai-khoan(\/|$)/, `Tài khoản | ${BRAND}`],
+]
+
 export default function Layout() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    const match = ROUTE_TITLES.find(([pattern]) => pattern.test(pathname))
+    if (match) document.title = match[1]
+  }, [pathname])
+  // Both panels remember the page they were opened on, so navigating anywhere closes them
+  const [menuOn, setMenuOn] = useState<string | null>(null)
+  const [searchOn, setSearchOn] = useState<string | null>(null)
+  const closeMenu = useCallback(() => setMenuOn(null), [])
+
   return (
     <div className="flex min-h-screen flex-col">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:shadow"
+      >
+        Bỏ qua đến nội dung chính
+      </a>
       <header className="sticky top-0 z-20 border-b border-stone-200 bg-cream/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
-          <Link to="/" className="flex items-center gap-2 text-xl font-extrabold text-brand-800">
-            <span aria-hidden>🌰</span> Hạt Lành
+        <div className="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2.5 md:gap-6 md:py-3">
+          <Link to="/" className="mr-auto flex shrink-0 items-center gap-2 text-xl font-extrabold text-brand-800 md:mr-0">
+            <span aria-hidden="true">🌰</span> Hạt Lành
           </Link>
-          <nav className="flex gap-5">
+          <nav className="hidden gap-5 md:flex" aria-label="Menu chính">
             <NavLink to="/" end className={navClass}>
               Trang chủ
             </NavLink>
@@ -188,47 +403,50 @@ export default function Layout() {
               Sản phẩm
             </NavLink>
           </nav>
-          <SearchBox className="order-last w-full md:order-none md:ml-auto md:w-64" />
-          <div className="ml-auto flex items-center gap-2 md:ml-0">
-            <CartButton />
+          <SearchBox className="hidden md:ml-auto md:block md:w-56 lg:w-64" />
+          <button
+            type="button"
+            className={`${iconButtonClass} md:hidden`}
+            aria-label="Tìm kiếm"
+            aria-expanded={searchOn === pathname}
+            aria-controls="mobile-search"
+            onClick={() => setSearchOn((s) => (s === pathname ? null : pathname))}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="11" cy="11" r="6.5" />
+              <path d="m16 16 4.5 4.5" strokeLinecap="round" />
+            </svg>
+          </button>
+          <CartButton />
+          <div className="hidden md:block">
             <AccountMenu />
           </div>
+          <button
+            type="button"
+            className={`${iconButtonClass} md:hidden`}
+            aria-label="Mở menu"
+            aria-haspopup="dialog"
+            aria-expanded={menuOn === pathname}
+            onClick={() => setMenuOn(pathname)}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
+        {searchOn === pathname && (
+          <div id="mobile-search" className="border-t border-stone-200 px-4 py-2.5 md:hidden">
+            <SearchBox autoFocus />
+          </div>
+        )}
       </header>
+      {menuOn === pathname && <MobileMenu onClose={closeMenu} />}
 
-      <main className="flex-1">
+      <main id="main" className="flex-1">
         <Outlet />
       </main>
       <CartDrawer />
-
-      <footer className="mt-16 border-t border-stone-200 bg-white">
-        <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 text-sm text-stone-600 sm:grid-cols-3">
-          <div>
-            <p className="text-base font-bold text-brand-800">🌰 Hạt Lành</p>
-            <p className="mt-2">Hạt dinh dưỡng sạch cho người ăn kiêng, eat clean và tập luyện.</p>
-          </div>
-          <div>
-            <p className="font-semibold text-stone-900">Cam kết</p>
-            <ul className="mt-2 space-y-1">
-              <li>Không đường, không chất bảo quản</li>
-              <li>Rõ nguồn gốc xuất xứ</li>
-              <li>Đổi trả trong 7 ngày</li>
-              <li>
-                <Link to="/tra-cuu-don-hang" className="font-semibold text-brand-700 hover:underline">
-                  Tra cứu đơn hàng
-                </Link>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <p className="font-semibold text-stone-900">Liên hệ</p>
-            <ul className="mt-2 space-y-1">
-              <li>Hotline: 0900 000 000</li>
-              <li>Email: hello@hatlanh.vn</li>
-            </ul>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

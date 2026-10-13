@@ -8,12 +8,17 @@ import com.nutshop.security.RateLimitFilter;
 import com.nutshop.security.RateLimiter;
 import com.nutshop.security.RequestedWithHeaderFilter;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authorization.AuthenticatedAuthorizationManager;
+import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -29,6 +34,8 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -36,6 +43,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -63,6 +71,9 @@ public class SecurityConfig {
 			PATHS.matcher(HttpMethod.GET, "/api/auth/providers"),
 			PATHS.matcher(HttpMethod.GET, "/api/products/**"),
 			PATHS.matcher(HttpMethod.GET, "/api/categories"),
+			// Any method, so HEAD probes (curl -I, uptime monitors) work too
+			PATHS.matcher("/api/health"),
+			PATHS.matcher("/api/site"),
 			// Guest carts: priced from the products table, never from the client
 			PATHS.matcher(HttpMethod.POST, "/api/cart/validate"),
 			// Guests look up their order with code + phone
@@ -82,8 +93,27 @@ public class SecurityConfig {
 	private static final Set<String> AUTH_LIMITED_PATHS = Set.of("/api/auth/login", "/api/auth/register",
 			"/api/auth/forgot-password", "/api/auth/reset-password");
 
+	/**
+	 * Content-Security-Policy for the app: own scripts only, plus Cloudflare Turnstile and Google Sign-In; Google
+	 * Fonts; product images from Cloudinary. JSON-LD blocks are data, not scripts, so they need no exception.
+	 * 'unsafe-inline' styles are needed by Google Sign-In's injected button styles.
+	 */
+	static final String CONTENT_SECURITY_POLICY = String.join("; ",
+			"default-src 'self'",
+			"script-src 'self' https://challenges.cloudflare.com https://accounts.google.com/gsi/client",
+			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style",
+			"font-src 'self' https://fonts.gstatic.com",
+			"img-src 'self' data: https://res.cloudinary.com https://*.googleusercontent.com",
+			"connect-src 'self' https://accounts.google.com/gsi/",
+			"frame-src https://challenges.cloudflare.com https://accounts.google.com",
+			"object-src 'none'",
+			"base-uri 'self'",
+			"form-action 'self'",
+			"frame-ancestors 'none'");
+
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http, @Qualifier("authRateLimiter") RateLimiter authRateLimiter,
+	SecurityFilterChain securityFilterChain(HttpSecurity http,
+			@Qualifier("requestMappingHandlerMapping") ObjectProvider<RequestMappingHandlerMapping> handlerMappings, @Qualifier("authRateLimiter") RateLimiter authRateLimiter,
 			@Qualifier("cartValidateRateLimiter") RateLimiter cartValidateRateLimiter,
 			@Qualifier("orderCreateRateLimiter") RateLimiter orderCreateRateLimiter,
 			@Qualifier("orderLookupRateLimiter") RateLimiter orderLookupRateLimiter) throws Exception {
@@ -95,11 +125,15 @@ public class SecurityConfig {
 				// Defense in depth: controllers also carry @Roles (products/categories are ADMIN only)
 				.requestMatchers(PATHS.matcher("/api/admin/**"))
 				.hasAnyRole("STAFF", "ADMIN")
+				// Unknown API paths fall through to a 404 instead of asking anonymous callers to sign in
 				.requestMatchers(API)
-				.authenticated()
+				.access(authenticatedOrUnmapped(handlerMappings))
 				// The React app itself is public; pages like /tai-khoan are guarded client-side and by the API
 				.anyRequest()
 				.permitAll())
+			.headers(h -> h.contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
+				.referrerPolicy(r -> r.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+				.frameOptions(f -> f.deny()))
 			.addFilterAfter(new RequestedWithHeaderFilter(), CorsFilter.class)
 			.addFilterAfter(new RateLimitFilter(authRateLimiter, AUTH_LIMITED_PATHS), RequestedWithHeaderFilter.class)
 			.addFilterAfter(new RateLimitFilter(cartValidateRateLimiter, Set.of("/api/cart/validate")),
@@ -117,6 +151,29 @@ public class SecurityConfig {
 				.accessDeniedHandler((req, res, ex) -> ProblemResponses.write(res, HttpStatus.FORBIDDEN,
 						"Bạn không có quyền truy cập chức năng này")));
 		return http.build();
+	}
+
+	/** Signed-in callers only, unless no controller handles the path at all (then MVC answers 404). */
+	private static AuthorizationManager<RequestAuthorizationContext> authenticatedOrUnmapped(
+			ObjectProvider<RequestMappingHandlerMapping> handlerMappings) {
+		AuthenticatedAuthorizationManager<RequestAuthorizationContext> authenticated = AuthenticatedAuthorizationManager
+			.authenticated();
+		return (authentication, context) -> {
+			if (!hasHandler(handlerMappings.getObject(), context.getRequest())) {
+				return new AuthorizationDecision(true);
+			}
+			return authenticated.authorize(authentication, context);
+		};
+	}
+
+	private static boolean hasHandler(RequestMappingHandlerMapping mapping, HttpServletRequest request) {
+		try {
+			return mapping.getHandler(request) != null;
+		}
+		catch (Exception ex) {
+			// e.g. the path exists but not for this HTTP method: treat as mapped (still needs sign-in)
+			return true;
+		}
 	}
 
 	/**

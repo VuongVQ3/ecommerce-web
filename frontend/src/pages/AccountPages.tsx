@@ -40,7 +40,7 @@ export function AccountInfoPage() {
     <dl className="divide-y divide-stone-100 rounded-2xl border border-stone-200 bg-white">
       {rows.map(([label, value]) => (
         <div key={label} className="flex flex-col gap-1 px-5 py-4 sm:flex-row sm:justify-between">
-          <dt className="text-sm text-stone-500">{label}</dt>
+          <dt className="text-sm text-muted">{label}</dt>
           <dd className="font-medium break-all text-stone-900">{value}</dd>
         </div>
       ))}

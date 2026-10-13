@@ -42,10 +42,12 @@ export function useInView<T extends Element>(rootMargin = '0px 0px -10% 0px') {
   return [ref, visible] as const
 }
 
-/** Animates 0 → target with an ease-out curve once `start` is true. */
+/** Animates 0 → target with an ease-out curve once `start` is true (final value before that). */
 export function useCountUp(target: number, start: boolean, durationMs = 1400): number {
   const reduced = usePrefersReducedMotion()
-  const [value, setValue] = useState(0)
+  // The final number is shown from the start (no JavaScript, crawlers, reduced motion); the count-up only plays
+  // once, when the number scrolls into view and motion is allowed
+  const [value, setValue] = useState(target)
   useEffect(() => {
     if (!start || reduced) return
     let frame = 0
@@ -56,8 +58,10 @@ export function useCountUp(target: number, start: boolean, durationMs = 1400): n
       if (t < 1) frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
+    return () => {
+      cancelAnimationFrame(frame)
+      setValue(target)
+    }
   }, [target, start, durationMs, reduced])
-  // Reduced motion: show the final number straight away, no animation
-  return reduced && start ? target : value
+  return reduced || !start ? target : value
 }

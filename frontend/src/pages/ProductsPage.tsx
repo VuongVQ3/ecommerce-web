@@ -1,8 +1,10 @@
-import { useSearchParams } from 'react-router'
+import { Link, Navigate, useParams, useSearchParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import ProductCard from '../components/ProductCard'
 import { api } from '../lib/api'
 import { useAsync } from '../lib/useAsync'
+import { BRAND, usePageMeta } from '../lib/usePageMeta'
+import NotFoundPage from './NotFoundPage'
 
 const PAGE_SIZE = 12
 
@@ -16,7 +18,9 @@ const SORT_OPTIONS = [
 
 export default function ProductsPage() {
   const [params, setParams] = useSearchParams()
-  const category = params.get('category') ?? ''
+  // /danh-muc/:slug is the category page; the old ?category= link is redirected there
+  const { slug: category = '' } = useParams()
+  const legacyCategory = params.get('category')
   const q = params.get('q') ?? ''
   const sort = params.get('sort') ?? ''
   const page = Math.max(0, Number(params.get('page') ?? '0') || 0)
@@ -39,6 +43,23 @@ export default function ProductsPage() {
 
   const activeCategory = categories.data?.find((c) => c.slug === category)
   const title = activeCategory?.name ?? 'Tất cả sản phẩm'
+  usePageMeta(category && !activeCategory ? null : `${title} | ${BRAND}`)
+
+  /** Category links keep the current search and sort, but start again from page 1. */
+  const categoryHref = (slug: string) => {
+    const next = new URLSearchParams(params)
+    next.delete('page')
+    next.delete('category')
+    const query = next.toString()
+    return (slug ? `/danh-muc/${slug}` : '/san-pham') + (query ? `?${query}` : '')
+  }
+
+  if (legacyCategory) {
+    const next = new URLSearchParams(params)
+    next.delete('category')
+    return <Navigate to={`/danh-muc/${encodeURIComponent(legacyCategory)}${next.size ? `?${next}` : ''}`} replace />
+  }
+  if (category && categories.data && !activeCategory) return <NotFoundPage />
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -72,35 +93,38 @@ export default function ProductsPage() {
 
       <div className="mt-8 grid gap-8 md:grid-cols-[200px_1fr]">
         <aside>
-          <p className="mb-3 text-sm font-semibold tracking-wide text-stone-500 uppercase">Danh mục</p>
+          <p className="mb-3 text-sm font-semibold tracking-wide text-muted uppercase">Danh mục</p>
           <div className="flex flex-wrap gap-2 md:flex-col">
             {[{ slug: '', name: 'Tất cả' }, ...(categories.data ?? [])].map((c) => (
-              <button
+              <Link
                 key={c.slug}
-                type="button"
-                onClick={() => update({ category: c.slug })}
+                to={categoryHref(c.slug)}
+                aria-current={c.slug === category ? 'page' : undefined}
                 className={`rounded-full px-4 py-2 text-left text-sm font-medium transition md:rounded-lg ${
                   c.slug === category ? 'bg-brand-600 text-white' : 'bg-white text-stone-700 hover:bg-brand-50'
                 }`}
               >
                 {c.name}
-              </button>
+              </Link>
             ))}
           </div>
         </aside>
 
-        <section aria-live="polite">
+        <section aria-live="polite" aria-labelledby="product-list-title">
+          <h2 id="product-list-title" className="sr-only">
+            Danh sách sản phẩm
+          </h2>
           {products.error ? (
             <ErrorMessage message={products.error.message} onRetry={products.reload} />
           ) : !products.data ? (
             <Spinner />
           ) : products.data.items.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-stone-300 py-16 text-center text-stone-500">
+            <p className="rounded-2xl border border-dashed border-stone-300 py-16 text-center text-muted">
               Không tìm thấy sản phẩm phù hợp.
             </p>
           ) : (
             <>
-              <p className="mb-4 text-sm text-stone-500">{products.data.totalItems} sản phẩm</p>
+              <p className="mb-4 text-sm text-muted">{products.data.totalItems} sản phẩm</p>
               <div className={`grid grid-cols-2 gap-4 lg:grid-cols-3 ${products.loading ? 'opacity-60' : ''}`}>
                 {products.data.items.map((p) => (
                   <ProductCard key={p.id} product={p} />

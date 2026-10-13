@@ -8,6 +8,7 @@ import { api, ApiError, type Nutrition, type ProductDetail } from '../lib/api'
 import { formatPrice, formatWeight } from '../lib/format'
 import { stockLabel } from '../lib/images'
 import { useAsync } from '../lib/useAsync'
+import { BRAND, usePageMeta } from '../lib/usePageMeta'
 import NotFoundPage from './NotFoundPage'
 
 const NUTRITION_ROWS: { key: keyof Nutrition; label: string; unit: string }[] = [
@@ -90,6 +91,11 @@ function PurchaseBox({ product }: { product: ProductDetail }) {
 export default function ProductDetailPage() {
   const { slug = '' } = useParams()
   const { data: product, error, reload } = useAsync((signal) => api.product(slug, signal), [slug])
+  const current = product?.slug === slug ? product : null
+  usePageMeta(
+    current && `${current.name} ${formatWeight(current.weightGrams)} – ${formatPrice(current.price)} | ${BRAND}`,
+    current?.description.slice(0, 155),
+  )
 
   if (error instanceof ApiError && error.status === 404) return <NotFoundPage />
   if (error) {
@@ -106,12 +112,12 @@ export default function ProductDetailPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <nav className="text-sm text-stone-500" aria-label="Breadcrumb">
+      <nav className="text-sm text-muted" aria-label="Breadcrumb">
         <Link to="/san-pham" className="hover:text-brand-700">
           Sản phẩm
         </Link>
         <span className="mx-2">/</span>
-        <Link to={`/san-pham?category=${product.category.slug}`} className="hover:text-brand-700">
+        <Link to={`/danh-muc/${product.category.slug}`} className="hover:text-brand-700">
           {product.category.name}
         </Link>
       </nav>
@@ -123,16 +129,16 @@ export default function ProductDetailPage() {
           <h1 className="text-3xl font-bold text-stone-900 md:text-4xl">{product.name}</h1>
           <p className="mt-4 text-3xl font-extrabold text-brand-700">
             {formatPrice(product.price)}
-            <span className="ml-2 text-base font-medium text-stone-500">/ {formatWeight(product.weightGrams)}</span>
+            <span className="ml-2 text-base font-medium text-muted">/ {formatWeight(product.weightGrams)}</span>
           </p>
 
           <dl className="mt-6 grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-xl bg-white p-3">
-              <dt className="text-stone-500">Xuất xứ</dt>
+              <dt className="text-muted">Xuất xứ</dt>
               <dd className="font-semibold text-stone-900">{product.origin ?? 'Đang cập nhật'}</dd>
             </div>
             <div className="rounded-xl bg-white p-3">
-              <dt className="text-stone-500">Tình trạng</dt>
+              <dt className="text-muted">Tình trạng</dt>
               <dd className={`font-semibold ${inStock ? 'text-brand-700' : 'text-danger'}`}>
                 {stockLabel(product.stockStatus, product.active)}
               </dd>
@@ -146,7 +152,7 @@ export default function ProductDetailPage() {
 
           <section className="mt-10 rounded-2xl border border-stone-200 bg-white p-5">
             <h2 className="font-bold text-stone-900">Giá trị dinh dưỡng</h2>
-            <p className="text-sm text-stone-500">Trên 100g sản phẩm</p>
+            <p className="text-sm text-muted">Trên 100g sản phẩm</p>
             <table className="mt-4 w-full text-sm">
               <tbody>
                 {NUTRITION_ROWS.map((row) => (

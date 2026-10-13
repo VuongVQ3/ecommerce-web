@@ -207,7 +207,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-10 px-4 pt-20 md:grid-cols-2 md:items-center">
+      {/* overflow-x-clip: the chart slides in from the right and must not widen the page while it does */}
+      <section className="mx-auto grid max-w-6xl gap-10 overflow-x-clip px-4 pt-20 md:grid-cols-2 md:items-center">
         <div>
           <SectionTitle eyebrow="Dinh dưỡng" title="So sánh nhanh từng loại hạt">
             Số liệu lấy từ chính các sản phẩm đang bán. Chọn protein để tăng cơ, hoặc năng lượng thấp để giữ dáng.
@@ -232,7 +233,7 @@ export default function HomePage() {
             {categories.data.map((c, i) => (
               <Reveal key={c.id} delay={i * 120}>
                 <Link
-                  to={`/san-pham?category=${c.slug}`}
+                  to={`/danh-muc/${c.slug}`}
                   className="group relative block overflow-hidden rounded-2xl bg-brand-800 px-6 py-10 text-lg font-semibold text-white"
                 >
                   <span

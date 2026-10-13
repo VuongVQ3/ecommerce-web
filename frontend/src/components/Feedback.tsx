@@ -1,6 +1,6 @@
 export function Spinner({ label = 'Đang tải...' }: { label?: string }) {
   return (
-    <div className="flex items-center justify-center gap-3 py-16 text-stone-500" role="status">
+    <div className="flex items-center justify-center gap-3 py-16 text-muted" role="status">
       <span className="size-5 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" />
       {label}
     </div>

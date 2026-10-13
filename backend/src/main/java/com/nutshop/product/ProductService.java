@@ -54,8 +54,10 @@ public class ProductService {
 		return PageResponse.from(result.map(p -> ProductSummary.from(p, cartProps.maxQtyPerItem())));
 	}
 
+	/** Hidden products are not found on the storefront (orders and carts keep their own snapshot). */
 	public ProductDetail getBySlug(String slug) {
 		return products.findBySlug(slug)
+			.filter(Product::isActive)
 			.map(p -> ProductDetail.from(p, cartProps.maxQtyPerItem(),
 					images.findByProductIdOrderByPrimaryDescPositionAsc(p.getId())))
 			.orElseThrow(() -> new NotFoundException("Không tìm thấy sản phẩm"));
