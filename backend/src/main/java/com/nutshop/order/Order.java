@@ -22,8 +22,8 @@ public class Order {
 	@Column(name = "idempotency_key", nullable = false, unique = true, updatable = false)
 	private String idempotencyKey;
 
-	/** Null for guest orders. */
-	@Column(name = "user_id", updatable = false)
+	/** Null for guest orders until the buyer attaches them to an account (see OrderClaimService). */
+	@Column(name = "user_id")
 	private UUID userId;
 
 	@Column(name = "customer_name", nullable = false)
@@ -117,6 +117,15 @@ public class Order {
 	/** Use OrderService#transition, which also enforces the allowed moves and records history and stock. */
 	void changeStatus(OrderStatus next) {
 		this.status = next;
+		this.updatedAt = Instant.now();
+	}
+
+	/** A guest order now belongs to an account. */
+	void assignTo(UUID userId) {
+		if (this.userId != null) {
+			throw new IllegalStateException("Order " + code + " already belongs to an account");
+		}
+		this.userId = userId;
 		this.updatedAt = Instant.now();
 	}
 

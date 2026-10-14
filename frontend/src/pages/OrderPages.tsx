@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation, useParams } from 'react-router'
+import { Link, Navigate, useParams, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { orderLookupSchema } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
@@ -11,61 +11,22 @@ import { api, ApiError, type Order } from '../lib/api'
 import { formatDateTime, formatPrice } from '../lib/format'
 import { normalizePhone } from '../lib/phone'
 import { useAsync } from '../lib/useAsync'
-import type { OrderSuccessState } from './CheckoutPage'
+import { useJustPlaced } from '../lib/useJustPlaced'
+import RecentOrders from '../components/RecentOrders'
 
+/**
+ * Old address of the "order placed" page. Guests are now sent straight to their tracking link and signed-in buyers
+ * to their order; anyone landing here (bookmark, old email) is forwarded.
+ */
 export function OrderSuccessPage() {
   const { code = '' } = useParams()
-  const { user } = useAuth()
-  const fromCheckout = (useLocation().state as OrderSuccessState | null)?.order
-  // After a reload the state is gone: signed-in buyers can re-fetch their order; guests get the code and lookup link
-  const fetched = useAsync(
-    (signal) => (fromCheckout || !user ? Promise.resolve(null) : api.myOrder(code, signal)),
-    [code, user?.id],
-  )
-  const order = fromCheckout ?? fetched.data ?? null
-
+  const { user, loading } = useAuth()
+  if (loading) return <Spinner />
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
-      <div className="rounded-3xl border border-brand-200 bg-brand-50 px-6 py-8 text-center">
-        <p className="text-5xl" aria-hidden>
-          🎉
-        </p>
-        <h1 className="mt-3 text-2xl font-extrabold text-brand-900 sm:text-3xl">Đặt hàng thành công!</h1>
-        <p className="mt-2 text-stone-700">
-          Mã đơn của bạn là <strong className="tracking-wider text-stone-900">{code}</strong>. Cửa hàng sẽ gọi xác nhận trước khi giao.
-        </p>
-        {order && (
-          <p className="mt-1 text-stone-700">
-            Thanh toán khi nhận hàng: <strong className="text-brand-700 tabular-nums">{formatPrice(order.total)}</strong>
-          </p>
-        )}
-      </div>
-      <div className="mt-8">
-        {order ? (
-          <OrderDetails order={order} />
-        ) : fetched.loading && user ? (
-          <Spinner />
-        ) : (
-          <p className="text-center text-stone-700">
-            Lưu lại mã đơn để{' '}
-            <Link to="/tra-cuu-don-hang" className="font-semibold text-brand-700 hover:underline">
-              tra cứu đơn hàng
-            </Link>{' '}
-            bằng mã đơn và số điện thoại.
-          </p>
-        )}
-      </div>
-      <div className="mt-8 flex flex-wrap justify-center gap-3">
-        <Link to="/san-pham" className="rounded-full bg-brand-600 px-6 py-3 font-semibold text-white hover:bg-brand-700">
-          Tiếp tục mua sắm
-        </Link>
-        {user && (
-          <Link to="/tai-khoan/don-hang" className="rounded-full border border-stone-200 bg-white px-6 py-3 font-semibold text-stone-800 hover:bg-stone-50">
-            Đơn hàng của tôi
-          </Link>
-        )}
-      </div>
-    </div>
+    <Navigate
+      to={user ? `/tai-khoan/don-hang/${encodeURIComponent(code)}` : `/tra-cuu-don-hang?code=${encodeURIComponent(code)}`}
+      replace
+    />
   )
 }
 
@@ -133,6 +94,7 @@ export function MyOrdersPage() {
 export function MyOrderDetailPage() {
   const { code = '' } = useParams()
   const toast = useToast()
+  const justPlaced = useJustPlaced()
   const detail = useAsync((signal) => api.myOrder(code, signal), [code])
   const [cancelled, setCancelled] = useState<Order | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -186,6 +148,15 @@ export function MyOrderDetailPage() {
 
   return (
     <div>
+      {justPlaced && (
+        <div className="mb-6 rounded-3xl border border-brand-200 bg-brand-50 px-6 py-6 text-center" role="status">
+          <p className="text-4xl" aria-hidden="true">
+            🎉
+          </p>
+          <p className="mt-2 text-2xl font-extrabold text-brand-900">Đặt hàng thành công!</p>
+          <p className="mt-1 text-stone-700">Cửa hàng sẽ gọi xác nhận trước khi giao.</p>
+        </div>
+      )}
       <Link to="/tai-khoan/don-hang" className="text-sm font-semibold text-brand-700 hover:underline">
         ← Tất cả đơn hàng
       </Link>
@@ -198,8 +169,10 @@ export function MyOrderDetailPage() {
 
 /** /tra-cuu-don-hang: guests find their order with code + phone. */
 export function OrderLookupPage() {
+  const [params] = useSearchParams()
   const [order, setOrder] = useState<Order | null>(null)
-  const { form, onSubmit, formError, pending } = useAuthForm(orderLookupSchema, { code: '', phone: '' }, async (values) => {
+  const initialCode = (params.get('code') ?? '').toUpperCase().slice(0, 30)
+  const { form, onSubmit, formError, pending } = useAuthForm(orderLookupSchema, { code: initialCode, phone: '' }, async (values) => {
     setOrder(null)
     setOrder(await api.lookupOrder(values.code.toUpperCase(), normalizePhone(values.phone)))
   })
@@ -208,7 +181,10 @@ export function OrderLookupPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-3xl font-bold text-stone-900">Tra cứu đơn hàng</h1>
-      <p className="mt-1 text-stone-600">Nhập mã đơn (ví dụ HL261013ABCD) và số điện thoại đã dùng khi đặt hàng.</p>
+      <div className="mt-6">
+        <RecentOrders />
+      </div>
+      <p className="mt-6 text-stone-600">Nhập mã đơn (ví dụ HL261013ABCD) và số điện thoại đã dùng khi đặt hàng.</p>
       <form onSubmit={onSubmit} noValidate className="mt-6 grid gap-4 rounded-2xl border border-stone-200 bg-white p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
         <TextField label="Mã đơn hàng" autoCapitalize="characters" autoComplete="off" error={errors.code?.message} {...form.register('code')} />
         <TextField label="Số điện thoại" type="tel" inputMode="tel" autoComplete="tel" error={errors.phone?.message} {...form.register('phone')} />
@@ -227,7 +203,13 @@ export function OrderLookupPage() {
             order={order}
             actions={
               order.canCancel && (
-                <p className="text-sm text-stone-600">Muốn huỷ đơn? Vui lòng gọi hotline 0900 000 000.</p>
+                <p className="text-sm text-stone-600">
+                  Muốn huỷ đơn? Mở link theo dõi trong email xác nhận, hoặc xem trang{' '}
+                  <Link to="/lien-he" className="font-semibold text-brand-700 underline">
+                    Liên hệ
+                  </Link>
+                  .
+                </p>
               )
             }
           />

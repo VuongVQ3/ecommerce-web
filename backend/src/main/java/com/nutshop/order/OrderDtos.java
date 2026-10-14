@@ -1,5 +1,6 @@
 package com.nutshop.order;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.nutshop.user.VietnamesePhone;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -62,11 +63,20 @@ public final class OrderDtos {
 
 	/**
 	 * @param canCancel true while the customer may still cancel it themselves (PENDING)
+	 * @param accessToken guest orders, only in the response that placed the order: the secret of the tracking link
+	 * @param trackingUrl guest orders, only in that response: {@code SITE_URL/don-hang/{code}?t={accessToken}}
 	 */
 	public record OrderResponse(String code, String status, String statusLabel, boolean canCancel, Instant createdAt,
 			String customerName, String phone, String email, String province, String ward, String addressLine,
 			String note, String paymentMethod, List<OrderItemResponse> items, long subtotal, long shippingFee,
-			long total, List<StatusChange> history) {
+			long total, List<StatusChange> history, @JsonInclude(JsonInclude.Include.NON_NULL) String accessToken,
+			@JsonInclude(JsonInclude.Include.NON_NULL) String trackingUrl) {
+
+		OrderResponse withTracking(String token, String url) {
+			return new OrderResponse(code, status, statusLabel, canCancel, createdAt, customerName, phone, email,
+					province, ward, addressLine, note, paymentMethod, items, subtotal, shippingFee, total, history,
+					token, url);
+		}
 	}
 
 	public record OrderSummary(String code, String status, String statusLabel, Instant createdAt, int itemCount,

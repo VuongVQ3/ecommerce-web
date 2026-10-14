@@ -48,6 +48,10 @@ public class User {
 	@Column(name = "marketing_consent_at")
 	private Instant marketingConsentAt;
 
+	/** Set once the owner proved they read this inbox (email link, or Google Sign-In). */
+	@Column(name = "email_verified_at")
+	private Instant emailVerifiedAt;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt = Instant.now();
 
@@ -159,5 +163,23 @@ public class User {
 
 	public Instant getUpdatedAt() {
 		return updatedAt;
+	}
+
+	public boolean isEmailVerified() {
+		return emailVerifiedAt != null;
+	}
+
+	public Instant getEmailVerifiedAt() {
+		return emailVerifiedAt;
+	}
+
+	/** @return true when this call verified it (false if it already was) */
+	public boolean markEmailVerified(Instant now) {
+		if (emailVerifiedAt != null) {
+			return false;
+		}
+		emailVerifiedAt = now;
+		updatedAt = now;
+		return true;
 	}
 }

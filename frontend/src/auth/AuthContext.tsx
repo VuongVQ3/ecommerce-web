@@ -12,6 +12,8 @@ interface AuthContextValue {
   /** `credential` is the ID token returned by Google Identity Services. */
   loginWithGoogle: (credential: string) => Promise<void>
   logout: () => Promise<void>
+  /** The server already signed this user in (cookies set), e.g. after creating an account from an order. */
+  signedIn: (user: User) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -73,9 +75,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const signedIn = useCallback((next: User) => setUser(next), [])
+
   const value = useMemo(
-    () => ({ user, loading, login, register, loginWithGoogle, logout }),
-    [user, loading, login, register, loginWithGoogle, logout],
+    () => ({ user, loading, login, register, loginWithGoogle, logout, signedIn }),
+    [user, loading, login, register, loginWithGoogle, logout, signedIn],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

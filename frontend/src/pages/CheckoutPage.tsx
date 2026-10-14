@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { checkoutSchema } from '../auth/schemas'
@@ -8,18 +8,44 @@ import { Spinner } from '../components/Feedback'
 import { FormError, SelectField, SubmitButton, TextField } from '../components/FormFields'
 import ProductImage from '../components/ProductImage'
 import { useProvinces } from '../lib/adminUnits'
-import { api, type CartView, type Order, type Shortage } from '../lib/api'
+import { api, type CartView, type Shortage } from '../lib/api'
 import { formatPrice } from '../lib/format'
 import { normalizePhone } from '../lib/phone'
+import { saveRecentOrder, trackingPath } from '../lib/recentOrders'
+import { loginUrl } from '../lib/redirect'
+import type { TrackOrderState } from './TrackOrderPage'
 
 /** State handed to the cart page when the order bounced for lack of stock. */
 export interface CartPageState {
   shortages?: Shortage[]
 }
 
-/** State handed to the success page so it can render without another request. */
-export interface OrderSuccessState {
-  order?: Order
+/**
+ * What the buyer typed, kept for this tab only (sessionStorage) so "Đăng nhập" and coming back does not lose it.
+ * Cleared once the order is placed.
+ */
+const DRAFT_KEY = 'hatlanh_checkout_draft_v1'
+type Draft = Partial<Record<'customerName' | 'phone' | 'email' | 'provinceCode' | 'wardCode' | 'addressLine' | 'note', string>>
+
+function readDraft(): Draft {
+  try {
+    const parsed: unknown = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? '{}')
+    if (typeof parsed !== 'object' || parsed === null) return {}
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([, v]) => typeof v === 'string' && v.trim() !== ''),
+    ) as Draft
+  } catch {
+    return {}
+  }
+}
+
+function writeDraft(draft: Draft | null) {
+  try {
+    if (draft) sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+    else sessionStorage.removeItem(DRAFT_KEY)
+  } catch {
+    // Storage blocked: the form just is not remembered
+  }
 }
 
 const newKey = () =>
@@ -89,6 +115,8 @@ function CheckoutForm({ view }: { view: CartView }) {
       wardCode: '',
       addressLine: '',
       note: '',
+      // What was typed before signing in wins over the account's details
+      ...readDraft(),
     },
     async (values) => {
       const order = await api.placeOrder({
@@ -104,8 +132,15 @@ function CheckoutForm({ view }: { view: CartView }) {
         idempotencyKey,
       })
       resetAfterOrder()
-      const state: OrderSuccessState = { order }
-      navigate(`/dat-hang-thanh-cong/${order.code}`, { replace: true, state })
+      writeDraft(null)
+      const state: TrackOrderState = { justPlaced: true }
+      if (order.accessToken) {
+        // Guest: straight to the tracking page (reload-proof), and remember it in this browser
+        saveRecentOrder(order.code, order.accessToken)
+        navigate(trackingPath(order.code, order.accessToken), { replace: true, state })
+      } else {
+        navigate(`/tai-khoan/don-hang/${order.code}`, { replace: true, state })
+      }
     },
     {
       onApiError: (err) => {
@@ -120,6 +155,10 @@ function CheckoutForm({ view }: { view: CartView }) {
   )
   const { errors } = form.formState
   const provinceCode = form.watch('provinceCode')
+  useEffect(() => {
+    const subscription = form.watch((values) => writeDraft(values as Draft))
+    return () => subscription.unsubscribe()
+  }, [form])
   const wards = provinces?.find((p) => String(p.code) === provinceCode)?.wards ?? []
 
   return (
@@ -226,12 +265,20 @@ function CheckoutForm({ view }: { view: CartView }) {
 }
 
 export default function CheckoutPage() {
-  const { loading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { view, loading } = useCart()
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <h1 className="text-3xl font-bold text-stone-900">Thanh toán</h1>
+      {!authLoading && !user && (
+        <p className="mt-2 text-sm text-stone-700">
+          Đã có tài khoản?{' '}
+          <Link to={loginUrl('/thanh-toan')} className="font-semibold text-brand-700 underline">
+            Đăng nhập để điền nhanh thông tin
+          </Link>
+        </p>
+      )}
       {authLoading || (loading && !view) ? (
         <Spinner />
       ) : !view || view.items.length === 0 ? (

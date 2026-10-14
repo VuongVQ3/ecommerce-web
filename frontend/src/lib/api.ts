@@ -77,6 +77,8 @@ export interface User {
   fullName: string
   phone: string | null
   role: Role
+  /** False until the owner opens the link in the verification email (Google accounts are verified). */
+  emailVerified: boolean
 }
 
 export interface RegisterInput {
@@ -183,6 +185,44 @@ export interface Order {
   shippingFee: number
   total: number
   history: { status: OrderStatus; label: string; at: string; reason: string | null }[]
+  /** Guest orders, only in the response that placed the order: secret of the tracking link. */
+  accessToken?: string
+  /** Guest orders, only in that response: SITE_URL/don-hang/{code}?t={accessToken} */
+  trackingUrl?: string
+}
+
+/** What a guest tracking link shows. Phone and email are partly hidden; the address is shown in full. */
+export interface TrackedOrder {
+  code: string
+  status: OrderStatus
+  statusLabel: string
+  createdAt: string
+  customerName: string
+  maskedPhone: string
+  maskedEmail: string | null
+  hasEmail: boolean
+  province: string
+  ward: string
+  addressLine: string
+  paymentMethod: 'COD'
+  items: OrderItem[]
+  subtotal: number
+  shippingFee: number
+  total: number
+  carrier: string | null
+  trackingNumber: string | null
+  history: Order['history']
+  canCancel: boolean
+  /** Not attached to an account yet. */
+  canClaim: boolean
+}
+
+export interface ClaimAccountInput {
+  password: string
+  acceptTerms: true
+  marketingConsent: boolean
+  /** Only when the order has no email. */
+  email?: string
 }
 
 export interface OrderSummary {
@@ -332,6 +372,10 @@ export const post = (body?: unknown): RequestOptions => ({
   body: body === undefined ? undefined : JSON.stringify(body),
 })
 
+function trackPath(code: string, token: string, suffix = ''): string {
+  return `/api/orders/track/${encodeURIComponent(code)}${suffix}?t=${encodeURIComponent(token)}`
+}
+
 function toQueryString(query: ProductQuery): string {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(query)) {
@@ -418,6 +462,29 @@ export const api = {
 
   lookupOrder: (code: string, phone: string) =>
     apiRequest<Order>(`/api/orders/lookup?code=${encodeURIComponent(code)}&phone=${encodeURIComponent(phone)}`),
+
+  // Guest tracking links: the token is the proof (public)
+  trackOrder: (code: string, token: string, signal?: AbortSignal) =>
+    apiRequest<TrackedOrder>(trackPath(code, token), { signal, redirectOnAuthFailure: false }),
+
+  cancelTrackedOrder: (code: string, token: string, reason: string) =>
+    apiRequest<TrackedOrder>(trackPath(code, token, '/cancel'), post({ reason })),
+
+  /** Creates the account from the order, attaches it and signs in (cookies). */
+  claimAccount: (code: string, token: string, input: ClaimAccountInput) =>
+    apiRequest<User>(trackPath(code, token, '/claim-account'), post(input)),
+
+  /** Signed in: attach the browser's recent guest orders to the account. */
+  claimOrders: (items: { code: string; token: string }[]) =>
+    apiRequest<{ claimed: string[]; skipped: string[] }>('/api/orders/claim', {
+      ...post(items),
+      redirectOnAuthFailure: false,
+    }),
+
+  verifyEmail: (token: string) =>
+    apiRequest<{ email: string; attachedOrders: number }>('/api/auth/verify-email', post({ token })),
+
+  resendVerification: () => apiRequest<void>('/api/auth/verify-email/resend', post()),
 
   // Cart: guests (public). Same shape as a signed-in cart, priced by the server.
   cartValidate: (items: CartLineInput[], signal?: AbortSignal) =>

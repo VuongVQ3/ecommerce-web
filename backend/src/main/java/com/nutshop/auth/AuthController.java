@@ -42,13 +42,15 @@ public class AuthController {
 	private final PasswordResetService passwordReset;
 	private final AuthCookies cookies;
 	private final GoogleTokenVerifier googleVerifier;
+	private final EmailVerificationService emailVerification;
 
 	public AuthController(AuthService authService, PasswordResetService passwordReset, AuthCookies cookies,
-			GoogleTokenVerifier googleVerifier) {
+			GoogleTokenVerifier googleVerifier, EmailVerificationService emailVerification) {
 		this.authService = authService;
 		this.passwordReset = passwordReset;
 		this.cookies = cookies;
 		this.googleVerifier = googleVerifier;
+		this.emailVerification = emailVerification;
 	}
 
 	/**
@@ -62,7 +64,7 @@ public class AuthController {
 		if (req.isHoneypotFilled()) {
 			log.info("Registration honeypot triggered from {}", request.getRemoteAddr());
 			return new UserResponse(UUID.randomUUID(), req.email().trim().toLowerCase(Locale.ROOT), req.fullName().trim(),
-					null, Role.CUSTOMER.name());
+					null, Role.CUSTOMER.name(), false);
 		}
 		return complete(authService.register(req, ClientInfo.from(request)), response);
 	}
@@ -118,6 +120,21 @@ public class AuthController {
 	public void resetPassword(@Valid @RequestBody ResetPasswordRequest req, HttpServletResponse response) {
 		passwordReset.resetPassword(req.token(), req.newPassword());
 		cookies.clear(response);
+	}
+
+	public record VerifyEmailRequest(String token) {
+	}
+
+	/** The link in the verification email. Public: the token is the proof. */
+	@PostMapping("/verify-email")
+	public EmailVerificationService.VerificationResult verifyEmail(@RequestBody VerifyEmailRequest req) {
+		return emailVerification.verify(req.token());
+	}
+
+	@PostMapping("/verify-email/resend")
+	@ResponseStatus(HttpStatus.ACCEPTED)
+	public void resendVerification(@AuthenticationPrincipal Jwt jwt) {
+		emailVerification.resend(UUID.fromString(jwt.getSubject()));
 	}
 
 	@GetMapping("/me")

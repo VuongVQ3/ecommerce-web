@@ -81,15 +81,16 @@ public class OrderService {
 	private final CartProperties cartProps;
 	private final AdminUnits adminUnits;
 	private final OrderEmails emails;
+	private final OrderAccessTokens accessTokens;
 	private final EmailSender emailSender;
 	private final TaskExecutor executor;
 	private final TransactionTemplate tx;
-	private final TransactionTemplate readTx;
 	private final Clock clock;
 
 	public OrderService(OrderRepository orders, OrderStatusHistoryRepository history, ProductRepository products,
 			InventoryService inventory, CartService carts, CartProperties cartProps, AdminUnits adminUnits,
-			OrderEmails emails, EmailSender emailSender, @Qualifier("applicationTaskExecutor") TaskExecutor executor,
+			OrderEmails emails, OrderAccessTokens accessTokens, EmailSender emailSender,
+			@Qualifier("applicationTaskExecutor") TaskExecutor executor,
 			PlatformTransactionManager txManager, Clock clock) {
 		this.orders = orders;
 		this.history = history;
@@ -99,11 +100,10 @@ public class OrderService {
 		this.cartProps = cartProps;
 		this.adminUnits = adminUnits;
 		this.emails = emails;
+		this.accessTokens = accessTokens;
 		this.emailSender = emailSender;
 		this.executor = executor;
 		this.tx = new TransactionTemplate(txManager);
-		this.readTx = new TransactionTemplate(txManager);
-		this.readTx.setReadOnly(true);
 		this.clock = clock;
 	}
 
@@ -128,15 +128,29 @@ public class OrderService {
 		}
 	}
 
+	/**
+	 * A repeated request gets the original order back. Raw tracking tokens are never stored, so a guest replay is
+	 * handed a NEW tracking token (added next to the first one, which keeps working): the client that retried may
+	 * never have received the first response.
+	 */
 	private Optional<OrderResponse> replay(String key, String phone) {
-		return readTx.execute(status -> orders.findByIdempotencyKey(key).map(order -> {
+		return tx.execute(status -> orders.findByIdempotencyKey(key).map(order -> {
 			// A key is only meaningful to the person who created it: never hand someone else's order back
 			if (!order.getPhone().equals(phone)) {
 				throw new ApiException(HttpStatus.CONFLICT, IDEMPOTENCY_CONFLICT,
 						"Yêu cầu đặt hàng không hợp lệ. Vui lòng tải lại trang thanh toán.");
 			}
-			return toResponse(order);
+			return withTracking(order, toResponse(order));
 		}));
+	}
+
+	/** Guest orders: issue a tracking link and put it in the response (the only place the raw token is shown). */
+	private OrderResponse withTracking(Order order, OrderResponse response) {
+		if (order.getUserId() != null) {
+			return response;
+		}
+		String token = accessTokens.issue(order);
+		return response.withTracking(token, accessTokens.trackingUrl(order, token));
 	}
 
 	private OrderResponse create(PlaceOrderRequest req, String key, String phone, UUID userId) {
@@ -197,12 +211,15 @@ public class OrderService {
 		if (userId != null) {
 			carts.clear(userId);
 		}
+		OrderResponse placed = response(order, lines, List.of(new StatusChange(OrderStatus.PENDING.name(),
+				OrderStatus.PENDING.label(), order.getCreatedAt(), "Đặt hàng")));
+		placed = withTracking(order, placed);
 		if (delivery.email() != null) {
 			Order snapshot = order;
-			afterCommit(() -> sendConfirmation(snapshot));
+			String link = placed.trackingUrl() != null ? placed.trackingUrl() : accessTokens.linkFor(order);
+			afterCommit(() -> sendConfirmation(snapshot, link));
 		}
-		return response(order, lines, List.of(new StatusChange(OrderStatus.PENDING.name(),
-				OrderStatus.PENDING.label(), order.getCreatedAt(), "Đặt hàng")));
+		return placed;
 	}
 
 	/** Shortages report what is available right now (fresh read), so the cart can show it. */
@@ -292,9 +309,16 @@ public class OrderService {
 		List<OrderItem> lines = List.copyOf(order.getItems());
 		order.changeStatus(next);
 		history.save(new OrderStatusHistory(order.getId(), from, next, actorId, reason));
-		// Tell the customer when the parcel leaves or the order is cancelled (after commit, best effort)
-		if (order.getEmail() != null && (next == OrderStatus.SHIPPING || next == OrderStatus.CANCELLED)) {
-			var mail = next == OrderStatus.SHIPPING ? emails.shipped(order) : emails.cancelled(order, reason);
+		// Tell the customer when the parcel leaves, arrives or the order is cancelled (after commit, best effort).
+		// Guests get a fresh tracking link in each email; links sent earlier stay valid.
+		if (order.getEmail() != null && (next == OrderStatus.SHIPPING || next == OrderStatus.CANCELLED
+				|| next == OrderStatus.COMPLETED)) {
+			String link = accessTokens.linkFor(order);
+			var mail = switch (next) {
+				case SHIPPING -> emails.shipped(order, link);
+				case COMPLETED -> emails.completed(order, link);
+				default -> emails.cancelled(order, reason, link);
+			};
 			afterCommit(() -> {
 				try {
 					emailSender.send(mail);
@@ -328,12 +352,12 @@ public class OrderService {
 		return new OrderResponse(o.getCode(), o.getStatus().name(), o.getStatus().label(),
 				o.getStatus() == OrderStatus.PENDING, o.getCreatedAt(), o.getCustomerName(), o.getPhone(), o.getEmail(),
 				o.getProvince(), o.getWard(), o.getAddressLine(), o.getNote(), o.getPaymentMethod(), lines,
-				o.getSubtotal(), o.getShippingFee(), o.getTotal(), changes);
+				o.getSubtotal(), o.getShippingFee(), o.getTotal(), changes, null, null);
 	}
 
-	private void sendConfirmation(Order order) {
+	private void sendConfirmation(Order order, String link) {
 		try {
-			emailSender.send(emails.confirmation(order));
+			emailSender.send(emails.confirmation(order, link));
 		}
 		catch (RuntimeException ex) {
 			// The order stands; only the email failed

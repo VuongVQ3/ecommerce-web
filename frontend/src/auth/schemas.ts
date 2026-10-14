@@ -83,5 +83,32 @@ export const orderLookupSchema = z.object({
 
 export const resetPasswordSchema = z.object({ newPassword })
 
+/** "Lưu đơn hàng vào tài khoản": name, phone (and usually email) come from the order. */
+export function claimAccountSchema(needsEmail: boolean) {
+  return z
+    .object({
+      email: needsEmail ? email : z.string(),
+      password: newPassword,
+      confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu'),
+      marketingConsent: z.boolean(),
+    })
+    .refine((v) => v.confirmPassword === '' || v.password === v.confirmPassword, {
+      message: PASSWORD_MISMATCH,
+      path: ['confirmPassword'],
+      when: (payload) => {
+        const v = payload.value as { password?: unknown; confirmPassword?: unknown }
+        return typeof v.password === 'string' && typeof v.confirmPassword === 'string'
+      },
+    })
+}
+
+export type ClaimAccountForm = z.infer<ReturnType<typeof claimAccountSchema>>
+
+export const CANCEL_REASONS = ['Đặt nhầm sản phẩm hoặc số lượng', 'Muốn đổi địa chỉ giao hàng', 'Không còn nhu cầu']
+
+export const cancelReasonSchema = z
+  .object({ choice: z.string().min(1, 'Vui lòng chọn lý do huỷ đơn'), other: z.string().trim().max(300, 'Tối đa 300 ký tự') })
+  .refine((v) => v.choice !== 'other' || v.other.length > 0, { message: 'Vui lòng nhập lý do', path: ['other'] })
+
 export type LoginForm = z.infer<typeof loginSchema>
 export type RegisterForm = z.infer<typeof registerSchema>

@@ -14,7 +14,7 @@ import java.util.UUID;
 public final class AuthDtos {
 
 	/** At least one letter (any alphabet, incl. Vietnamese) and one digit. Keep in sync with the frontend. */
-	static final String PASSWORD_PATTERN = "^(?=.*\\p{L})(?=.*\\d).+$";
+	public static final String PASSWORD_PATTERN = "^(?=.*\\p{L})(?=.*\\d).+$";
 
 	private AuthDtos() {
 	}
@@ -83,10 +83,12 @@ public final class AuthDtos {
 	}
 
 	/** Public view of a user. Never contains the password hash. */
-	public record UserResponse(UUID id, String email, String fullName, String phone, String role) {
+	public record UserResponse(UUID id, String email, String fullName, String phone, String role,
+			boolean emailVerified) {
 
 		public static UserResponse from(User u) {
-			return new UserResponse(u.getId(), u.getEmail(), u.getFullName(), u.getPhone(), u.getRole().name());
+			return new UserResponse(u.getId(), u.getEmail(), u.getFullName(), u.getPhone(), u.getRole().name(),
+					u.isEmailVerified());
 		}
 	}
 }

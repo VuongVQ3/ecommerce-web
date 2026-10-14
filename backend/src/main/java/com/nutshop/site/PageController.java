@@ -5,6 +5,7 @@ import com.nutshop.product.CategoryRepository;
 import com.nutshop.product.ProductImageRepository;
 import com.nutshop.product.ProductRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -81,6 +82,32 @@ public class PageController {
 	public ResponseEntity<String> orderPlaced(HttpServletRequest request) {
 		return pages.render(PageMeta.privatePage("Đặt hàng thành công | " + PageMetaService.BRAND, request.getRequestURI()),
 				HttpStatus.OK);
+	}
+
+	/**
+	 * Guest tracking page: the URL carries a secret token (?t=), so the page is never indexed, never cached and
+	 * never sends a Referer header to other sites.
+	 */
+	@GetMapping("/don-hang/{code}")
+	public ResponseEntity<String> trackOrder(HttpServletRequest request) {
+		return secret(pages.render(PageMeta.privatePage("Theo dõi đơn hàng | " + PageMetaService.BRAND,
+				request.getRequestURI()), HttpStatus.OK));
+	}
+
+	@GetMapping("/xac-minh-email")
+	public ResponseEntity<String> verifyEmail(HttpServletRequest request) {
+		return secret(pages.render(PageMeta.privatePage("Xác minh email | " + PageMetaService.BRAND,
+				request.getRequestURI()), HttpStatus.OK));
+	}
+
+	private static ResponseEntity<String> secret(ResponseEntity<String> page) {
+		return ResponseEntity.status(page.getStatusCode())
+			.headers(h -> {
+				h.addAll(page.getHeaders());
+				h.setCacheControl(CacheControl.noStore());
+				h.set("Referrer-Policy", "no-referrer");
+			})
+			.body(page.getBody());
 	}
 
 	/** Signed-in areas: guarded by the app and the API; never indexed. */

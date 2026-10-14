@@ -33,6 +33,7 @@ public class AuthService {
 	static final String ACCOUNT_LOCKED = "Tài khoản đã bị khóa. Vui lòng liên hệ cửa hàng để được hỗ trợ.";
 	public static final String EMAIL_EXISTS = "EMAIL_EXISTS";
 	public static final String PHONE_EXISTS = "PHONE_EXISTS";
+	public static final String ACCOUNT_EXISTS = "ACCOUNT_EXISTS";
 
 	private final UserRepository users;
 	private final PasswordEncoder passwordEncoder;
@@ -40,6 +41,7 @@ public class AuthService {
 	private final RefreshTokenService refreshTokens;
 	private final GoogleTokenVerifier googleVerifier;
 	private final TurnstileVerifier turnstile;
+	private final EmailVerificationService verification;
 	private final Clock clock;
 
 	/**
@@ -50,13 +52,14 @@ public class AuthService {
 
 	public AuthService(UserRepository users, PasswordEncoder passwordEncoder, TokenService tokenService,
 			RefreshTokenService refreshTokens, GoogleTokenVerifier googleVerifier, TurnstileVerifier turnstile,
-			Clock clock) {
+			EmailVerificationService verification, Clock clock) {
 		this.users = users;
 		this.passwordEncoder = passwordEncoder;
 		this.tokenService = tokenService;
 		this.refreshTokens = refreshTokens;
 		this.googleVerifier = googleVerifier;
 		this.turnstile = turnstile;
+		this.verification = verification;
 		this.clock = clock;
 		this.dummyHash = passwordEncoder.encode(UUID.randomUUID().toString());
 	}
@@ -76,7 +79,29 @@ public class AuthService {
 		Instant now = clock.instant();
 		User user = new User(email, passwordEncoder.encode(req.password()), req.fullName().trim(), phone, now);
 		user.setMarketingConsent(req.wantsMarketing(), now);
-		return issue(users.save(user), client);
+		user = users.saveAndFlush(user); // audit rows reference it through JDBC
+		verification.sendLink(user);
+		return issue(user, client);
+	}
+
+	/**
+	 * Account created from a guest order's tracking page (OrderClaimService): name, email and phone come from the
+	 * order, the buyer only chooses a password and accepts the terms. Same password hashing and consent records as
+	 * {@link #register}. If the email or the phone already has an account → 409 ACCOUNT_EXISTS, nothing created.
+	 */
+	@Transactional
+	public AuthResult createAccountForOrder(String rawEmail, String fullName, String phone, String password,
+			boolean marketingConsent, ClientInfo client) {
+		String email = normalizeEmail(rawEmail);
+		if (users.existsByEmail(email) || (phone != null && users.existsByPhone(phone))) {
+			throw new ConflictException(ACCOUNT_EXISTS, "Email hoặc số điện thoại này đã có tài khoản.");
+		}
+		Instant now = clock.instant();
+		User user = new User(email, passwordEncoder.encode(password), fullName.trim(), phone, now);
+		user.setMarketingConsent(marketingConsent, now);
+		user = users.saveAndFlush(user); // audit rows reference it through JDBC
+		verification.sendLink(user);
+		return issue(user, client);
 	}
 
 	@Transactional
@@ -123,8 +148,10 @@ public class AuthService {
 				return existing;
 			}))
 			.orElseGet(() -> users
-				.save(User.fromGoogle(email, displayName(google, email), google.googleId(), clock.instant())));
+				.saveAndFlush(User.fromGoogle(email, displayName(google, email), google.googleId(), clock.instant())));
 		ensureActive(user);
+		// Google has verified this address (GoogleTokenVerifier requires email_verified)
+		verification.markVerified(user, "GOOGLE");
 		return issue(user, client);
 	}
 

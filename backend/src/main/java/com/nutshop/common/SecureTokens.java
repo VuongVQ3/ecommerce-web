@@ -1,4 +1,4 @@
-package com.nutshop.auth;
+package com.nutshop.common;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -7,8 +7,11 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.HexFormat;
 
-/** Opaque one-time tokens (refresh, password reset): random value for the client, SHA-256 hash for the database. */
-final class SecureTokens {
+/**
+ * Opaque tokens (refresh, password reset, email verification, order tracking): random value for the client, SHA-256
+ * hash for the database.
+ */
+public final class SecureTokens {
 
 	private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -16,13 +19,13 @@ final class SecureTokens {
 	}
 
 	/** 32 random bytes, base64url without padding (43 characters, safe in URLs and cookies). */
-	static String generate() {
+	public static String generate() {
 		byte[] bytes = new byte[32];
 		RANDOM.nextBytes(bytes);
 		return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
 	}
 
-	static String hash(String rawToken) {
+	public static String hash(String rawToken) {
 		try {
 			byte[] digest = MessageDigest.getInstance("SHA-256").digest(rawToken.getBytes(StandardCharsets.UTF_8));
 			return HexFormat.of().formatHex(digest);
@@ -30,5 +33,14 @@ final class SecureTokens {
 		catch (NoSuchAlgorithmException ex) {
 			throw new IllegalStateException("SHA-256 not available", ex);
 		}
+	}
+
+	/** Constant-time comparison of two hex hashes (no early exit that would leak how many characters matched). */
+	public static boolean matches(String expectedHash, String actualHash) {
+		if (expectedHash == null || actualHash == null) {
+			return false;
+		}
+		return MessageDigest.isEqual(expectedHash.getBytes(StandardCharsets.US_ASCII),
+				actualHash.getBytes(StandardCharsets.US_ASCII));
 	}
 }

@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readRecentOrders } from '../lib/recentOrders'
 import { ToastProvider } from '../components/Toast'
 import { api, ApiError, type CartView, type Order, type User } from '../lib/api'
 import CheckoutPage from './CheckoutPage'
@@ -38,11 +39,12 @@ const view: CartView = {
 }
 vi.mock('../cart/CartContext', () => ({ useCart: () => ({ view, loading: false, resetAfterOrder }) }))
 
-const order = { code: 'HL261013ABCD', total: 288_000 } as Order
+const GUEST_TOKEN = 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde'
+const order = { code: 'HL261013ABCD', total: 288_000, accessToken: GUEST_TOKEN } as Order
 
 function Where() {
   const location = useLocation()
-  return <pre data-testid="where">{JSON.stringify({ path: location.pathname, state: location.state })}</pre>
+  return <pre data-testid="where">{JSON.stringify({ path: location.pathname + location.search, state: location.state })}</pre>
 }
 
 function renderCheckout() {
@@ -53,7 +55,7 @@ function renderCheckout() {
     ],
     { initialEntries: ['/thanh-toan'] },
   )
-  render(
+  return render(
     <ToastProvider>
       <RouterProvider router={router} />
     </ToastProvider>,
@@ -84,6 +86,8 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  sessionStorage.clear()
+  localStorage.clear()
 })
 
 describe('CheckoutPage', () => {
@@ -123,7 +127,11 @@ describe('CheckoutPage', () => {
     expect(second.idempotencyKey).toBe(first.idempotencyKey)
 
     const where = JSON.parse((await screen.findByTestId('where')).textContent!)
-    expect(where.path).toBe('/dat-hang-thanh-cong/HL261013ABCD')
+    // Guest: straight to the tracking link, remembered in this browser, form draft cleared
+    expect(where.path).toBe(`/don-hang/HL261013ABCD?t=${GUEST_TOKEN}`)
+    expect(where.state).toEqual({ justPlaced: true })
+    expect(readRecentOrders()).toMatchObject([{ code: 'HL261013ABCD', token: GUEST_TOKEN }])
+    expect(sessionStorage.getItem('hatlanh_checkout_draft_v1')).toBeNull()
     expect(resetAfterOrder).toHaveBeenCalledOnce()
   })
 
@@ -141,9 +149,30 @@ describe('CheckoutPage', () => {
     expect(resetAfterOrder).not.toHaveBeenCalled()
   })
 
+  it('keeps what a guest typed when they go to sign in and come back', async () => {
+    const first = renderCheckout()
+    fireEvent.change(input('Họ và tên'), { target: { value: 'Khách Đã Nhập' } })
+    first.unmount()
+    auth.current = {
+      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true },
+      loading: false,
+    }
+    renderCheckout()
+    expect((input('Họ và tên') as HTMLInputElement).value).toBe('Khách Đã Nhập')
+    expect((input('Số điện thoại') as HTMLInputElement).value).toBe('0987654321')
+  })
+
+  it('offers sign-in to guests without blocking checkout', () => {
+    renderCheckout()
+    expect(screen.getByRole('link', { name: 'Đăng nhập để điền nhanh thông tin' }).getAttribute('href')).toBe(
+      '/dang-nhap?next=%2Fthanh-toan',
+    )
+    expect(screen.getByRole('button', { name: /Đặt hàng/ })).toBeTruthy()
+  })
+
   it('prefills name, email and phone for a signed-in user', () => {
     auth.current = {
-      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER' },
+      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true },
       loading: false,
     }
     renderCheckout()

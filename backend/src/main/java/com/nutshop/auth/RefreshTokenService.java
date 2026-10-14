@@ -1,5 +1,6 @@
 package com.nutshop.auth;
 
+import com.nutshop.common.SecureTokens;
 import com.nutshop.common.UnauthorizedException;
 import com.nutshop.config.JwtProperties;
 import com.nutshop.user.User;

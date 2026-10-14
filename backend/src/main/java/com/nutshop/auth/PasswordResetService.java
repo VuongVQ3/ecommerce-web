@@ -1,5 +1,6 @@
 package com.nutshop.auth;
 
+import com.nutshop.common.SecureTokens;
 import com.nutshop.mail.EmailMessage;
 import com.nutshop.mail.EmailSender;
 import com.nutshop.security.RateLimiter;

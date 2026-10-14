@@ -74,6 +74,8 @@ public class SiteController {
 				Disallow: /admin
 				Disallow: /tai-khoan
 				Disallow: /thanh-toan
+				Disallow: /don-hang/
+				Disallow: /xac-minh-email
 				Disallow: /api/
 
 				Sitemap: %s

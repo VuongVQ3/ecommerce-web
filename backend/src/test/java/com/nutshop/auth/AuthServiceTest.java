@@ -61,13 +61,16 @@ class AuthServiceTest {
 	@Mock
 	TurnstileVerifier turnstile;
 
+	@Mock
+	EmailVerificationService verification;
+
 	AuthService service;
 
 	@BeforeEach
 	void setUp() {
 		given(passwordEncoder.encode(anyString())).willReturn(DUMMY_HASH);
 		service = new AuthService(users, passwordEncoder, tokenService, refreshTokens, googleVerifier, turnstile,
-				Clock.fixed(NOW, ZoneOffset.UTC));
+				verification, Clock.fixed(NOW, ZoneOffset.UTC));
 	}
 
 	private static final Instant NOW = Instant.parse("2026-10-07T12:00:00Z");
@@ -91,7 +94,7 @@ class AuthServiceTest {
 			.isInstanceOfSatisfying(ConflictException.class,
 					ex -> assertThat(ex.getCode()).isEqualTo(AuthService.EMAIL_EXISTS));
 
-		verify(users, never()).save(any());
+		verify(users, never()).saveAndFlush(any());
 		verifyNoInteractions(refreshTokens);
 	}
 
@@ -102,7 +105,7 @@ class AuthServiceTest {
 		assertThatThrownBy(() -> service.register(registration("an@example.com", "+84 912.345.678", false), CLIENT))
 			.isInstanceOfSatisfying(ConflictException.class,
 					ex -> assertThat(ex.getCode()).isEqualTo(AuthService.PHONE_EXISTS));
-		verify(users, never()).save(any());
+		verify(users, never()).saveAndFlush(any());
 	}
 
 	@Test
@@ -117,21 +120,21 @@ class AuthServiceTest {
 
 	@Test
 	void registerRecordsConsentTimestamps() {
-		given(users.save(any(User.class))).willAnswer(inv -> inv.getArgument(0));
+		given(users.saveAndFlush(any(User.class))).willAnswer(inv -> inv.getArgument(0));
 
 		service.register(registration("an@example.com", "0912 345 678", true), CLIENT);
 
-		verify(users).save(argThat(u -> NOW.equals(u.getTermsAcceptedAt()) && u.hasMarketingConsent()
+		verify(users).saveAndFlush(argThat(u -> NOW.equals(u.getTermsAcceptedAt()) && u.hasMarketingConsent()
 				&& NOW.equals(u.getMarketingConsentAt()) && "0912345678".equals(u.getPhone())));
 	}
 
 	@Test
 	void registerWithoutMarketingConsentLeavesItOff() {
-		given(users.save(any(User.class))).willAnswer(inv -> inv.getArgument(0));
+		given(users.saveAndFlush(any(User.class))).willAnswer(inv -> inv.getArgument(0));
 
 		service.register(registration("an@example.com", null, false), CLIENT);
 
-		verify(users).save(argThat(u -> !u.hasMarketingConsent() && u.getMarketingConsentAt() == null));
+		verify(users).saveAndFlush(argThat(u -> !u.hasMarketingConsent() && u.getMarketingConsentAt() == null));
 	}
 
 	@Test

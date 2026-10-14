@@ -6,6 +6,7 @@ import RequireAuth from './auth/RequireAuth'
 import { RequireRole } from './admin/RequireRole'
 import { CartProvider } from './cart/CartContext'
 import Layout from './components/Layout'
+import RecentOrdersSync from './components/RecentOrdersSync'
 import { ToastProvider } from './components/Toast'
 import CartPage from './pages/CartPage'
 import './index.css'
@@ -20,6 +21,8 @@ import NotFoundPage from './pages/NotFoundPage'
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordResetPages'
 import ProductDetailPage from './pages/ProductDetailPage'
 import ProductsPage from './pages/ProductsPage'
+import TrackOrderPage from './pages/TrackOrderPage'
+import VerifyEmailPage from './pages/VerifyEmailPage'
 
 /** Admin pages are loaded on demand, so shoppers never download them. */
 const page = (load: () => Promise<{ default: ComponentType }>) => async () => ({ Component: (await load()).default })
@@ -30,6 +33,7 @@ const router = createBrowserRouter([
     element: (
       <AuthProvider>
         <ToastProvider>
+          <RecentOrdersSync />
           <Outlet />
         </ToastProvider>
       </AuthProvider>
@@ -80,6 +84,8 @@ const router = createBrowserRouter([
           { path: '/thanh-toan', element: <CheckoutPage /> },
           { path: '/dat-hang-thanh-cong/:code', element: <OrderSuccessPage /> },
           { path: '/tra-cuu-don-hang', element: <OrderLookupPage /> },
+          { path: '/don-hang/:code', element: <TrackOrderPage /> },
+          { path: '/xac-minh-email', element: <VerifyEmailPage /> },
           { path: '/danh-muc/:slug', element: <ProductsPage /> },
           { path: '/dieu-khoan-su-dung', element: <TermsPage /> },
           { path: '/chinh-sach-doi-tra', element: <ReturnPolicyPage /> },

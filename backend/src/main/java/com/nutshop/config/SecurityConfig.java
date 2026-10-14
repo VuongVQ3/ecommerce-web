@@ -78,6 +78,11 @@ public class SecurityConfig {
 			PATHS.matcher(HttpMethod.POST, "/api/cart/validate"),
 			// Guests look up their order with code + phone
 			PATHS.matcher(HttpMethod.GET, "/api/orders/lookup"),
+			// Guest tracking links: the token in ?t= is the proof (rate limited per IP)
+			PATHS.matcher(HttpMethod.GET, "/api/orders/track/*"),
+			PATHS.matcher(HttpMethod.POST, "/api/orders/track/*/cancel"),
+			PATHS.matcher(HttpMethod.POST, "/api/orders/track/*/claim-account"),
+			PATHS.matcher(HttpMethod.POST, "/api/auth/verify-email"),
 			PATHS.matcher("/error"));
 
 	/**
@@ -85,6 +90,10 @@ public class SecurityConfig {
 	 * account (guests simply have no cookie).
 	 */
 	static final RequestMatcher OPTIONAL_AUTH_ENDPOINTS = PATHS.matcher(HttpMethod.POST, "/api/orders");
+
+	/** Reading and cancelling through a tracking link: 30 per minute per IP across all orders. */
+	private static final RequestMatcher TRACKING = new OrRequestMatcher(PATHS.matcher(HttpMethod.GET, "/api/orders/track/*"),
+			PATHS.matcher(HttpMethod.POST, "/api/orders/track/*/cancel"));
 
 	/** The REST API. Everything else is the bundled React app (static files and client-side routes). */
 	static final RequestMatcher API = PATHS.matcher("/api/**");
@@ -116,7 +125,11 @@ public class SecurityConfig {
 			@Qualifier("requestMappingHandlerMapping") ObjectProvider<RequestMappingHandlerMapping> handlerMappings, @Qualifier("authRateLimiter") RateLimiter authRateLimiter,
 			@Qualifier("cartValidateRateLimiter") RateLimiter cartValidateRateLimiter,
 			@Qualifier("orderCreateRateLimiter") RateLimiter orderCreateRateLimiter,
-			@Qualifier("orderLookupRateLimiter") RateLimiter orderLookupRateLimiter) throws Exception {
+			@Qualifier("orderLookupRateLimiter") RateLimiter orderLookupRateLimiter,
+			@Qualifier("orderTrackRateLimiter") RateLimiter orderTrackRateLimiter,
+			@Qualifier("claimAccountRateLimiter") RateLimiter claimAccountRateLimiter,
+			@Qualifier("orderClaimRateLimiter") RateLimiter orderClaimRateLimiter,
+			@Qualifier("verifyEmailRateLimiter") RateLimiter verifyEmailRateLimiter) throws Exception {
 		http.csrf(csrf -> csrf.disable()) // replaced by RequestedWithHeaderFilter (stateless, cookie-based auth)
 			.cors(Customizer.withDefaults())
 			.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -142,6 +155,15 @@ public class SecurityConfig {
 					RequestedWithHeaderFilter.class)
 			.addFilterAfter(new RateLimitFilter(orderLookupRateLimiter, HttpMethod.GET, Set.of("/api/orders/lookup")),
 					RequestedWithHeaderFilter.class)
+			.addFilterAfter(new RateLimitFilter(orderTrackRateLimiter, TRACKING, "order-track"),
+					RequestedWithHeaderFilter.class)
+			.addFilterAfter(new RateLimitFilter(claimAccountRateLimiter,
+					PATHS.matcher(HttpMethod.POST, "/api/orders/track/*/claim-account"), "claim-account"),
+					RequestedWithHeaderFilter.class)
+			.addFilterAfter(new RateLimitFilter(orderClaimRateLimiter, PATHS.matcher(HttpMethod.POST, "/api/orders/claim"),
+					"order-claim"), RequestedWithHeaderFilter.class)
+			.addFilterAfter(new RateLimitFilter(verifyEmailRateLimiter, PATHS.matcher(HttpMethod.POST, "/api/auth/verify-email"),
+					"verify-email"), RequestedWithHeaderFilter.class)
 			.exceptionHandling(e -> e.accessDeniedHandler((req, res, ex) -> ProblemResponses.write(res,
 					HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập chức năng này")))
 			.oauth2ResourceServer(o -> o.bearerTokenResolver(bearerTokenResolver())
@@ -217,6 +239,41 @@ public class SecurityConfig {
 	@Bean
 	RateLimiter orderLookupRateLimiter(@Value("${app.rate-limit.order-lookup.max-requests}") int maxRequests,
 			@Value("${app.rate-limit.order-lookup.window}") Duration window, Clock clock) {
+		return new RateLimiter(maxRequests, window, clock);
+	}
+
+	/** Per IP, for reading/cancelling through guest tracking links. */
+	@Bean
+	RateLimiter orderTrackRateLimiter(@Value("${app.rate-limit.order-track.max-requests}") int maxRequests,
+			@Value("${app.rate-limit.order-track.window}") Duration window, Clock clock) {
+		return new RateLimiter(maxRequests, window, clock);
+	}
+
+	/** Per IP, for creating an account from a guest order's tracking page. */
+	@Bean
+	RateLimiter claimAccountRateLimiter(@Value("${app.rate-limit.claim-account.max-requests}") int maxRequests,
+			@Value("${app.rate-limit.claim-account.window}") Duration window, Clock clock) {
+		return new RateLimiter(maxRequests, window, clock);
+	}
+
+	/** Per IP, for attaching recent guest orders after signing in. */
+	@Bean
+	RateLimiter orderClaimRateLimiter(@Value("${app.rate-limit.order-claim.max-requests}") int maxRequests,
+			@Value("${app.rate-limit.order-claim.window}") Duration window, Clock clock) {
+		return new RateLimiter(maxRequests, window, clock);
+	}
+
+	/** Per IP, for opening email verification links. */
+	@Bean
+	RateLimiter verifyEmailRateLimiter(@Value("${app.rate-limit.verify-email.max-requests}") int maxRequests,
+			@Value("${app.rate-limit.verify-email.window}") Duration window, Clock clock) {
+		return new RateLimiter(maxRequests, window, clock);
+	}
+
+	/** Per account, for "send the verification email again". */
+	@Bean
+	RateLimiter verificationEmailRateLimiter(@Value("${app.rate-limit.verification-email.max-requests}") int maxRequests,
+			@Value("${app.rate-limit.verification-email.window}") Duration window, Clock clock) {
 		return new RateLimiter(maxRequests, window, clock);
 	}
 

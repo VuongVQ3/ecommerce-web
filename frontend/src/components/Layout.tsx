@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useCart } from '../cart/CartContext'
 import CartDrawer from '../cart/CartDrawer'
 import { LOGIN_PATH, REGISTER_PATH } from '../lib/redirect'
+import { useRecentOrders } from '../lib/recentOrders'
 import { telHref, useSiteInfo } from '../lib/siteInfo'
 import { useFocusTrap } from '../lib/useFocusTrap'
 import { BRAND } from '../lib/usePageMeta'
@@ -65,6 +66,17 @@ function CartButton() {
 const menuItemClass =
   'block w-full rounded-lg px-3 py-2.5 text-left text-sm text-stone-700 hover:bg-brand-50 hover:text-brand-800'
 
+/** Guests with orders remembered in this browser: "Đơn hàng của tôi (n)" → the list on the lookup page. */
+function GuestOrdersLink({ className, onClick }: { className: string; onClick?: () => void }) {
+  const count = useRecentOrders().length
+  if (count === 0) return null
+  return (
+    <Link to="/tra-cuu-don-hang#don-hang-gan-day" onClick={onClick} className={className}>
+      Đơn hàng của tôi ({count})
+    </Link>
+  )
+}
+
 function AccountMenu() {
   const { user, loading, logout } = useAuth()
   const navigate = useNavigate()
@@ -100,6 +112,7 @@ function AccountMenu() {
   if (!user) {
     return (
       <div className="flex items-center gap-2">
+        <GuestOrdersLink className="rounded-full px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" />
         <Link to={LOGIN_PATH} className="rounded-full px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
           Đăng nhập
         </Link>
@@ -255,6 +268,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
             </>
           ) : (
             <div className="flex flex-col gap-2 px-2">
+              <GuestOrdersLink onClick={onClose} className="rounded-xl px-2 py-2 text-base font-medium text-stone-800 hover:bg-stone-100" />
               <Link
                 to={LOGIN_PATH}
                 onClick={onClose}

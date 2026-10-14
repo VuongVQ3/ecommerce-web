@@ -1,5 +1,6 @@
 package com.nutshop.auth;
 
+import com.nutshop.common.SecureTokens;
 import com.nutshop.IntegrationTest;
 import com.nutshop.mail.EmailMessage;
 import com.nutshop.security.RateLimiter;
@@ -67,11 +68,16 @@ class PasswordResetE2ETest {
 
 	/** Registers a user and returns its refresh cookie (an existing session). */
 	private Cookie register(String email) throws Exception {
-		return postJson("/api/auth/register", RegisterJson.of("Trần Bình", email, OLD_PASSWORD))
+		Cookie cookie = postJson("/api/auth/register", RegisterJson.of("Trần Bình", email, OLD_PASSWORD))
 			.andExpect(status().isCreated())
 			.andReturn()
 			.getResponse()
 			.getCookie(AuthCookies.REFRESH_COOKIE);
+		// Registration also sends an email verification link: drop it so tests only see reset emails
+		EmailMessage verification = mailbox.next(Duration.ofSeconds(5));
+		assertThat(verification).isNotNull();
+		assertThat(verification.subject()).contains("Xác minh");
+		return cookie;
 	}
 
 	private ResultActions forgot(String email) throws Exception {
