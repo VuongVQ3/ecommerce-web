@@ -1,8 +1,9 @@
 import { Link } from 'react-router'
 import AddToCartButton from '../cart/AddToCartButton'
 import type { ProductSummary } from '../lib/api'
-import { formatPrice, formatWeight } from '../lib/format'
+import { formatWeight } from '../lib/format'
 import { stockLabel } from '../lib/images'
+import { DiscountBadge, PriceTag } from './Price'
 import ProductImage from './ProductImage'
 
 /**
@@ -30,6 +31,7 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
             {stockLabel(product.stockStatus)}
           </span>
         )}
+        <DiscountBadge percent={product.discountPercent} className="absolute top-3 right-3" />
       </Link>
       <div className="flex flex-1 flex-col gap-2 p-4">
         <p className="text-xs font-medium tracking-wide text-brand-700 uppercase">{product.category.name}</p>
@@ -43,7 +45,7 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
           <span className="rounded-full bg-nut-light px-2 py-0.5 text-nut">{product.calories} kcal</span>
         </div>
         <div className="mt-auto flex flex-wrap items-baseline justify-between gap-x-2 pt-2">
-          <span className="text-lg font-bold text-stone-900 tabular-nums">{formatPrice(product.price)}</span>
+          <PriceTag price={product.price} regularPrice={product.regularPrice} />
           <span className="text-sm text-muted">/ {formatWeight(product.weightGrams)}</span>
         </div>
         <AddToCartButton product={{ id: product.id, name: product.name, maxPurchasable: product.maxPurchasable }} />

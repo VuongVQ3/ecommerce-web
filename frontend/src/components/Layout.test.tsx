@@ -36,6 +36,19 @@ describe('Layout', () => {
     expect(within(footer).getByRole('link', { name: 'Chính sách đổi trả' }).getAttribute('href')).toBe('/chinh-sach-doi-tra')
   })
 
+  it('keeps the cart drawer button (no hover preview) on touch screens', () => {
+    window.matchMedia = ((query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia
+    renderLayout()
+    expect(screen.getByRole('button', { name: 'Giỏ hàng trống' }).getAttribute('aria-haspopup')).toBe('dialog')
+    expect(screen.queryByRole('button', { name: 'Xem nhanh giỏ hàng' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Xem nhanh giỏ hàng', hidden: true })).toBeNull()
+  })
+
   it('opens the mobile menu, keeps focus inside and closes on Escape', () => {
     renderLayout()
     const opener = screen.getByRole('button', { name: 'Mở menu' })

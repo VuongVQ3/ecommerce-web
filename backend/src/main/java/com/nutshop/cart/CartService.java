@@ -9,6 +9,8 @@ import com.nutshop.cart.CartDtos.LineStatus;
 import com.nutshop.cart.CartDtos.MergeResponse;
 import com.nutshop.cart.CartDtos.SkippedLine;
 import com.nutshop.common.ApiException;
+import com.nutshop.product.PricingService;
+import com.nutshop.product.PricingService.Price;
 import com.nutshop.product.Product;
 import com.nutshop.product.ProductRepository;
 import org.springframework.http.HttpStatus;
@@ -42,13 +44,15 @@ public class CartService {
 	private final CartItemRepository items;
 	private final ProductRepository products;
 	private final CartProperties props;
+	private final PricingService pricing;
 
 	public CartService(CartRepository carts, CartItemRepository items, ProductRepository products,
-			CartProperties props) {
+			CartProperties props, PricingService pricing) {
 		this.carts = carts;
 		this.items = items;
 		this.products = products;
 		this.props = props;
+		this.pricing = pricing;
 	}
 
 	@Transactional(readOnly = true)
@@ -63,7 +67,7 @@ public class CartService {
 		UUID cartId = cartIdFor(userId);
 		int cap = cap(product);
 		int before = items.findQuantity(cartId, productId).orElse(0);
-		items.addCapped(cartId, productId, quantity, cap, product.getPrice());
+		items.addCapped(cartId, productId, quantity, cap, pricing.priceOf(product).price());
 		carts.touch(cartId);
 		CartWarning warning = before + quantity > cap ? limited(product, cap) : null;
 		return new CartMutationResponse(view(cartId), warning);
@@ -78,7 +82,7 @@ public class CartService {
 		Product product = requirePurchasable(productId);
 		UUID cartId = cartIdFor(userId);
 		int cap = cap(product);
-		items.setQuantity(cartId, productId, Math.min(quantity, cap), product.getPrice());
+		items.setQuantity(cartId, productId, Math.min(quantity, cap), pricing.priceOf(product).price());
 		carts.touch(cartId);
 		return new CartMutationResponse(view(cartId), quantity > cap ? limited(product, cap) : null);
 	}
@@ -113,6 +117,7 @@ public class CartService {
 		}
 		Map<Long, Integer> requested = sumByProduct(lines);
 		Map<Long, Product> found = loadProducts(requested.keySet());
+		Map<Long, Price> prices = pricing.pricesOf(found.values());
 		List<SkippedLine> skipped = new ArrayList<>();
 		requested.forEach((productId, quantity) -> {
 			Product product = found.get(productId);
@@ -121,7 +126,7 @@ public class CartService {
 				skipped.add(new SkippedLine(productId, problem.get().getCode(), problem.get().getMessage()));
 				return;
 			}
-			items.addCapped(cartId, productId, quantity, cap(product), product.getPrice());
+			items.addCapped(cartId, productId, quantity, cap(product), prices.get(productId).price());
 		});
 		carts.touch(cartId);
 		return new MergeResponse(view(cartId), skipped, false);
@@ -153,22 +158,30 @@ public class CartService {
 	/** All products in one query, then per-line status and totals. */
 	private CartView enrich(List<LineInput> inputs) {
 		Map<Long, Product> found = loadProducts(inputs.stream().map(LineInput::productId).toList());
-		List<CartLine> lines = inputs.stream().map(in -> line(in, found.get(in.productId()))).toList();
+		Map<Long, Price> prices = pricing.pricesOf(found.values());
+		List<CartLine> lines = inputs.stream()
+			.map(in -> line(in, found.get(in.productId()), prices.get(in.productId())))
+			.toList();
 
 		long subtotal = lines.stream().mapToLong(CartLine::lineTotal).sum();
+		long discount = lines.stream()
+			.filter(l -> l.regularPrice() != null)
+			.mapToLong(l -> Math.multiplyExact(l.regularPrice() - l.price(), (long) l.quantity()))
+			.sum();
 		int totalQuantity = lines.stream().mapToInt(CartLine::requestedQuantity).sum();
 		long shippingFee = props.shippingFeeFor(subtotal);
 		long amountToFree = shippingFee == 0 ? 0 : props.freeShippingThreshold() - subtotal;
 		boolean blocked = lines.stream()
 			.anyMatch(l -> l.status() == LineStatus.OUT_OF_STOCK || l.status() == LineStatus.UNAVAILABLE);
-		return new CartView(lines, totalQuantity, subtotal, shippingFee, amountToFree, props.freeShippingThreshold(),
-				subtotal + shippingFee, !lines.isEmpty() && !blocked);
+		return new CartView(lines, totalQuantity, subtotal, discount, shippingFee, amountToFree,
+				props.freeShippingThreshold(), subtotal + shippingFee, !lines.isEmpty() && !blocked);
 	}
 
-	private CartLine line(LineInput in, Product p) {
+	/** {@code price} comes from PricingService: a promotion starting or ending counts as a price change. */
+	private CartLine line(LineInput in, Product p, Price price) {
 		if (p == null) {
-			return new CartLine(in.productId(), MISSING_PRODUCT_NAME, null, null, null, null, 0, in.priceAtAdd(), 0,
-					in.quantity(), 0, 0, LineStatus.UNAVAILABLE);
+			return new CartLine(in.productId(), MISSING_PRODUCT_NAME, null, null, null, null, 0, null, in.priceAtAdd(),
+					0, in.quantity(), 0, 0, LineStatus.UNAVAILABLE);
 		}
 		int max = p.isActive() ? cap(p) : 0;
 		LineStatus status;
@@ -181,7 +194,7 @@ public class CartService {
 		else if (in.quantity() > max) {
 			status = LineStatus.QTY_REDUCED;
 		}
-		else if (in.priceAtAdd() != null && !in.priceAtAdd().equals(p.getPrice())) {
+		else if (in.priceAtAdd() != null && in.priceAtAdd() != price.price()) {
 			status = LineStatus.PRICE_CHANGED;
 		}
 		else {
@@ -189,8 +202,8 @@ public class CartService {
 		}
 		int counted = Math.min(in.quantity(), max);
 		return new CartLine(p.getId(), p.getName(), p.getSlug(), p.getImageUrl(), p.getCategory().getSlug(),
-				p.getWeightGrams(), p.getPrice(), in.priceAtAdd(), counted, in.quantity(), max,
-				Math.multiplyExact(p.getPrice(), (long) counted), status);
+				p.getWeightGrams(), price.price(), price.discounted() ? price.regularPrice() : null, in.priceAtAdd(),
+				counted, in.quantity(), max, Math.multiplyExact(price.price(), (long) counted), status);
 	}
 
 	private UUID cartIdFor(UUID userId) {

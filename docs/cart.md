@@ -102,22 +102,25 @@ Lỗi trả về theo chuẩn RFC 9457, có `code` và `message` (tiếng Việt
 | `cart/cartStorage.ts` | Đọc/ghi localStorage (luôn bọc try/catch), chỉ lưu `{ mergeKey, items: [{productId, quantity}] }`, đồng bộ giữa các tab qua sự kiện `storage` |
 | `cart/AddToCartButton.tsx` | Badge tăng ngay (cập nhật lạc quan), có hoàn tác nếu server báo lỗi; chống bấm trùng; "Hết hàng" thì nút bị khoá, ngừng kinh doanh thì ẩn nút; toast "Đã thêm …" kèm nút "Xem giỏ hàng" hoặc "Chỉ còn N sản phẩm" |
 | `cart/QuantityStepper.tsx` | Nút −/+ và ô nhập số, giới hạn theo `maxPurchasable`, có `aria-label` theo tên sản phẩm |
-| `cart/CartDrawer.tsx` | Dialog: giữ focus bên trong, Esc hoặc bấm nền để đóng, trả focus về nút giỏ hàng |
-| `cart/CartContents.tsx` | Các dòng (cảnh báo theo status, giá cũ gạch ngang, nút Xoá kèm "Hoàn tác") và phần tóm tắt (tạm tính, phí ship, "Mua thêm X₫…", tổng, nút Thanh toán bị khoá kèm lý do) |
+| `cart/CartDrawer.tsx` | Thiết bị cảm ứng: bấm icon giỏ hàng mở drawer. Dialog: giữ focus bên trong, Esc hoặc bấm nền để đóng, trả focus về nút giỏ hàng |
+| `cart/QuickCart.tsx` | Máy tính có chuột (`(hover: hover) and (pointer: fine)`): icon là link tới `/gio-hang`; rê chuột vào icon 150ms thì hiện bảng xem nhanh, rời cả icon lẫn bảng 300ms thì đóng (bảng nằm trong cùng vùng hover, có khoảng đệm phía trên nên di chuột từ icon xuống bảng không bị đóng). Nút mũi tên cạnh icon (`aria-expanded`, `aria-controls`) mở bằng Enter/Space; Esc đóng và trả focus về nút; focus ra ngoài thì đóng. Nội dung: 4 dòng mới thêm gần nhất (ảnh, tên 2 dòng, "số lượng × giá" kèm giá gốc gạch ngang, nút xoá cập nhật lạc quan có "Hoàn tác"), "và n sản phẩm khác", cảnh báo hết hàng/đổi giá, tạm tính, thanh tiến trình miễn phí giao hàng, "Xem giỏ hàng" và "Thanh toán"; giỏ trống thì có nút "Xem sản phẩm"; đang tải thì hiện khung giữ chỗ. Dữ liệu lấy từ `useCart`, **không gọi API khi rê chuột**. Hiệu ứng mờ dần + dịch 4px, tắt khi bật giảm chuyển động |
+| `cart/quickCartEvents.ts` | Sau "Thêm vào giỏ" trên máy có chuột: bảng xem nhanh tự mở 3 giây (không đóng nếu chuột đang nằm trên bảng) **thay cho toast**. Cảnh báo "Chỉ còn N sản phẩm" và thiết bị cảm ứng vẫn dùng toast |
+| `cart/CartContents.tsx` | Các dòng (cảnh báo theo status, giá cũ gạch ngang, giá gốc gạch ngang khi đang khuyến mại, nút Xoá kèm "Hoàn tác") và phần tóm tắt ("Giá gốc" và "Đã giảm" khi có khuyến mại, tạm tính, phí ship, "Mua thêm X₫…", tổng, nút Thanh toán bị khoá kèm lý do) |
 | `pages/CartPage.tsx` | `/gio-hang` |
 
 **Sau khi đăng nhập:** `CartProvider` gọi `/merge` với giỏ trong localStorage. Thành công thì xoá localStorage; thất bại thì giữ nguyên và thử lại ở lần tải trang sau.
 
-**Nút "Thanh toán"** hiện chỉ báo "đang phát triển", vì chưa làm checkout.
+**Giá trong giỏ** luôn do `PricingService` tính (xem [pricing.md](pricing.md)): mỗi dòng có `price` (giá hiện hành), `regularPrice` (giá gốc khi đang giảm, ngược lại `null`); giỏ có `discountTotal` = Σ (giá gốc − giá KM) × số lượng. `priceAtAdd` lưu giá hiện hành lúc thêm vào giỏ, nên khi khuyến mại bắt đầu hoặc kết thúc, dòng đó báo `PRICE_CHANGED`.
 
 ## Kiểm thử
 
+- **Khuyến mại:** `PromotionE2ETest` kiểm tra giỏ hiện giá KM, `discountTotal`, `/validate` cho khách, và `PRICE_CHANGED` khi KM kết thúc. `QuickCart.test.tsx`: mở bằng hover (giả lập chuột), đóng khi rời chuột, mở/đóng bằng bàn phím, Esc trả focus, tự mở 3 giây sau khi thêm, không thay toast trên cảm ứng, khung giữ chỗ và giỏ trống. `Layout.test.tsx`: cảm ứng vẫn dùng drawer.
 - **Backend:** `CartE2ETest` (Testcontainers) gồm giới hạn theo tồn kho và theo mức tối đa, các mã lỗi, 8 request song song, `PRICE_CHANGED`, giá do client gửi bị bỏ qua, `QTY_REDUCED` / `OUT_OF_STOCK` / `UNAVAILABLE`, phí ship, PATCH/DELETE, merge (cộng dồn, giới hạn, bỏ qua sản phẩm lỗi, idempotent), `/validate` (public, gộp dòng trùng, tối đa 50 dòng), endpoint cần đăng nhập, danh sách ẩn sản phẩm ngừng bán.
 - **Frontend:** `cart/CartContext.test.tsx` (Vitest + React Testing Library) gồm chế độ khách (localStorage không có giá, giới hạn số lượng, đồng bộ giữa các tab), chế độ đã đăng nhập (dùng server, hoàn tác badge khi lỗi), và khách thêm 2 sản phẩm rồi đăng nhập thì gộp đủ và xoá localStorage; gộp thất bại thì giữ nguyên.
 
 ## Chưa làm
 
-- Checkout, tạo đơn, giữ hàng (reserve), mã giảm giá.
+- Mã giảm giá nhập tay.
 - Giỏ hàng của khách không được lưu trên server: đổi trình duyệt hoặc thiết bị thì mất.
 - Không gộp giỏ giữa các thiết bị đã đăng nhập (giỏ trong database đã dùng chung theo tài khoản).
 - Dòng `UNAVAILABLE` / `OUT_OF_STOCK` không tự bị xoá; người dùng tự xoá.

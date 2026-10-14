@@ -23,8 +23,13 @@ public class OrderItem {
 	@Column(name = "product_name", nullable = false)
 	private String productName;
 
+	/** What the buyer paid per unit (the sale price during a promotion). */
 	@Column(name = "unit_price", nullable = false)
 	private long unitPrice;
+
+	/** The regular price per unit at purchase time; equal to unitPrice when nothing was discounted. */
+	@Column(name = "regular_unit_price", nullable = false)
+	private long regularUnitPrice;
 
 	@Column(name = "weight_grams", nullable = false)
 	private int weightGrams;
@@ -38,11 +43,13 @@ public class OrderItem {
 	protected OrderItem() {
 	}
 
-	OrderItem(Order order, Long productId, String productName, long unitPrice, int weightGrams, int quantity) {
+	OrderItem(Order order, Long productId, String productName, long unitPrice, long regularUnitPrice,
+			int weightGrams, int quantity) {
 		this.order = order;
 		this.productId = productId;
 		this.productName = productName;
 		this.unitPrice = unitPrice;
+		this.regularUnitPrice = Math.max(regularUnitPrice, unitPrice);
 		this.weightGrams = weightGrams;
 		this.quantity = quantity;
 		this.lineTotal = Math.multiplyExact(unitPrice, (long) quantity);
@@ -58,6 +65,15 @@ public class OrderItem {
 
 	public long getUnitPrice() {
 		return unitPrice;
+	}
+
+	public long getRegularUnitPrice() {
+		return regularUnitPrice;
+	}
+
+	/** (regular − paid) × quantity */
+	public long getSaving() {
+		return Math.multiplyExact(regularUnitPrice - unitPrice, (long) quantity);
 	}
 
 	public int getWeightGrams() {

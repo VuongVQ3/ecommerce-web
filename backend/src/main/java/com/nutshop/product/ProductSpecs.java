@@ -1,7 +1,11 @@
 package com.nutshop.product;
 
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.time.Instant;
 import java.util.Locale;
 
 /**
@@ -24,5 +28,27 @@ final class ProductSpecs {
 	static Specification<Product> nameContains(String q) {
 		String pattern = "%" + q.trim().toLowerCase(Locale.ROOT) + "%";
 		return (root, query, cb) -> cb.like(cb.lower(root.get("name")), pattern);
+	}
+
+	/**
+	 * Orders by the price buyers pay now: COALESCE(running sale price, regular price), then by id for a stable order.
+	 * Adds no filter. Skipped for the count query of a page.
+	 */
+	static Specification<Product> orderByCurrentPrice(boolean ascending, Instant now) {
+		return (root, query, cb) -> {
+			Class<?> result = query.getResultType();
+			if (result == Long.class || result == long.class) {
+				return null;
+			}
+			Subquery<Long> sale = query.subquery(Long.class);
+			Root<ProductPromotion> promo = sale.from(ProductPromotion.class);
+			sale.select(promo.get("salePrice"))
+				.where(cb.equal(promo.get("productId"), root.get("id")), cb.isTrue(promo.get("active")),
+						cb.lessThanOrEqualTo(promo.get("startsAt"), now), cb.greaterThan(promo.get("endsAt"), now),
+						cb.lessThan(promo.<Long>get("salePrice"), root.<Long>get("price")));
+			Expression<Long> current = cb.coalesce(sale, root.<Long>get("price"));
+			query.orderBy(ascending ? cb.asc(current) : cb.desc(current), cb.asc(root.get("id")));
+			return null;
+		};
 	}
 }

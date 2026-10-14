@@ -6,10 +6,12 @@ import { useAuthForm } from '../auth/useAuthForm'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { Checkbox, FormError, PasswordChecklist, PasswordField, SubmitButton, TextField } from '../components/FormFields'
 import Modal from '../components/Modal'
+import { PriceTag } from '../components/Price'
 import { StatusBadge } from '../components/OrderDetails'
 import { useToast } from '../components/Toast'
 import { api, ApiError, type OrderStatus, type TrackedOrder } from '../lib/api'
 import { formatDateTime, formatPrice, formatWeight } from '../lib/format'
+import { orderSavings } from '../lib/pricing'
 import { removeRecentOrders, saveRecentOrder, trackingPath } from '../lib/recentOrders'
 import { loginUrl } from '../lib/redirect'
 import { useAsync } from '../lib/useAsync'
@@ -528,7 +530,8 @@ export default function TrackOrderPage() {
               <div className="min-w-0">
                 <p className="font-medium break-words text-stone-900">{item.productName}</p>
                 <p className="text-sm text-muted tabular-nums">
-                  {formatPrice(item.unitPrice)} × {item.quantity} · {formatWeight(item.weightGrams)}
+                  <PriceTag price={item.unitPrice} regularPrice={item.regularUnitPrice} className="text-sm font-normal" regularClassName="text-xs text-muted" />{' '}
+                  × {item.quantity} · {formatWeight(item.weightGrams)}
                 </p>
               </div>
               <p className="font-semibold text-stone-900 tabular-nums">{formatPrice(item.lineTotal)}</p>
@@ -540,6 +543,13 @@ export default function TrackOrderPage() {
             <dt className="text-stone-600">Tạm tính</dt>
             <dd className="tabular-nums">{formatPrice(order.subtotal)}</dd>
           </div>
+          {orderSavings(order.items) > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-stone-600">Tiết kiệm nhờ khuyến mại</dt>
+              <dd className="font-semibold text-success tabular-nums">{formatPrice(orderSavings(order.items))}</dd>
+            </div>
+          )}
+
           <div className="flex justify-between">
             <dt className="text-stone-600">Phí giao hàng</dt>
             <dd className="tabular-nums">{order.shippingFee === 0 ? 'Miễn phí' : formatPrice(order.shippingFee)}</dd>

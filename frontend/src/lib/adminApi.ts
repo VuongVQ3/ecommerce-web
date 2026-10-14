@@ -195,3 +195,60 @@ export const adminApi = {
   renameCategory: (id: number, name: string, slug: string) =>
     apiRequest<AdminCategory>(`/api/admin/categories/${id}`, put({ name, slug: slug || null })),
 }
+
+// ---- Promotions (ADMIN) ----
+
+export type PromotionStatus = 'UPCOMING' | 'RUNNING' | 'ENDED' | 'CANCELLED'
+
+export interface PromotionRow {
+  id: string
+  productId: number
+  productName: string
+  productSlug: string
+  /** Current regular price of the product */
+  regularPrice: number
+  salePrice: number
+  discountPercent: number
+  startsAt: string
+  /** Exclusive */
+  endsAt: string
+  status: PromotionStatus
+  /** Promotion days of this product in the current year */
+  productDaysThisYear: number
+}
+
+export interface PromotionUsage {
+  year: number
+  maxDaysPerYear: number
+  maxDiscountPercent: number
+  products: { id: number; name: string; price: number; active: boolean; daysUsed: number; runningSalePrice: number | null }[]
+}
+
+export interface PromotionInput {
+  productId: number
+  salePrice: number
+  startsAt: string
+  endsAt: string
+}
+
+export interface BulkPromotionResult {
+  productId: number
+  productName: string
+  ok: boolean
+  salePrice: number | null
+  promotionId: string | null
+  code: string | null
+  message: string | null
+}
+
+export const promotionApi = {
+  list: (signal?: AbortSignal) => apiRequest<PromotionRow[]>('/api/admin/promotions', { signal }),
+  usage: (year?: number, signal?: AbortSignal) =>
+    apiRequest<PromotionUsage>(`/api/admin/promotions/usage${year ? `?year=${year}` : ''}`, { signal }),
+  create: (input: PromotionInput) => apiRequest<PromotionRow>('/api/admin/promotions', post(input)),
+  update: (id: string, input: PromotionInput) =>
+    apiRequest<PromotionRow>(`/api/admin/promotions/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+  end: (id: string) => apiRequest<PromotionRow>(`/api/admin/promotions/${id}/end`, post()),
+  bulk: (input: { productIds: number[]; percentOff: number; startsAt: string; endsAt: string }) =>
+    apiRequest<BulkPromotionResult[]>('/api/admin/promotions/bulk', post(input)),
+}

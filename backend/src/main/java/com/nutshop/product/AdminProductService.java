@@ -82,9 +82,12 @@ public class AdminProductService {
 	private final ImageStorage storage;
 	private final AuditLog audit;
 	private final TransactionTemplate tx;
+	private final PromotionService promotions;
 
 	public AdminProductService(ProductRepository products, CategoryRepository categories,
-			ProductImageRepository images, ImageStorage storage, AuditLog audit, PlatformTransactionManager txManager) {
+			ProductImageRepository images, ImageStorage storage, AuditLog audit, PlatformTransactionManager txManager,
+			PromotionService promotions) {
+		this.promotions = promotions;
 		this.products = products;
 		this.categories = categories;
 		this.images = images;
@@ -128,7 +131,11 @@ public class AdminProductService {
 	@Transactional
 	public ProductAdminDetail update(long id, Long categoryId, String requestedSlug, Product.Details details,
 			UUID actorId) {
-		Product product = products.findById(id).orElseThrow(AdminProductService::productNotFound);
+		Product product = products.lockById(id).orElseThrow(AdminProductService::productNotFound);
+		if (details.price() != product.getPrice()) {
+			// A running or upcoming sale price must stay below the regular price
+			promotions.checkNewRegularPrice(id, details.price());
+		}
 		AuditView before = AuditView.of(product);
 		product.update(category(categoryId), slugFor(requestedSlug, details.name(), id), details);
 		audit.record(actorId, "PRODUCT_UPDATED", "PRODUCT", id, before, AuditView.of(product));

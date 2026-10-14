@@ -52,6 +52,7 @@ const EMPTY_VIEW: CartView = {
   items: [],
   totalQuantity: 0,
   subtotal: 0,
+  discountTotal: 0,
   shippingFee: 0,
   amountToFreeShipping: 0,
   freeShippingThreshold: 0,

@@ -2,6 +2,7 @@ package com.nutshop.site;
 
 import com.nutshop.common.Slugs;
 import com.nutshop.product.CategoryRepository;
+import com.nutshop.product.PricingService;
 import com.nutshop.product.ProductImageRepository;
 import com.nutshop.product.ProductRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,14 +30,16 @@ public class PageController {
 	private final ProductRepository products;
 	private final ProductImageRepository images;
 	private final CategoryRepository categories;
+	private final PricingService pricing;
 
 	public PageController(HtmlPages pages, PageMetaService meta, ProductRepository products,
-			ProductImageRepository images, CategoryRepository categories) {
+			ProductImageRepository images, CategoryRepository categories, PricingService pricing) {
 		this.pages = pages;
 		this.meta = meta;
 		this.products = products;
 		this.categories = categories;
 		this.images = images;
+		this.pricing = pricing;
 	}
 
 	@GetMapping({ "/", "/chinh-sach-doi-tra", "/chinh-sach-bao-mat", "/chinh-sach-van-chuyen", "/dieu-khoan-su-dung",
@@ -66,8 +69,8 @@ public class PageController {
 	public ResponseEntity<String> product(@PathVariable String slug, HttpServletRequest request) {
 		return products.findBySlug(slug)
 			.filter(p -> p.isActive())
-			.map(p -> pages.render(meta.product(p, images.findByProductIdOrderByPrimaryDescPositionAsc(p.getId())),
-					HttpStatus.OK))
+			.map(p -> pages.render(meta.product(p, images.findByProductIdOrderByPrimaryDescPositionAsc(p.getId()),
+					pricing.priceOf(p)), HttpStatus.OK))
 			.orElseGet(() -> pages.notFound(request.getRequestURI()));
 	}
 

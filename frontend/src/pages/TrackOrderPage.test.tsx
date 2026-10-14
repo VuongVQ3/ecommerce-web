@@ -27,7 +27,7 @@ const tracked: TrackedOrder = {
   ward: 'Phường Ba Đình',
   addressLine: '12 Phố Test',
   paymentMethod: 'COD',
-  items: [{ productId: 7, productName: 'Hạt chia Úc', unitPrice: 129_000, weightGrams: 500, quantity: 2, lineTotal: 258_000 }],
+  items: [{ productId: 7, productName: 'Hạt chia Úc', unitPrice: 129_000, regularUnitPrice: 129_000, weightGrams: 500, quantity: 2, lineTotal: 258_000 }],
   subtotal: 258_000,
   shippingFee: 30_000,
   total: 288_000,

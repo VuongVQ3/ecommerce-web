@@ -1,6 +1,7 @@
 package com.nutshop.site;
 
 import com.nutshop.product.Category;
+import com.nutshop.product.PricingService;
 import com.nutshop.product.Product;
 import com.nutshop.product.ProductImage;
 
@@ -82,9 +83,9 @@ public class PageMetaService {
 	 * "Hạnh nhân rang mộc 500g – 189.000₫ | Hạt Lành", the description cut to 155 characters, the primary image and
 	 * schema.org Product + BreadcrumbList.
 	 */
-	public PageMeta product(Product p, List<ProductImage> images) {
+	public PageMeta product(Product p, List<ProductImage> images, PricingService.Price current) {
 		String path = "/san-pham/" + p.getSlug();
-		String title = p.getName() + " " + weight(p.getWeightGrams()) + " – " + price(p.getPrice()) + " | " + BRAND;
+		String title = p.getName() + " " + weight(p.getWeightGrams()) + " – " + price(current.price()) + " | " + BRAND;
 		List<String> imageUrls = images.stream().map(i -> ogImage(i.getUrl())).toList();
 		if (imageUrls.isEmpty() && p.getImageUrl() != null) {
 			imageUrls = List.of(ogImage(p.getImageUrl()));
@@ -95,7 +96,10 @@ public class PageMetaService {
 		Map<String, Object> offer = new LinkedHashMap<>();
 		offer.put("@type", "Offer");
 		offer.put("url", site.absolute(path));
-		offer.put("price", p.getPrice());
+		offer.put("price", current.price());
+		if (current.promotionEndsAt() != null) {
+			offer.put("priceValidUntil", current.promotionEndsAt().atZone(PricingService.VIETNAM).toLocalDate().toString());
+		}
 		offer.put("priceCurrency", "VND");
 		offer.put("availability", inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock");
 		offer.put("itemCondition", "https://schema.org/NewCondition");

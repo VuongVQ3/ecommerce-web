@@ -14,6 +14,8 @@ import com.nutshop.order.OrderDtos.OrderSummary;
 import com.nutshop.order.OrderDtos.PlaceOrderRequest;
 import com.nutshop.order.OrderDtos.Shortage;
 import com.nutshop.order.OrderDtos.StatusChange;
+import com.nutshop.product.PricingService;
+import com.nutshop.product.PricingService.Price;
 import com.nutshop.product.Product;
 import com.nutshop.product.ProductRepository;
 import com.nutshop.user.PhoneNumbers;
@@ -82,6 +84,7 @@ public class OrderService {
 	private final AdminUnits adminUnits;
 	private final OrderEmails emails;
 	private final OrderAccessTokens accessTokens;
+	private final PricingService pricing;
 	private final EmailSender emailSender;
 	private final TaskExecutor executor;
 	private final TransactionTemplate tx;
@@ -89,7 +92,7 @@ public class OrderService {
 
 	public OrderService(OrderRepository orders, OrderStatusHistoryRepository history, ProductRepository products,
 			InventoryService inventory, CartService carts, CartProperties cartProps, AdminUnits adminUnits,
-			OrderEmails emails, OrderAccessTokens accessTokens, EmailSender emailSender,
+			OrderEmails emails, OrderAccessTokens accessTokens, PricingService pricing, EmailSender emailSender,
 			@Qualifier("applicationTaskExecutor") TaskExecutor executor,
 			PlatformTransactionManager txManager, Clock clock) {
 		this.orders = orders;
@@ -101,6 +104,7 @@ public class OrderService {
 		this.adminUnits = adminUnits;
 		this.emails = emails;
 		this.accessTokens = accessTokens;
+		this.pricing = pricing;
 		this.emailSender = emailSender;
 		this.executor = executor;
 		this.tx = new TransactionTemplate(txManager);
@@ -170,6 +174,7 @@ public class OrderService {
 		Map<Long, Product> found = products.findByIdIn(wanted.keySet())
 			.stream()
 			.collect(Collectors.toMap(Product::getId, Function.identity()));
+		Map<Long, Price> prices = pricing.pricesOf(found.values());
 		wanted.forEach((productId, quantity) -> {
 			if (quantity > cartProps.maxQtyPerItem()) {
 				Product p = found.get(productId);
@@ -189,8 +194,11 @@ public class OrderService {
 				shortages.add(new Shortage(entry.getKey(), p == null ? MISSING_PRODUCT : p.getName(), entry.getValue(), 0));
 				continue;
 			}
-			order.addItem(p.getId(), p.getName(), p.getPrice(), p.getWeightGrams(), entry.getValue());
-			subtotal += Math.multiplyExact(p.getPrice(), (long) entry.getValue());
+			// The server's price at this moment (sale price during a promotion); anything the client sent is ignored
+			Price price = prices.get(p.getId());
+			order.addItem(p.getId(), p.getName(), price.price(), price.regularPrice(), p.getWeightGrams(),
+					entry.getValue());
+			subtotal += Math.multiplyExact(price.price(), (long) entry.getValue());
 		}
 		order.setTotals(subtotal, cartProps.shippingFeeFor(subtotal));
 		orders.saveAndFlush(order);

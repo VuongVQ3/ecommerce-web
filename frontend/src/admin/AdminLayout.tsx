@@ -9,6 +9,7 @@ const NAV: { to: string; label: string; icon: string; roles: Role[]; end?: boole
   { to: '/admin/kho', label: 'Tồn kho', icon: '📦', roles: ['STAFF', 'ADMIN'] },
   { to: '/admin/san-pham', label: 'Sản phẩm', icon: '🌰', roles: ['ADMIN'] },
   { to: '/admin/danh-muc', label: 'Danh mục', icon: '🗂️', roles: ['ADMIN'] },
+  { to: '/admin/khuyen-mai', label: 'Khuyến mại', icon: '🏷️', roles: ['ADMIN'] },
 ]
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>

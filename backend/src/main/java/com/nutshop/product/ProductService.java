@@ -26,13 +26,15 @@ public class ProductService {
 	private final CategoryRepository categories;
 	private final CartProperties cartProps;
 	private final ProductImageRepository images;
+	private final PricingService pricing;
 
 	public ProductService(ProductRepository products, CategoryRepository categories, CartProperties cartProps,
-			ProductImageRepository images) {
+			ProductImageRepository images, PricingService pricing) {
 		this.products = products;
 		this.categories = categories;
 		this.cartProps = cartProps;
 		this.images = images;
+		this.pricing = pricing;
 	}
 
 	public List<CategoryResponse> listCategories() {
@@ -41,8 +43,14 @@ public class ProductService {
 
 	/** Catalogue listing: discontinued products are hidden (their pages stay reachable by slug). */
 	public PageResponse<ProductSummary> search(String category, String q, String sort, int page, int size) {
-		var pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, MAX_PAGE_SIZE), toSort(sort));
+		boolean byPrice = "price_asc".equals(sort) || "price_desc".equals(sort);
+		// Price sorts use the current (possibly discounted) price, ordered inside the query
+		var pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, MAX_PAGE_SIZE),
+				byPrice ? Sort.unsorted() : toSort(sort));
 		List<Specification<Product>> filters = new ArrayList<>();
+		if (byPrice) {
+			filters.add(ProductSpecs.orderByCurrentPrice("price_asc".equals(sort), pricing.now()));
+		}
 		filters.add(ProductSpecs.active());
 		if (StringUtils.hasText(category)) {
 			filters.add(ProductSpecs.inCategory(category));
@@ -51,7 +59,9 @@ public class ProductService {
 			filters.add(ProductSpecs.nameContains(q));
 		}
 		var result = products.findAll(Specification.allOf(filters), pageable);
-		return PageResponse.from(result.map(p -> ProductSummary.from(p, cartProps.maxQtyPerItem())));
+		var prices = pricing.pricesOf(result.getContent());
+		return PageResponse
+			.from(result.map(p -> ProductSummary.from(p, cartProps.maxQtyPerItem(), prices.get(p.getId()))));
 	}
 
 	/** Hidden products are not found on the storefront (orders and carts keep their own snapshot). */
@@ -59,14 +69,12 @@ public class ProductService {
 		return products.findBySlug(slug)
 			.filter(Product::isActive)
 			.map(p -> ProductDetail.from(p, cartProps.maxQtyPerItem(),
-					images.findByProductIdOrderByPrimaryDescPositionAsc(p.getId())))
+					images.findByProductIdOrderByPrimaryDescPositionAsc(p.getId()), pricing.priceOf(p)))
 			.orElseThrow(() -> new NotFoundException("Không tìm thấy sản phẩm"));
 	}
 
 	private static Sort toSort(String sort) {
 		return switch (sort == null ? "" : sort) {
-			case "price_asc" -> Sort.by("price").ascending();
-			case "price_desc" -> Sort.by("price").descending();
 			case "calories_asc" -> Sort.by("calories").ascending();
 			case "protein_desc" -> Sort.by("protein").descending();
 			default -> Sort.by("id").ascending();

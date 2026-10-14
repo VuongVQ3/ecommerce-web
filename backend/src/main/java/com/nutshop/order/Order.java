@@ -103,8 +103,14 @@ public class Order {
 			String addressLine) {
 	}
 
-	public void addItem(Long productId, String productName, long unitPrice, int weightGrams, int quantity) {
-		items.add(new OrderItem(this, productId, productName, unitPrice, weightGrams, quantity));
+	public void addItem(Long productId, String productName, long unitPrice, long regularUnitPrice, int weightGrams,
+			int quantity) {
+		items.add(new OrderItem(this, productId, productName, unitPrice, regularUnitPrice, weightGrams, quantity));
+	}
+
+	/** Σ of what promotions took off this order (0 when nothing was discounted). */
+	public long getSavings() {
+		return items.stream().mapToLong(OrderItem::getSaving).sum();
 	}
 
 	/** Totals come only from the snapshotted lines plus the server-side shipping fee. */

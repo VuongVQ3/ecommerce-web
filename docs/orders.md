@@ -91,6 +91,13 @@ Việt Nam đã bỏ cấp quận/huyện, nên địa chỉ gồm **34 tỉnh/t
 
 Cột `orders.district` vẫn giữ (cho phép để trống) để dùng cho địa chỉ kiểu cũ nếu cần.
 
+## Giá trong đơn hàng (V12)
+
+Giá mỗi dòng lấy từ `PricingService` lúc đặt hàng (xem [pricing.md](pricing.md)): `order_items.unit_price` là giá thực
+trả (giá khuyến mại nếu đang có), `order_items.regular_unit_price` là giá gốc lúc mua (đơn cũ được gán bằng
+`unit_price`). API đơn hàng trả `regularUnitPrice` cho từng dòng; trang đơn hàng, trang theo dõi và email xác nhận hiện
+giá gốc gạch ngang và tổng số tiền tiết kiệm.
+
 ## Database (V9, V11)
 
 V11 thêm `order_access_tokens` (hash token theo dõi, hạn), `users.email_verified_at`, `email_verification_tokens` và index `lower(email)` cho đơn chưa gắn tài khoản.

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useToast } from '../components/Toast'
 import { useCart, type CartProductRef } from './CartContext'
+import { announceAdded } from './quickCartEvents'
 
 interface Props {
   product: CartProductRef & { active?: boolean }
@@ -43,11 +44,15 @@ export default function AddToCartButton({ product, quantity = 1, variant = 'card
     setPending(true)
     try {
       const { warning } = await addItem(product, quantity)
-      toast({
-        tone: 'success',
-        message: warning ?? `Đã thêm ${product.name} vào giỏ`,
-        action: { label: 'Xem giỏ hàng', onClick: openDrawer },
-      })
+      // Desktop with a mouse: the header's quick cart shows the addition instead of a toast.
+      // Warnings ("Chỉ còn N sản phẩm") are always shown as a toast.
+      if (warning || !announceAdded()) {
+        toast({
+          tone: 'success',
+          message: warning ?? `Đã thêm ${product.name} vào giỏ`,
+          action: { label: 'Xem giỏ hàng', onClick: openDrawer },
+        })
+      }
       onAdded?.()
     } catch (err) {
       toast({ tone: 'error', message: err instanceof Error ? err.message : 'Không thêm được vào giỏ hàng' })

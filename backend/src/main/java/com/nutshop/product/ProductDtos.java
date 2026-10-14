@@ -1,6 +1,7 @@
 package com.nutshop.product;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -51,13 +52,21 @@ public final class ProductDtos {
 		}
 	}
 
-	public record ProductSummary(Long id, String name, String slug, Long price, Integer weightGrams,
-			String imageUrl, BigDecimal calories, BigDecimal protein, StockStatus stockStatus, int maxPurchasable,
+	/**
+	 * @param price what the buyer pays now (sale price during a promotion), see PricingService
+	 * @param regularPrice the usual price; equal to price when not discounted
+	 * @param discountPercent null when not discounted
+	 * @param promotionEndsAt null when not discounted
+	 */
+	public record ProductSummary(Long id, String name, String slug, Long price, Long regularPrice,
+			Integer discountPercent, Instant promotionEndsAt, Integer weightGrams, String imageUrl,
+			BigDecimal calories, BigDecimal protein, StockStatus stockStatus, int maxPurchasable,
 			CategoryResponse category) {
 
-		static ProductSummary from(Product p, int maxQtyPerItem) {
-			return new ProductSummary(p.getId(), p.getName(), p.getSlug(), p.getPrice(), p.getWeightGrams(),
-					p.getImageUrl(), p.getCalories(), p.getProtein(), StockStatus.of(p), softMax(p, maxQtyPerItem),
+		static ProductSummary from(Product p, int maxQtyPerItem, PricingService.Price price) {
+			return new ProductSummary(p.getId(), p.getName(), p.getSlug(), price.price(), price.regularPrice(),
+					price.discountPercent(), price.promotionEndsAt(), p.getWeightGrams(), p.getImageUrl(),
+					p.getCalories(), p.getProtein(), StockStatus.of(p), softMax(p, maxQtyPerItem),
 					CategoryResponse.from(p.getCategory()));
 		}
 	}
@@ -74,12 +83,14 @@ public final class ProductDtos {
 	 * @param images primary first; empty = emoji placeholder
 	 */
 	public record ProductDetail(Long id, String name, String slug, String description, String origin, Long price,
-			Integer weightGrams, boolean active, StockStatus stockStatus, int maxPurchasable, String imageUrl,
-			List<ImageResponse> images, Nutrition nutritionPer100g, CategoryResponse category) {
+			Long regularPrice, Integer discountPercent, Instant promotionEndsAt, Integer weightGrams, boolean active,
+			StockStatus stockStatus, int maxPurchasable, String imageUrl, List<ImageResponse> images,
+			Nutrition nutritionPer100g, CategoryResponse category) {
 
-		static ProductDetail from(Product p, int maxQtyPerItem, List<ProductImage> images) {
+		static ProductDetail from(Product p, int maxQtyPerItem, List<ProductImage> images, PricingService.Price price) {
 			return new ProductDetail(p.getId(), p.getName(), p.getSlug(), p.getDescription(), p.getOrigin(),
-					p.getPrice(), p.getWeightGrams(), p.isActive(), StockStatus.of(p), softMax(p, maxQtyPerItem),
+					price.price(), price.regularPrice(), price.discountPercent(), price.promotionEndsAt(),
+					p.getWeightGrams(), p.isActive(), StockStatus.of(p), softMax(p, maxQtyPerItem),
 					p.getImageUrl(),
 					images.stream().map(i -> new ImageResponse(i.getUrl(), i.getWidth(), i.getHeight())).toList(),
 					new Nutrition(p.getCalories(), p.getProtein(), p.getFat(), p.getCarbs(), p.getFiber()),

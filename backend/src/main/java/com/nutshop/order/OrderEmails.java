@@ -29,24 +29,33 @@ class OrderEmails {
 	EmailMessage confirmation(Order order, String link) {
 		String rowsHtml = order.getItems()
 			.stream()
-			.map(i -> "<tr><td style=\"padding:6px 0\">%s × %d</td><td style=\"padding:6px 0;text-align:right\">%s</td></tr>"
-				.formatted(esc(i.getProductName()), i.getQuantity(), money(i.getLineTotal())))
+			.map(i -> "<tr><td style=\"padding:6px 0\">%s × %d</td><td style=\"padding:6px 0;text-align:right\">%s%s</td></tr>"
+				.formatted(esc(i.getProductName()), i.getQuantity(), i.getSaving() > 0
+						? "<s style=\"color:#78716c;font-size:13px\">"
+								+ money(Math.multiplyExact(i.getRegularUnitPrice(), (long) i.getQuantity())) + "</s> "
+						: "", money(i.getLineTotal())))
 			.collect(Collectors.joining());
 		String rowsText = order.getItems()
 			.stream()
 			.map(i -> "- %s × %d: %s".formatted(i.getProductName(), i.getQuantity(), money(i.getLineTotal())))
 			.collect(Collectors.joining("\n"));
+		long savings = order.getSavings();
+		String savingsHtml = savings > 0
+				? "<tr><td style=\"padding:6px 0;color:#2f6b2a\">Bạn đã tiết kiệm</td>"
+						+ "<td style=\"padding:6px 0;text-align:right;color:#2f6b2a\">" + money(savings) + "</td></tr>"
+				: "";
+		String savingsText = savings > 0 ? "Bạn đã tiết kiệm: " + money(savings) + "\n" : "";
 		String address = address(order);
 
 		String html = WRAP.formatted("""
 				<p>Xin chào %s,</p>
 				<p>Cảm ơn bạn đã đặt hàng tại Hạt Lành. Mã đơn của bạn là <strong>%s</strong>.</p>
-				<table style="width:100%%;border-collapse:collapse;border-top:1px solid #e7e5e4">%s
+				<table style="width:100%%;border-collapse:collapse;border-top:1px solid #e7e5e4">%s%s
 				  <tr><td style="padding:6px 0;border-top:1px solid #e7e5e4">Phí giao hàng</td><td style="padding:6px 0;text-align:right;border-top:1px solid #e7e5e4">%s</td></tr>
 				  <tr><td style="padding:6px 0"><strong>Tổng thanh toán khi nhận hàng</strong></td><td style="padding:6px 0;text-align:right"><strong>%s</strong></td></tr>
 				</table>
 				<p>Giao tới: %s, %s<br>%s</p>
-				%s""".formatted(esc(order.getCustomerName()), esc(order.getCode()), rowsHtml,
+				%s""".formatted(esc(order.getCustomerName()), esc(order.getCode()), rowsHtml, savingsHtml,
 				money(order.getShippingFee()), money(order.getTotal()), esc(order.getCustomerName()),
 				esc(order.getPhone()), esc(address), button(order, link)));
 		String text = """
@@ -55,13 +64,14 @@ class OrderEmails {
 				Cảm ơn bạn đã đặt hàng tại Hạt Lành. Mã đơn: %s
 
 				%s
-				Phí giao hàng: %s
+				%sPhí giao hàng: %s
 				Tổng thanh toán khi nhận hàng: %s
 
 				Giao tới: %s, %s
 				%s
 
-				%s""".formatted(order.getCustomerName(), order.getCode(), rowsText, money(order.getShippingFee()),
+				%s""".formatted(order.getCustomerName(), order.getCode(), rowsText, savingsText,
+				money(order.getShippingFee()),
 				money(order.getTotal()), order.getCustomerName(), order.getPhone(), address, linkText(order, link));
 		return new EmailMessage(order.getEmail(), "Xác nhận đơn hàng " + order.getCode() + " - Hạt Lành", html, text);
 	}

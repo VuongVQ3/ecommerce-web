@@ -75,17 +75,22 @@ public final class CartDtos {
 	 * @param requestedQuantity quantity stored in the cart
 	 * @param lineTotal price x quantity, 0 for lines that cannot be bought
 	 */
+	/**
+	 * @param price current unit price (sale price during a promotion)
+	 * @param regularPrice the regular unit price when discounted, otherwise null
+	 */
 	public record CartLine(Long productId, String name, String slug, String imageUrl, String categorySlug,
-			Integer weightGrams, long price, Long priceAtAdd, int quantity, int requestedQuantity, int maxPurchasable,
-			long lineTotal, LineStatus status) {
+			Integer weightGrams, long price, Long regularPrice, Long priceAtAdd, int quantity, int requestedQuantity,
+			int maxPurchasable, long lineTotal, LineStatus status) {
 	}
 
 	/**
+	 * @param discountTotal Σ (regular − sale price) × quantity: shown as "Đã giảm"
 	 * @param amountToFreeShipping how much more to spend for free shipping (0 when already free or cart is empty)
 	 * @param canCheckout false when empty or any line is OUT_OF_STOCK / UNAVAILABLE
 	 */
-	public record CartView(List<CartLine> items, int totalQuantity, long subtotal, long shippingFee,
-			long amountToFreeShipping, long freeShippingThreshold, long total, boolean canCheckout) {
+	public record CartView(List<CartLine> items, int totalQuantity, long subtotal, long discountTotal,
+			long shippingFee, long amountToFreeShipping, long freeShippingThreshold, long total, boolean canCheckout) {
 	}
 
 	/** A non-blocking notice, e.g. the quantity was capped at what is available. */

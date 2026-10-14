@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import ProductImage from '../components/ProductImage'
 import { useToast } from '../components/Toast'
 import type { CartLine, CartView } from '../lib/api'
+import { PriceTag } from '../components/Price'
 import { formatPrice } from '../lib/format'
 import { useCart } from './CartContext'
 import QuantityStepper from './QuantityStepper'
@@ -81,10 +82,13 @@ function Line({ line, onNavigate, highlighted }: { line: CartLine; onNavigate?: 
           </button>
         </div>
         <p className="mt-0.5 text-sm tabular-nums">
-          {line.status === 'PRICE_CHANGED' && line.priceAtAdd != null && (
-            <s className="mr-2 text-muted">{formatPrice(line.priceAtAdd)}</s>
+          {line.status === 'PRICE_CHANGED' && line.priceAtAdd != null && line.priceAtAdd !== line.regularPrice && (
+            <s className="mr-2 text-muted">
+              <span className="sr-only">Giá lúc thêm vào giỏ </span>
+              {formatPrice(line.priceAtAdd)}
+            </s>
           )}
-          <span className="text-stone-800">{formatPrice(line.price)}</span>
+          <PriceTag price={line.price} regularPrice={line.regularPrice} className="text-sm" regularClassName="text-xs text-muted" />
         </p>
         {note && (
           <p className={`mt-1 text-xs ${blocked ? 'text-danger' : 'text-amber-800'}`} role="note">
@@ -135,6 +139,21 @@ export function CartSummary({ view, onCheckout }: { view: CartView; onCheckout: 
   const reasonId = useId()
   return (
     <div className="space-y-2 text-sm">
+      {view.discountTotal > 0 && (
+        <>
+          <div className="flex justify-between">
+            <span className="text-stone-600">Giá gốc</span>
+            <s className="tabular-nums text-muted">
+              <span className="sr-only">Giá gốc </span>
+              {formatPrice(view.subtotal + view.discountTotal)}
+            </s>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-stone-600">Đã giảm</span>
+            <span className="font-semibold text-success tabular-nums">−{formatPrice(view.discountTotal)}</span>
+          </div>
+        </>
+      )}
       <div className="flex justify-between">
         <span className="text-stone-600">Tạm tính</span>
         <span className="font-semibold tabular-nums">{formatPrice(view.subtotal)}</span>

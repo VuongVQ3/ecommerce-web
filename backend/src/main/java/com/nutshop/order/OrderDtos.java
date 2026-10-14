@@ -49,12 +49,13 @@ public final class OrderDtos {
 			@Size(min = 8, max = 100, message = "Mã chống gửi trùng không hợp lệ") String idempotencyKey) {
 	}
 
-	public record OrderItemResponse(Long productId, String productName, long unitPrice, int weightGrams, int quantity,
-			long lineTotal) {
+	/** @param regularUnitPrice the regular price at purchase time (higher than unitPrice when discounted) */
+	public record OrderItemResponse(Long productId, String productName, long unitPrice, long regularUnitPrice,
+			int weightGrams, int quantity, long lineTotal) {
 
 		static OrderItemResponse from(OrderItem i) {
-			return new OrderItemResponse(i.getProductId(), i.getProductName(), i.getUnitPrice(), i.getWeightGrams(),
-					i.getQuantity(), i.getLineTotal());
+			return new OrderItemResponse(i.getProductId(), i.getProductName(), i.getUnitPrice(),
+					i.getRegularUnitPrice(), i.getWeightGrams(), i.getQuantity(), i.getLineTotal());
 		}
 	}
 

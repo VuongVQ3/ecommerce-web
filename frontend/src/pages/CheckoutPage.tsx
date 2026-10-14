@@ -6,6 +6,7 @@ import { useAuthForm } from '../auth/useAuthForm'
 import { useCart } from '../cart/CartContext'
 import { Spinner } from '../components/Feedback'
 import { FormError, SelectField, SubmitButton, TextField } from '../components/FormFields'
+import { PriceTag } from '../components/Price'
 import ProductImage from '../components/ProductImage'
 import { useProvinces } from '../lib/adminUnits'
 import { api, type CartView, type Shortage } from '../lib/api'
@@ -70,7 +71,8 @@ function Summary({ view }: { view: CartView }) {
             <div className="min-w-0 flex-1">
               <p className="font-medium break-words text-stone-900">{line.name}</p>
               <p className="text-muted tabular-nums">
-                {formatPrice(line.price)} × {line.quantity}
+                <PriceTag price={line.price} regularPrice={line.regularPrice} className="text-sm font-normal" regularClassName="text-xs text-muted" />{' '}
+                × {line.quantity}
               </p>
             </div>
             <span className="shrink-0 font-semibold tabular-nums">{formatPrice(line.lineTotal)}</span>
@@ -78,6 +80,23 @@ function Summary({ view }: { view: CartView }) {
         ))}
       </ul>
       <dl className="mt-2 space-y-1.5 border-t border-stone-100 pt-3 text-sm">
+        {view.discountTotal > 0 && (
+          <>
+            <div className="flex justify-between">
+              <dt className="text-stone-600">Giá gốc</dt>
+              <dd>
+                <s className="tabular-nums text-muted">
+                  <span className="sr-only">Giá gốc </span>
+                  {formatPrice(view.subtotal + view.discountTotal)}
+                </s>
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-stone-600">Đã giảm</dt>
+              <dd className="font-semibold text-success tabular-nums">−{formatPrice(view.discountTotal)}</dd>
+            </div>
+          </>
+        )}
         <div className="flex justify-between">
           <dt className="text-stone-600">Tạm tính</dt>
           <dd className="tabular-nums">{formatPrice(view.subtotal)}</dd>

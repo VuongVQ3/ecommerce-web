@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import type { Order, OrderStatus } from '../lib/api'
+import { orderSavings } from '../lib/pricing'
+import { PriceTag } from './Price'
 import { formatDateTime, formatPrice, formatWeight } from '../lib/format'
 
 const STATUS_STYLE: Record<OrderStatus, string> = {
@@ -20,6 +22,7 @@ export function StatusBadge({ status, label }: { status: OrderStatus; label: str
 
 /** Full order view shared by the success page, "my orders" and guest lookup. `actions` renders under the header. */
 export default function OrderDetails({ order, actions }: { order: Order; actions?: ReactNode }) {
+  const savings = orderSavings(order.items)
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -42,7 +45,8 @@ export default function OrderDetails({ order, actions }: { order: Order; actions
               <div className="min-w-0">
                 <p className="font-medium break-words text-stone-900">{item.productName}</p>
                 <p className="text-muted tabular-nums">
-                  {formatPrice(item.unitPrice)} × {item.quantity} · {formatWeight(item.weightGrams)}
+                  <PriceTag price={item.unitPrice} regularPrice={item.regularUnitPrice} className="text-sm font-normal" regularClassName="text-xs text-muted" />{' '}
+                  × {item.quantity} · {formatWeight(item.weightGrams)}
                 </p>
               </div>
               <span className="shrink-0 font-semibold tabular-nums">{formatPrice(item.lineTotal)}</span>
@@ -54,6 +58,13 @@ export default function OrderDetails({ order, actions }: { order: Order; actions
             <dt className="text-stone-600">Tạm tính</dt>
             <dd className="tabular-nums">{formatPrice(order.subtotal)}</dd>
           </div>
+          {savings > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-stone-600">Tiết kiệm nhờ khuyến mại</dt>
+              <dd className="font-semibold text-success tabular-nums">{formatPrice(savings)}</dd>
+            </div>
+          )}
+
           <div className="flex justify-between">
             <dt className="text-stone-600">Phí giao hàng</dt>
             <dd className="tabular-nums">{order.shippingFee === 0 ? 'Miễn phí' : formatPrice(order.shippingFee)}</dd>

@@ -4,11 +4,22 @@ export interface Category {
   slug: string
 }
 
-export interface ProductSummary {
+/** Sale price fields (see docs/pricing.md): price is what the buyer pays now. */
+export interface Pricing {
+  /** Current price: the sale price during a promotion */
+  price: number
+  /** Usual price; equal to price when not discounted */
+  regularPrice: number
+  /** Whole percent, null when not discounted */
+  discountPercent: number | null
+  /** End of the running promotion (exclusive), null when not discounted */
+  promotionEndsAt: string | null
+}
+
+export interface ProductSummary extends Pricing {
   id: number
   name: string
   slug: string
-  price: number
   weightGrams: number
   imageUrl: string | null
   calories: number
@@ -42,13 +53,12 @@ export interface Nutrition {
   fiber: number
 }
 
-export interface ProductDetail {
+export interface ProductDetail extends Pricing {
   id: number
   name: string
   slug: string
   description: string
   origin: string | null
-  price: number
   weightGrams: number
   /** False when discontinued: the page stays visible but the product cannot be bought. */
   active: boolean
@@ -111,7 +121,10 @@ export interface CartLine {
   imageUrl: string | null
   categorySlug: string | null
   weightGrams: number | null
+  /** Current unit price (sale price during a promotion) */
   price: number
+  /** Regular unit price when discounted, otherwise null */
+  regularPrice: number | null
   /** Price when added (signed-in carts only); differs from price when status is PRICE_CHANGED. */
   priceAtAdd: number | null
   /** Quantity counted in totals (may be lower than requestedQuantity). */
@@ -126,6 +139,8 @@ export interface CartView {
   items: CartLine[]
   totalQuantity: number
   subtotal: number
+  /** Σ (regular − sale price) × quantity: "Đã giảm" */
+  discountTotal: number
   shippingFee: number
   amountToFreeShipping: number
   freeShippingThreshold: number
@@ -160,7 +175,10 @@ export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'SHIPPING' | 'COMPLETED' | '
 export interface OrderItem {
   productId: number
   productName: string
+  /** What the buyer paid per unit */
   unitPrice: number
+  /** Regular price at purchase time (higher than unitPrice when discounted) */
+  regularUnitPrice: number
   weightGrams: number
   quantity: number
   lineTotal: number

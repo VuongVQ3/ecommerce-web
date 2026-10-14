@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { useCart } from '../cart/CartContext'
 import CartDrawer from '../cart/CartDrawer'
+import QuickCart from '../cart/QuickCart'
 import { LOGIN_PATH, REGISTER_PATH } from '../lib/redirect'
+import { FINE_POINTER, useMediaQuery } from '../lib/media'
 import { useRecentOrders } from '../lib/recentOrders'
 import { telHref, useSiteInfo } from '../lib/siteInfo'
 import { useFocusTrap } from '../lib/useFocusTrap'
@@ -37,8 +39,17 @@ function SearchBox({ className = '', autoFocus = false }: { className?: string; 
   )
 }
 
-/** Header cart icon with item count; opens the cart drawer (which returns focus here when closed). */
+/**
+ * Desktop with a mouse: the icon links to /gio-hang and hovering it previews the cart (QuickCart).
+ * Touch screens: the icon opens the cart drawer, as before.
+ */
 function CartButton() {
+  const finePointer = useMediaQuery(FINE_POINTER)
+  return finePointer ? <QuickCart /> : <DrawerCartButton />
+}
+
+/** Header cart icon with item count; opens the cart drawer (which returns focus here when closed). */
+function DrawerCartButton() {
   const { count, openDrawer } = useCart()
   const label = count > 0 ? `Giỏ hàng, ${count} sản phẩm` : 'Giỏ hàng trống'
   return (
@@ -385,8 +396,28 @@ const ROUTE_TITLES: [RegExp, string][] = [
   [/^\/tai-khoan(\/|$)/, `Tài khoản | ${BRAND}`],
 ]
 
+/**
+ * Publishes the header's real height as the CSS variable --header-h (kept up to date when it changes, e.g. the
+ * mobile search row opens), so sticky bars sit right under it without hard-coded pixels.
+ */
+function useHeaderHeight() {
+  const ref = useRef<HTMLElement>(null)
+  useLayoutEffect(() => {
+    const header = ref.current
+    if (!header) return
+    const publish = () => document.documentElement.style.setProperty('--header-h', `${header.offsetHeight}px`)
+    publish()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(publish)
+    observer.observe(header)
+    return () => observer.disconnect()
+  }, [])
+  return ref
+}
+
 export default function Layout() {
   const { pathname } = useLocation()
+  const headerRef = useHeaderHeight()
   useEffect(() => {
     const match = ROUTE_TITLES.find(([pattern]) => pattern.test(pathname))
     if (match) document.title = match[1]
@@ -404,7 +435,7 @@ export default function Layout() {
       >
         Bỏ qua đến nội dung chính
       </a>
-      <header className="sticky top-0 z-20 border-b border-stone-200 bg-cream/90 backdrop-blur">
+      <header ref={headerRef} className="sticky top-0 z-20 border-b border-stone-200 bg-cream/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2.5 md:gap-6 md:py-3">
           <Link to="/" className="mr-auto flex shrink-0 items-center gap-2 text-xl font-extrabold text-brand-800 md:mr-0">
             <span aria-hidden="true">🌰</span> Hạt Lành

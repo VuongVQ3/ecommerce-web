@@ -1,6 +1,6 @@
 import { StrictMode, type ComponentType } from 'react'
 import { createRoot } from 'react-dom/client'
-import { createBrowserRouter, Outlet, RouterProvider } from 'react-router'
+import { createBrowserRouter, Outlet, RouterProvider, ScrollRestoration } from 'react-router'
 import { AuthProvider } from './auth/AuthContext'
 import RequireAuth from './auth/RequireAuth'
 import { RequireRole } from './admin/RequireRole'
@@ -33,6 +33,8 @@ const router = createBrowserRouter([
     element: (
       <AuthProvider>
         <ToastProvider>
+          {/* New page → top; Back/Forward → where the visitor was (positions kept per history entry) */}
+          <ScrollRestoration />
           <RecentOrdersSync />
           <Outlet />
         </ToastProvider>
@@ -59,6 +61,7 @@ const router = createBrowserRouter([
                   { path: 'san-pham/moi', lazy: page(() => import('./admin/ProductFormPage')) },
                   { path: 'san-pham/:id', lazy: page(() => import('./admin/ProductFormPage')) },
                   { path: 'danh-muc', lazy: page(() => import('./admin/CategoriesPage')) },
+                  { path: 'khuyen-mai', lazy: page(() => import('./admin/PromotionsPage')) },
                 ],
               },
               { path: '*', element: <NotFoundPage /> },

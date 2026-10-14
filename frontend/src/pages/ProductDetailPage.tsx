@@ -3,9 +3,10 @@ import { Link, useParams } from 'react-router'
 import AddToCartButton from '../cart/AddToCartButton'
 import QuantityStepper from '../cart/QuantityStepper'
 import { ErrorMessage, Spinner } from '../components/Feedback'
+import { DiscountBadge, PriceTag } from '../components/Price'
 import ProductImage from '../components/ProductImage'
 import { api, ApiError, type Nutrition, type ProductDetail } from '../lib/api'
-import { formatPrice, formatWeight } from '../lib/format'
+import { formatLastDay, formatPrice, formatWeight } from '../lib/format'
 import { stockLabel } from '../lib/images'
 import { useAsync } from '../lib/useAsync'
 import { BRAND, usePageMeta } from '../lib/usePageMeta'
@@ -127,10 +128,22 @@ export default function ProductDetailPage() {
 
         <div>
           <h1 className="text-3xl font-bold text-stone-900 md:text-4xl">{product.name}</h1>
-          <p className="mt-4 text-3xl font-extrabold text-brand-700">
-            {formatPrice(product.price)}
-            <span className="ml-2 text-base font-medium text-muted">/ {formatWeight(product.weightGrams)}</span>
-          </p>
+          <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <PriceTag
+              price={product.price}
+              regularPrice={product.regularPrice}
+              className="text-3xl font-extrabold"
+              regularClassName="text-lg text-muted"
+            />
+            <span className="text-base font-medium text-muted">/ {formatWeight(product.weightGrams)}</span>
+            <DiscountBadge percent={product.discountPercent} />
+          </div>
+          {product.discountPercent && product.promotionEndsAt && (
+            <p className="mt-2 text-sm text-stone-700">
+              <span className="font-semibold text-success">Tiết kiệm {formatPrice(product.regularPrice - product.price)}</span>
+              {' · '}Khuyến mại đến hết {formatLastDay(product.promotionEndsAt)}
+            </p>
+          )}
 
           <dl className="mt-6 grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-xl bg-white p-3">
