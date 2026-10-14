@@ -3,6 +3,7 @@ import { ErrorMessage, Spinner } from '../components/Feedback'
 import { CountUp, Marquee, ParallaxArea, Reveal, ScrollProgress, TiltCard } from '../components/landing/Motion'
 import NutritionChart from '../components/landing/NutritionChart'
 import ProductCard from '../components/ProductCard'
+import QuickViewHost from '../components/QuickView'
 import { api } from '../lib/api'
 import { useInView } from '../lib/motion'
 import { useAsync } from '../lib/useAsync'
@@ -266,12 +267,10 @@ export default function HomePage() {
           ) : !catalog.data ? (
             <Spinner />
           ) : (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
               {featured.map((p, i) => (
-                <Reveal key={p.id} delay={(i % 4) * 90} className="flex">
-                  <div className="flex w-full">
-                    <ProductCard product={p} />
-                  </div>
+                <Reveal key={p.id} delay={(i % 4) * 90} className="flex min-w-0">
+                  <ProductCard product={p} />
                 </Reveal>
               ))}
             </div>
@@ -301,6 +300,7 @@ export default function HomePage() {
           </div>
         </Reveal>
       </section>
+      <QuickViewHost />
     </>
   )
 }

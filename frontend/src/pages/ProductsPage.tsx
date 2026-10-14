@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import ProductCard from '../components/ProductCard'
+import QuickViewHost from '../components/QuickView'
 import { api, type Category, type Page, type ProductSummary } from '../lib/api'
 import { usePrefersReducedMotion } from '../lib/motion'
 import { useAsync } from '../lib/useAsync'
@@ -281,7 +282,7 @@ export default function ProductsPage() {
                 <p className="mb-4 text-sm text-muted">
                   {products.data.totalItems} sản phẩm{sort && <span className="lg:hidden"> · {sortLabel}</span>}
                 </p>
-                <div className={`grid grid-cols-2 gap-4 lg:grid-cols-3 ${products.loading ? 'opacity-60' : ''}`}>
+                <div className={`grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 ${products.loading ? 'opacity-60' : ''}`}>
                   {products.data.items.map((p) => (
                     <ProductCard key={p.id} product={p} />
                   ))}
@@ -319,6 +320,7 @@ export default function ProductsPage() {
           }}
         />
       )}
+      <QuickViewHost />
     </div>
   )
 }
