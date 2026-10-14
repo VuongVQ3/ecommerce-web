@@ -103,6 +103,13 @@ public class PageController {
 				request.getRequestURI()), HttpStatus.OK));
 	}
 
+	/** Staff invitation link (?token=): same treatment as the other secret links. */
+	@GetMapping("/dat-mat-khau")
+	public ResponseEntity<String> acceptInvite(HttpServletRequest request) {
+		return secret(pages.render(PageMeta.privatePage("Đặt mật khẩu | " + PageMetaService.BRAND,
+				request.getRequestURI()), HttpStatus.OK));
+	}
+
 	private static ResponseEntity<String> secret(ResponseEntity<String> page) {
 		return ResponseEntity.status(page.getStatusCode())
 			.headers(h -> {

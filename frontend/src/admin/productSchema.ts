@@ -98,3 +98,10 @@ export function toForm(p: AdminProduct): ProductForm {
     lowStockThreshold: String(p.lowStockThreshold),
   }
 }
+
+/** Signed change in percent, rounded: 100 → 1000 is +900. */
+export const priceChangePercent = (oldPrice: number, newPrice: number) => Math.round(((newPrice - oldPrice) / oldPrice) * 100)
+
+/** A change of more than half the old price is probably a typo (an extra or missing zero): ask first. */
+export const isBigPriceChange = (oldPrice: number, newPrice: number) =>
+  oldPrice > 0 && Math.abs(newPrice - oldPrice) > oldPrice / 2

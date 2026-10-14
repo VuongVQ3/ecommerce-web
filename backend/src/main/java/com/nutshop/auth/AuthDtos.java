@@ -83,12 +83,29 @@ public final class AuthDtos {
 	}
 
 	/** Public view of a user. Never contains the password hash. */
+	/** @param passwordChangeRequired staff/admin with a password below the rules: must change it first */
 	public record UserResponse(UUID id, String email, String fullName, String phone, String role,
-			boolean emailVerified) {
+			boolean emailVerified, boolean passwordChangeRequired) {
 
 		public static UserResponse from(User u) {
 			return new UserResponse(u.getId(), u.getEmail(), u.getFullName(), u.getPhone(), u.getRole().name(),
-					u.isEmailVerified());
+					u.isEmailVerified(), u.isPasswordChangeRequired());
 		}
+	}
+
+	/** {@code currentPassword} may be empty only for accounts without a password yet (Google sign-in). */
+	public record ChangePasswordRequest(String currentPassword,
+			@NotBlank(message = "Vui lòng nhập mật khẩu mới")
+			@Size(min = 8, max = 72, message = "Mật khẩu phải từ 8 đến 72 ký tự")
+			@Pattern(regexp = PASSWORD_PATTERN, message = "Mật khẩu phải có cả chữ và số") String newPassword) {
+	}
+
+	/** First password of an invited staff account (also accepts the terms). */
+	public record AcceptInviteRequest(@NotBlank(message = "Liên kết mời không hợp lệ") String token,
+			@NotBlank(message = "Vui lòng nhập mật khẩu")
+			@Size(min = 8, max = 72, message = "Mật khẩu phải từ 8 đến 72 ký tự")
+			@Pattern(regexp = PASSWORD_PATTERN, message = "Mật khẩu phải có cả chữ và số") String newPassword,
+			@NotNull(message = "Bạn cần đồng ý với Điều khoản sử dụng và Chính sách bảo mật")
+			@AssertTrue(message = "Bạn cần đồng ý với Điều khoản sử dụng và Chính sách bảo mật") Boolean acceptTerms) {
 	}
 }

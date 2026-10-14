@@ -186,7 +186,7 @@ class AdminE2ETest {
 		int[] stock = stock(productId);
 		Integer onHand = jdbc.queryForObject("""
 				SELECT COALESCE(SUM(quantity), 0) FROM inventory_movements
-				WHERE product_id = ? AND type IN ('IMPORT', 'ADJUST', 'ORDER_SHIP')""", Integer.class, productId);
+				WHERE product_id = ? AND type IN ('IMPORT', 'ADJUST', 'ORDER_SHIP', 'RETURN')""", Integer.class, productId);
 		Integer reserved = jdbc.queryForObject("""
 				SELECT COALESCE(SUM(quantity), 0) FROM inventory_movements
 				WHERE product_id = ? AND type IN ('ORDER_RESERVE', 'ORDER_CANCEL', 'ORDER_SHIP')""", Integer.class,
@@ -248,9 +248,9 @@ class AdminE2ETest {
 		// PENDING -> COMPLETED is not allowed
 		call(post("/api/admin/orders/" + code + "/complete"), admin).andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"));
-		call(post("/api/admin/orders/" + code + "/confirm"), admin).andExpect(status().isOk())
+		mvc.perform(json(post("/api/admin/orders/" + code + "/confirm"), "{\"contact\":\"CALLED\"}").cookie(admin)).andExpect(status().isOk())
 			.andExpect(jsonPath("$.order.status").value("CONFIRMED"));
-		call(post("/api/admin/orders/" + code + "/confirm"), admin).andExpect(status().isConflict());
+		mvc.perform(json(post("/api/admin/orders/" + code + "/confirm"), "{\"contact\":\"CALLED\"}").cookie(admin)).andExpect(status().isConflict());
 
 		mvc.perform(json(post("/api/admin/orders/" + code + "/ship"), "{\"carrier\":\"\",\"trackingNumber\":\"\"}")
 			.cookie(admin)).andExpect(status().isBadRequest());
@@ -264,14 +264,15 @@ class AdminE2ETest {
 		assertThat(mail).isNotNull();
 		assertThat(mail.text()).contains("GHN123");
 
-		// Shipped orders can no longer be cancelled
-		mvc.perform(json(post("/api/admin/orders/" + code + "/cancel"), "{\"reason\":\"Khách đổi ý\"}").cookie(admin))
+		// Shipped orders can only be cancelled when the parcel is refused at the door
+		mvc.perform(json(post("/api/admin/orders/" + code + "/cancel"), "{\"reasonCode\":\"CUSTOMER_REQUEST\",\"reason\":\"Khách đổi ý\"}").cookie(admin))
 			.andExpect(status().isConflict());
 		call(post("/api/admin/orders/" + code + "/complete"), admin).andExpect(status().isOk())
 			.andExpect(jsonPath("$.allowedActions", hasSize(0)));
 
 		mvc.perform(json(post("/api/admin/orders/" + code + "/notes"), "{\"body\":\"Khách hẹn giao chiều\"}")
-			.cookie(admin)).andExpect(status().isOk()).andExpect(jsonPath("$.notes[0].body").value("Khách hẹn giao chiều"));
+			.cookie(admin)).andExpect(status().isOk()).andExpect(jsonPath("$.notes[0].body").value("Đã gọi điện xác nhận với khách"))
+			.andExpect(jsonPath("$.notes[1].body").value("Khách hẹn giao chiều"));
 
 		call(get("/api/admin/orders?status=COMPLETED&q=" + code), admin).andExpect(status().isOk())
 			.andExpect(jsonPath("$.page.items[0].code").value(code));
@@ -288,7 +289,7 @@ class AdminE2ETest {
 		long id = createProduct(admin, "Hạt bấm đúp", null);
 		importStock(admin, id, 10);
 		String code = placeOrder(id, 4);
-		call(post("/api/admin/orders/" + code + "/confirm"), admin).andExpect(status().isOk());
+		mvc.perform(json(post("/api/admin/orders/" + code + "/confirm"), "{\"contact\":\"CALLED\"}").cookie(admin)).andExpect(status().isOk());
 
 		int threads = 4;
 		CountDownLatch start = new CountDownLatch(1);
@@ -327,11 +328,11 @@ class AdminE2ETest {
 		String code = placeOrder(id, 2);
 		assertThat(stock(id)).containsExactly(10, 2);
 
-		mvc.perform(json(post("/api/admin/orders/" + code + "/cancel"), "{\"reason\":\"  \"}").cookie(staff))
+		mvc.perform(json(post("/api/admin/orders/" + code + "/cancel"), "{\"reasonCode\":\"OUT_OF_STOCK\",\"reason\":\"  \"}").cookie(staff))
 			.andExpect(status().isBadRequest());
 		assertThat(stock(id)).containsExactly(10, 2);
 
-		mvc.perform(json(post("/api/admin/orders/" + code + "/cancel"), "{\"reason\":\"Hết hàng tại kho\"}")
+		mvc.perform(json(post("/api/admin/orders/" + code + "/cancel"), "{\"reasonCode\":\"OUT_OF_STOCK\",\"reason\":\"Hết hàng tại kho\"}")
 			.cookie(staff)).andExpect(status().isOk()).andExpect(jsonPath("$.order.status").value("CANCELLED"));
 		assertThat(stock(id)).containsExactly(10, 0);
 		EmailMessage mail = mailbox.next(Duration.ofSeconds(5));
@@ -352,10 +353,10 @@ class AdminE2ETest {
 		importStock(admin, id, 20);
 		String shipped = placeOrder(id, 3);
 		String cancelled = placeOrder(id, 2);
-		call(post("/api/admin/orders/" + shipped + "/confirm"), admin).andExpect(status().isOk());
+		mvc.perform(json(post("/api/admin/orders/" + shipped + "/confirm"), "{\"contact\":\"CALLED\"}").cookie(admin)).andExpect(status().isOk());
 		mvc.perform(json(post("/api/admin/orders/" + shipped + "/ship"), "{\"carrier\":\"GHN\",\"trackingNumber\":\"A\"}")
 			.cookie(admin)).andExpect(status().isOk());
-		mvc.perform(json(post("/api/admin/orders/" + cancelled + "/cancel"), "{\"reason\":\"Khách huỷ\"}").cookie(admin))
+		mvc.perform(json(post("/api/admin/orders/" + cancelled + "/cancel"), "{\"reasonCode\":\"CUSTOMER_REQUEST\",\"reason\":\"Khách huỷ\"}").cookie(admin))
 			.andExpect(status().isOk());
 		assertThat(stock(id)).containsExactly(17, 0);
 		assertLedgerMatches(id);

@@ -8,7 +8,10 @@ import com.nutshop.auth.RefreshTokenService.Rotation;
 import com.nutshop.common.ConflictException;
 import com.nutshop.common.UnauthorizedException;
 import com.nutshop.user.PhoneNumbers;
+import com.nutshop.common.ApiException;
+import com.nutshop.user.Role;
 import com.nutshop.user.User;
+import com.nutshop.user.UserStatusCache;
 import com.nutshop.user.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -42,6 +45,7 @@ public class AuthService {
 	private final GoogleTokenVerifier googleVerifier;
 	private final TurnstileVerifier turnstile;
 	private final EmailVerificationService verification;
+	private final UserStatusCache statuses;
 	private final Clock clock;
 
 	/**
@@ -52,7 +56,7 @@ public class AuthService {
 
 	public AuthService(UserRepository users, PasswordEncoder passwordEncoder, TokenService tokenService,
 			RefreshTokenService refreshTokens, GoogleTokenVerifier googleVerifier, TurnstileVerifier turnstile,
-			EmailVerificationService verification, Clock clock) {
+			EmailVerificationService verification, UserStatusCache statuses, Clock clock) {
 		this.users = users;
 		this.passwordEncoder = passwordEncoder;
 		this.tokenService = tokenService;
@@ -60,6 +64,7 @@ public class AuthService {
 		this.googleVerifier = googleVerifier;
 		this.turnstile = turnstile;
 		this.verification = verification;
+		this.statuses = statuses;
 		this.clock = clock;
 		this.dummyHash = passwordEncoder.encode(UUID.randomUUID().toString());
 	}
@@ -114,6 +119,12 @@ public class AuthService {
 		}
 		User user = found.get();
 		ensureActive(user);
+		// Staff and admins with a password that no longer meets the rules: signed in, but the back office stays
+		// closed until they change it (UserStatusFilter)
+		if (user.getRole() != Role.CUSTOMER && !PasswordRules.meets(req.password()) && !user.isPasswordChangeRequired()) {
+			user.requirePasswordChange();
+			statuses.evict(user.getId());
+		}
 		return issue(user, client);
 	}
 
@@ -152,6 +163,29 @@ public class AuthService {
 		ensureActive(user);
 		// Google has verified this address (GoogleTokenVerifier requires email_verified)
 		verification.markVerified(user, "GOOGLE");
+		return issue(user, client);
+	}
+
+	/**
+	 * Signed in: new password (same rules as registration). Every other session is signed out; this browser gets fresh
+	 * cookies. The current password is required when the account has one.
+	 */
+	@Transactional
+	public AuthResult changePassword(UUID userId, String currentPassword, String newPassword, ClientInfo client) {
+		User user = users.findById(userId)
+			.filter(User::isActive)
+			.orElseThrow(() -> new UnauthorizedException(RefreshTokenService.INVALID_SESSION));
+		if (user.hasPassword() && (currentPassword == null || !passwordEncoder.matches(currentPassword, user.getPasswordHash()))) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "WRONG_PASSWORD", "Mật khẩu hiện tại không đúng")
+				.withProperty("errors", java.util.Map.of("currentPassword", "Mật khẩu hiện tại không đúng"));
+		}
+		if (user.hasPassword() && passwordEncoder.matches(newPassword, user.getPasswordHash())) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "SAME_PASSWORD", "Mật khẩu mới phải khác mật khẩu hiện tại")
+				.withProperty("errors", java.util.Map.of("newPassword", "Mật khẩu mới phải khác mật khẩu hiện tại"));
+		}
+		user.changePassword(passwordEncoder.encode(newPassword));
+		refreshTokens.revokeAll(userId);
+		statuses.evict(userId);
 		return issue(user, client);
 	}
 

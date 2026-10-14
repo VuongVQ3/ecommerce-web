@@ -2,14 +2,16 @@ package com.nutshop.order;
 
 /**
  * Order lifecycle. Allowed moves only:
- * PENDING → CONFIRMED → SHIPPING → COMPLETED, and PENDING/CONFIRMED → CANCELLED.
+ * PENDING → CONFIRMED → SHIPPING → COMPLETED, PENDING/CONFIRMED → CANCELLED, and SHIPPING → CANCELLED when the
+ * parcel was refused at the door (CancelReason.REFUSED_DELIVERY only, checked by OrderService#transition).
+ * The labels are the ones used everywhere (frontend lib/orderStatus.ts mirrors them, emails use these).
  */
 public enum OrderStatus {
 
 	PENDING("Chờ xác nhận"),
 	CONFIRMED("Đã xác nhận"),
 	SHIPPING("Đang giao"),
-	COMPLETED("Hoàn thành"),
+	COMPLETED("Hoàn tất"),
 	CANCELLED("Đã huỷ");
 
 	private final String label;
@@ -26,7 +28,7 @@ public enum OrderStatus {
 		return switch (this) {
 			case PENDING -> next == CONFIRMED || next == CANCELLED;
 			case CONFIRMED -> next == SHIPPING || next == CANCELLED;
-			case SHIPPING -> next == COMPLETED;
+			case SHIPPING -> next == COMPLETED || next == CANCELLED;
 			case COMPLETED, CANCELLED -> false;
 		};
 	}

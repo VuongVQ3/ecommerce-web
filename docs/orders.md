@@ -34,7 +34,7 @@ PENDING ──► CONFIRMED ──► SHIPPING ──► COMPLETED
 | `PENDING` | Chờ xác nhận | `reserved += q` lúc đặt hàng |
 | `CONFIRMED` | Đã xác nhận | |
 | `SHIPPING` | Đang giao | `on_hand -= q`, `reserved -= q` (`ORDER_SHIP`) |
-| `COMPLETED` | Hoàn thành | |
+| `COMPLETED` | Hoàn tất | |
 | `CANCELLED` | Đã huỷ | `reserved -= q` (`ORDER_CANCEL`) |
 
 Email cho khách (nếu đơn có email): xác nhận đơn, **Đang giao** (kèm mã vận đơn), **Hoàn tất**, **Đã huỷ** (kèm lý do). Mỗi email có nút "Theo dõi đơn hàng" (đơn vãng lai) hoặc "Xem đơn hàng" (đơn có tài khoản).

@@ -18,6 +18,9 @@ export function AccountLayout() {
         <NavLink to="/tai-khoan" end className={tabClass}>
           Thông tin
         </NavLink>
+        <NavLink to="/tai-khoan/doi-mat-khau" className={tabClass}>
+          Đổi mật khẩu
+        </NavLink>
         <NavLink to="/tai-khoan/don-hang" className={tabClass}>
           Đơn hàng của tôi
         </NavLink>

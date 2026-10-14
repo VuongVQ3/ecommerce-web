@@ -48,8 +48,21 @@ public class AdminOrderService {
 		}
 	}
 
+	/** @param flagLevel / flagReason when the phone number is flagged (warning icon in the list) */
 	public record OrderRow(String code, String status, String statusLabel, Instant createdAt, String customerName,
-			String phone, int itemCount, long total) {
+			String phone, int itemCount, long total, String flagLevel, String flagReason) {
+	}
+
+	/** How the shop reached the customer before confirming (recorded as an internal note). */
+	public enum ContactResult {
+		CALLED("Đã gọi điện xác nhận với khách"), ZALO("Đã nhắn Zalo xác nhận với khách"),
+		UNREACHABLE("Chưa liên hệ được khách");
+
+		final String note;
+
+		ContactResult(String note) {
+			this.note = note;
+		}
 	}
 
 	public record OrderList(PageResponse<OrderRow> page, long pendingCount) {
@@ -62,7 +75,7 @@ public class AdminOrderService {
 	 * @param allowedActions what the current status allows, so the UI only shows valid buttons
 	 */
 	public record AdminOrderDetail(OrderResponse order, boolean guest, String carrier, String trackingNumber,
-			List<NoteResponse> notes, List<Action> allowedActions) {
+			List<NoteResponse> notes, List<Action> allowedActions, CancelReason cancelReasonCode) {
 	}
 
 	private record AuditView(String status, String carrier, String trackingNumber) {
@@ -77,9 +90,11 @@ public class AdminOrderService {
 	private final OrderService orderService;
 	private final UserRepository users;
 	private final AuditLog audit;
+	private final PhoneFlagService phoneFlags;
 
 	public AdminOrderService(OrderRepository orders, OrderNoteRepository notes, OrderService orderService,
-			UserRepository users, AuditLog audit) {
+			UserRepository users, AuditLog audit, PhoneFlagService phoneFlags) {
+		this.phoneFlags = phoneFlags;
 		this.orders = orders;
 		this.notes = notes;
 		this.orderService = orderService;
@@ -113,9 +128,14 @@ public class AdminOrderService {
 			return cb.and(where.toArray(Predicate[]::new));
 		};
 		var pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 100), Sort.by(Sort.Direction.DESC, "createdAt"));
-		var result = orders.findAll(spec, pageable).map(o -> new OrderRow(o.getCode(), o.getStatus().name(),
-				o.getStatus().label(), o.getCreatedAt(), o.getCustomerName(), o.getPhone(),
-				o.getItems().stream().mapToInt(OrderItem::getQuantity).sum(), o.getTotal()));
+		var found = orders.findAll(spec, pageable);
+		Map<String, PhoneFlag> flagged = phoneFlags.findAll(found.getContent().stream().map(Order::getPhone).toList());
+		var result = found.map(o -> {
+			PhoneFlag flag = flagged.get(o.getPhone());
+			return new OrderRow(o.getCode(), o.getStatus().name(), o.getStatus().label(), o.getCreatedAt(),
+					o.getCustomerName(), o.getPhone(), o.getItems().stream().mapToInt(OrderItem::getQuantity).sum(),
+					o.getTotal(), flag == null ? null : flag.getLevel().name(), flag == null ? null : flag.getReason());
+		});
 		return new OrderList(PageResponse.from(result), orders.countByStatus(OrderStatus.PENDING));
 	}
 
@@ -138,7 +158,7 @@ public class AdminOrderService {
 				orderNotes.stream()
 					.map(n -> new NoteResponse(n.getBody(), n.getCreatedAt(), names.getOrDefault(n.getAuthorId(), "—")))
 					.toList(),
-				allowed);
+				allowed, order.getCancelReason());
 	}
 
 	/**
@@ -148,6 +168,29 @@ public class AdminOrderService {
 	@Transactional
 	public AdminOrderDetail act(String code, Action action, String carrier, String trackingNumber, String reason,
 			UUID actorId) {
+		return act(code, action, carrier, trackingNumber, reason, null, actorId);
+	}
+
+	/**
+	 * "Xác nhận đơn" after contacting the customer: the result is written as an internal note (who and when are on
+	 * the note). UNREACHABLE only records the note; the order stays PENDING.
+	 */
+	@Transactional
+	public AdminOrderDetail confirm(String code, ContactResult contact, String note, UUID actorId) {
+		Order order = orders.findWithLockByCode(code).orElseThrow(AdminOrderService::notFound);
+		String body = contact.note + (StringUtils.hasText(note) ? ": " + note.trim() : "");
+		notes.save(new OrderNote(order.getId(), actorId, body.length() > 1000 ? body.substring(0, 1000) : body));
+		if (contact == ContactResult.UNREACHABLE) {
+			audit.record(actorId, "ORDER_CONTACT_FAILED", "ORDER", code, null, Map.of("note", body));
+			return detail(code);
+		}
+		return act(code, Action.CONFIRM, null, null, null, null, actorId);
+	}
+
+	/** @param cancelReason required for CANCEL; a SHIPPING order only accepts REFUSED_DELIVERY */
+	@Transactional
+	public AdminOrderDetail act(String code, Action action, String carrier, String trackingNumber, String reason,
+			CancelReason cancelReason, UUID actorId) {
 		// Lock first, then read the status: a concurrent identical click waits here and then fails the transition
 		Order order = orders.findWithLockByCode(code).orElseThrow(AdminOrderService::notFound);
 		AuditView before = AuditView.of(order);
@@ -171,7 +214,11 @@ public class AdminOrderService {
 				yield reason.trim();
 			}
 		};
-		orderService.transition(order, action.target, actorId, historyReason);
+		if (action == Action.CANCEL && cancelReason == null) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "REASON_REQUIRED", "Vui lòng chọn lý do huỷ đơn");
+		}
+		orderService.transition(order, action.target, actorId,
+				action == Action.CANCEL ? cancelReason.label() + ": " + historyReason : historyReason, cancelReason);
 		audit.record(actorId, "ORDER_" + action.name(), "ORDER", code, before, AuditView.of(order));
 		return detail(code);
 	}

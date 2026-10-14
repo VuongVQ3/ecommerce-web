@@ -64,6 +64,11 @@ public class Order {
 	@Column(nullable = false)
 	private OrderStatus status = OrderStatus.PENDING;
 
+	/** Set when CANCELLED. */
+	@Enumerated(EnumType.STRING)
+	@Column(name = "cancel_reason_code")
+	private CancelReason cancelReason;
+
 	/** Set when the order is handed to the carrier (SHIPPING). */
 	private String carrier;
 
@@ -133,6 +138,14 @@ public class Order {
 		}
 		this.userId = userId;
 		this.updatedAt = Instant.now();
+	}
+
+	void setCancelReason(CancelReason cancelReason) {
+		this.cancelReason = cancelReason;
+	}
+
+	public CancelReason getCancelReason() {
+		return cancelReason;
 	}
 
 	void setShipment(String carrier, String trackingNumber) {

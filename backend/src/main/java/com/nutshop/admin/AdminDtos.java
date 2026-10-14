@@ -1,5 +1,8 @@
 package com.nutshop.admin;
 
+import com.nutshop.order.AdminOrderService.ContactResult;
+import com.nutshop.order.CancelReason;
+import com.nutshop.order.PhoneFlag;
 import com.nutshop.product.Product;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -21,8 +24,20 @@ public final class AdminDtos {
 			@NotBlank(message = "Vui lòng nhập mã vận đơn") @Size(max = 100) String trackingNumber) {
 	}
 
-	public record CancelRequest(
+	public record CancelRequest(@NotNull(message = "Vui lòng chọn lý do huỷ đơn") CancelReason reasonCode,
 			@NotBlank(message = "Vui lòng nhập lý do huỷ đơn") @Size(max = 500, message = "Lý do tối đa 500 ký tự") String reason) {
+	}
+
+	public record ConfirmRequest(@NotNull(message = "Vui lòng chọn kết quả liên hệ") ContactResult contact,
+			@Size(max = 500, message = "Ghi chú tối đa 500 ký tự") String note) {
+	}
+
+	public record PhoneFlagRequest(@NotNull(message = "Vui lòng chọn mức đánh dấu") PhoneFlag.Level level,
+			@NotBlank(message = "Vui lòng nhập lý do") @Size(max = 500, message = "Lý do tối đa 500 ký tự") String reason) {
+	}
+
+	public record ReasonRequest(
+			@NotBlank(message = "Vui lòng nhập lý do") @Size(max = 500, message = "Lý do tối đa 500 ký tự") String reason) {
 	}
 
 	public record NoteRequest(

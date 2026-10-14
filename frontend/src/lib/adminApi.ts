@@ -1,4 +1,5 @@
-import { apiRequest, post, type Order, type OrderStatus, type Page } from './api'
+import { apiRequest, post, type Order, type OrderStatus, type Page, type Role } from './api'
+import type { CancelReasonCode } from './orderStatus'
 
 export type OrderAction = 'CONFIRM' | 'SHIP' | 'COMPLETE' | 'CANCEL'
 
@@ -11,6 +12,9 @@ export interface AdminOrderRow {
   phone: string
   itemCount: number
   total: number
+  /** Set when the phone number is flagged */
+  flagLevel: PhoneFlagLevel | null
+  flagReason: string | null
 }
 
 export interface AdminOrderNote {
@@ -27,6 +31,7 @@ export interface AdminOrderDetail {
   notes: AdminOrderNote[]
   /** What the current status allows: the UI only offers these. */
   allowedActions: OrderAction[]
+  cancelReasonCode: CancelReasonCode | null
 }
 
 export interface OrderFilters {
@@ -49,7 +54,7 @@ export interface StockRow {
   lowStock: boolean
 }
 
-export type MovementType = 'ORDER_RESERVE' | 'ORDER_CANCEL' | 'ORDER_SHIP' | 'IMPORT' | 'ADJUST'
+export type MovementType = 'ORDER_RESERVE' | 'ORDER_CANCEL' | 'ORDER_SHIP' | 'IMPORT' | 'ADJUST' | 'RETURN'
 
 export interface MovementRow {
   id: string
@@ -156,11 +161,26 @@ export const adminApi = {
       { signal },
     ),
   order: (code: string, signal?: AbortSignal) => apiRequest<AdminOrderDetail>(order(code), { signal }),
-  confirm: (code: string) => apiRequest<AdminOrderDetail>(`${order(code)}/confirm`, post()),
+  /** UNREACHABLE only writes the note; the order stays PENDING. */
+  confirm: (code: string, contact: ContactResult, note: string) =>
+    apiRequest<AdminOrderDetail>(`${order(code)}/confirm`, post({ contact, note: note || undefined })),
   ship: (code: string, carrier: string, trackingNumber: string) =>
     apiRequest<AdminOrderDetail>(`${order(code)}/ship`, post({ carrier, trackingNumber })),
   complete: (code: string) => apiRequest<AdminOrderDetail>(`${order(code)}/complete`, post()),
-  cancel: (code: string, reason: string) => apiRequest<AdminOrderDetail>(`${order(code)}/cancel`, post({ reason })),
+  cancel: (code: string, reasonCode: CancelReasonCode, reason: string) =>
+    apiRequest<AdminOrderDetail>(`${order(code)}/cancel`, post({ reasonCode, reason })),
+
+  customerStats: (phone: string, excludeCode: string, signal?: AbortSignal) =>
+    apiRequest<CustomerStats>(
+      `/api/admin/customers/by-phone/${encodeURIComponent(phone)}/stats?exclude=${encodeURIComponent(excludeCode)}`,
+      { signal },
+    ),
+  phoneFlags: (level: PhoneFlagLevel | '', q: string, page: number, signal?: AbortSignal) =>
+    apiRequest<Page<PhoneFlagView>>(`/api/admin/phone-flags${query({ level, q, page })}`, { signal }),
+  setPhoneFlag: (phone: string, level: PhoneFlagLevel, reason: string) =>
+    apiRequest<PhoneFlagView>(`/api/admin/phone-flags/${encodeURIComponent(phone)}`, put({ level, reason })),
+  removePhoneFlag: (phone: string, reason: string) =>
+    apiRequest<void>(`/api/admin/phone-flags/${encodeURIComponent(phone)}/remove`, post({ reason })),
   addNote: (code: string, body: string) => apiRequest<AdminOrderDetail>(`${order(code)}/notes`, post({ body })),
 
   inventory: (q: string, low: boolean, signal?: AbortSignal) =>
@@ -251,4 +271,81 @@ export const promotionApi = {
   end: (id: string) => apiRequest<PromotionRow>(`/api/admin/promotions/${id}/end`, post()),
   bulk: (input: { productIds: number[]; percentOff: number; startsAt: string; endsAt: string }) =>
     apiRequest<BulkPromotionResult[]>('/api/admin/promotions/bulk', post(input)),
+}
+
+// ---- Customers, phone flags, users, audit log ----
+
+export type ContactResult = 'CALLED' | 'ZALO' | 'UNREACHABLE'
+export type PhoneFlagLevel = 'WATCH' | 'BLOCK_COD'
+
+export interface PhoneFlagView {
+  phone: string
+  level: PhoneFlagLevel
+  reason: string
+  createdAt: string
+  updatedAt: string
+  updatedByName: string | null
+}
+
+export interface CustomerStats {
+  phone: string
+  /** All orders with this number, including the one being looked at */
+  totalOrders: number
+  /** Orders placed before the one being looked at ("Khách mới" when 0) */
+  previousOrders: number
+  completed: number
+  cancelled: number
+  refusedDelivery: number
+  /** Earliest OTHER order */
+  firstOrderAt: string | null
+  flag: PhoneFlagView | null
+}
+
+export interface AdminUserRow {
+  id: string
+  fullName: string
+  email: string
+  phone: string | null
+  role: Role
+  active: boolean
+  emailVerified: boolean
+  invitationPending: boolean
+  orderCount: number
+  spent: number
+  createdAt: string
+}
+
+export interface AdminUserDetail {
+  user: AdminUserRow
+  orders: { code: string; status: OrderStatus; statusLabel: string; createdAt: string; total: number }[]
+}
+
+export interface AuditRow {
+  id: string
+  createdAt: string
+  actorId: string | null
+  actorName: string | null
+  actorEmail: string | null
+  action: string
+  entityType: string
+  entityId: string
+  /** JSON text or null */
+  before: string | null
+  after: string | null
+}
+
+export const userApi = {
+  list: (f: { q?: string; role?: Role | ''; active?: '' | 'true' | 'false'; page?: number }, signal?: AbortSignal) =>
+    apiRequest<Page<AdminUserRow>>(`/api/admin/users${query({ q: f.q, role: f.role, active: f.active, page: f.page })}`, { signal }),
+  detail: (id: string, signal?: AbortSignal) => apiRequest<AdminUserDetail>(`/api/admin/users/${id}`, { signal }),
+  changeRole: (id: string, role: Role, reason: string) =>
+    apiRequest<AdminUserRow>(`/api/admin/users/${id}/role`, post({ role, reason })),
+  setActive: (id: string, active: boolean, reason: string) =>
+    apiRequest<AdminUserRow>(`/api/admin/users/${id}/active`, post({ active, reason })),
+  invite: (fullName: string, email: string, reason: string) =>
+    apiRequest<AdminUserRow>('/api/admin/users/invitations', post({ fullName, email, reason })),
+  auditLogs: (f: { actor?: string; entityType?: string; from?: string; to?: string; page?: number }, signal?: AbortSignal) =>
+    apiRequest<Page<AuditRow>>(`/api/admin/audit-logs${query({ ...f })}`, { signal }),
+  auditActors: (signal?: AbortSignal) =>
+    apiRequest<{ id: string; name: string; email: string }[]>('/api/admin/audit-logs/actors', { signal }),
 }

@@ -156,7 +156,7 @@ describe('CheckoutPage', () => {
     fireEvent.change(input('Họ và tên'), { target: { value: 'Khách Đã Nhập' } })
     first.unmount()
     auth.current = {
-      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true },
+      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false },
       loading: false,
     }
     renderCheckout()
@@ -174,7 +174,7 @@ describe('CheckoutPage', () => {
 
   it('prefills name, email and phone for a signed-in user', () => {
     auth.current = {
-      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true },
+      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false },
       loading: false,
     }
     renderCheckout()

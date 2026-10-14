@@ -45,7 +45,8 @@ public class GuestOrderService {
 			throw new ApiException(HttpStatus.CONFLICT, OrderService.ORDER_NOT_CANCELLABLE,
 					"Đơn hàng đã được xác nhận nên không thể tự huỷ. Vui lòng liên hệ cửa hàng.");
 		}
-		orderService.transition(order, OrderStatus.CANCELLED, null, "Khách huỷ đơn: " + reason.trim());
+		orderService.transition(order, OrderStatus.CANCELLED, null, "Khách huỷ đơn: " + reason.trim(),
+				CancelReason.CUSTOMER_REQUEST);
 		return view(orders.findByCode(order.getCode()).orElseThrow());
 	}
 

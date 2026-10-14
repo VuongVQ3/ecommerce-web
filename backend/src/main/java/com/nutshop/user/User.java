@@ -37,9 +37,13 @@ public class User {
 	@Column(name = "is_active", nullable = false)
 	private boolean active = true;
 
-	/** When the user accepted the terms of use and privacy policy. */
-	@Column(name = "terms_accepted_at", nullable = false)
+	/** When the user accepted the terms of use and privacy policy (null for staff who have not accepted an invitation yet). */
+	@Column(name = "terms_accepted_at")
 	private Instant termsAcceptedAt;
+
+	/** Staff/admin password below the current rules: the back office is closed until it is changed. */
+	@Column(name = "password_change_required", nullable = false)
+	private boolean passwordChangeRequired;
 
 	/** Opt-in for promotional emails; off unless the user ticked the checkbox. */
 	@Column(name = "marketing_consent", nullable = false)
@@ -99,6 +103,30 @@ public class User {
 	/** {@code passwordHash} must already be encoded. Also gives Google-only accounts a password. */
 	public void changePassword(String passwordHash) {
 		this.passwordHash = passwordHash;
+		this.passwordChangeRequired = false;
+		this.updatedAt = Instant.now();
+	}
+
+	public void requirePasswordChange() {
+		this.passwordChangeRequired = true;
+	}
+
+	public boolean isPasswordChangeRequired() {
+		return passwordChangeRequired;
+	}
+
+	/** Invited staff accept the terms when they set their password. */
+	public void acceptTerms(Instant now) {
+		if (termsAcceptedAt == null) {
+			termsAcceptedAt = now;
+		}
+	}
+
+	/** A staff account created by an admin: no password until the invitation link is used. */
+	public static User invited(String email, String fullName) {
+		User user = new User(email, null, fullName, null, null);
+		user.role = Role.STAFF;
+		return user;
 	}
 
 	public void changeRole(Role role) {

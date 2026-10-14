@@ -97,7 +97,7 @@ public class PasswordResetService {
 	public void resetPassword(String rawToken, String newPassword) {
 		Instant now = clock.instant();
 		PasswordResetToken token = tokens.findByTokenHash(SecureTokens.hash(rawToken))
-			.filter(t -> t.isUsable(now) && t.getUser().isActive())
+			.filter(t -> t.getPurpose() == PasswordResetToken.Purpose.RESET && t.isUsable(now) && t.getUser().isActive())
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, INVALID_LINK));
 		User user = token.getUser();
 		user.changePassword(passwordEncoder.encode(newPassword));

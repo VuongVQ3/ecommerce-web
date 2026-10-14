@@ -136,7 +136,7 @@ describe('TrackOrderPage', () => {
   it('creates an account from the order and goes to the saved order', async () => {
     saveRecentOrder(CODE, TOKEN)
     vi.spyOn(api, 'trackOrder').mockResolvedValue(tracked)
-    const user: User = { id: 'u1', email: 'khach@example.com', fullName: 'Nguyễn Khách', phone: '0912345678', role: 'CUSTOMER', emailVerified: false }
+    const user: User = { id: 'u1', email: 'khach@example.com', fullName: 'Nguyễn Khách', phone: '0912345678', role: 'CUSTOMER', emailVerified: false, passwordChangeRequired: false }
     const claim = vi.spyOn(api, 'claimAccount').mockResolvedValue(user)
     renderPage()
 

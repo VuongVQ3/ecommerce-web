@@ -15,7 +15,7 @@ import java.util.UUID;
  * oversell: PostgreSQL row-locks the product and re-checks the condition for the second writer. Each change is
  * logged in inventory_movements, which keeps these invariants for every product:
  * <pre>
- *   on_hand  = SUM(IMPORT, ADJUST, ORDER_SHIP)
+ *   on_hand  = SUM(IMPORT, ADJUST, ORDER_SHIP, RETURN)
  *   reserved = SUM(ORDER_RESERVE, ORDER_CANCEL, ORDER_SHIP)
  * </pre>
  * Must run inside the caller's transaction.
@@ -58,6 +58,14 @@ public class InventoryService {
 			throw new IllegalStateException("Cannot ship " + quantity + " of product " + productId);
 		}
 		movements.save(new InventoryMovement(productId, -quantity, Type.ORDER_SHIP, orderId, actorId, null));
+	}
+
+	/** A shipped parcel refused at the door comes back: on_hand goes up again (reserved was already released). */
+	public void returnStock(long productId, int quantity, UUID orderId, UUID actorId, String note) {
+		if (stock.changeOnHand(productId, quantity) == 0) {
+			throw new IllegalStateException("Cannot return " + quantity + " of product " + productId);
+		}
+		movements.save(new InventoryMovement(productId, quantity, Type.RETURN, orderId, actorId, note));
 	}
 
 	/** Goods received from a supplier. */

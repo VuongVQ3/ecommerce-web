@@ -20,6 +20,8 @@ import {
   vnToday,
 } from './promotionMath'
 import { btn, card, input, table } from './styles'
+import { DateField } from './DateField'
+import MoneyInput from './MoneyInput'
 import { Dialog, EmptyState, Field, PageHeader } from './ui'
 
 const TABS: { key: 'running' | 'upcoming' | 'ended'; label: string; statuses: PromotionStatus[] }[] = [
@@ -59,7 +61,7 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
   const [selected, setSelected] = useState<number[]>([])
   const [mode, setMode] = useState<'percent' | 'price'>('percent')
   const [percent, setPercent] = useState('20')
-  const [price, setPrice] = useState('')
+  const [price, setPrice] = useState<number | null>(null)
   const [first, setFirst] = useState(today)
   const [last, setLast] = useState('')
   const [pending, setPending] = useState(false)
@@ -69,7 +71,7 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
   const products = usage.products.filter((p) => p.active && p.name.toLowerCase().includes(search.trim().toLowerCase()))
   const chosen = usage.products.filter((p) => selected.includes(p.id))
   const pct = Number(percent)
-  const fixed = Number(price.replace(/[.\s]/g, ''))
+  const fixed = price ?? 0
   const periodOk = first >= today && last >= first
   const year = Number(first.slice(0, 4))
 
@@ -172,12 +174,12 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
           </Field>
         ) : (
           <Field label="Giá khuyến mại (₫)" hint="Bội số của 1.000₫, thấp hơn giá gốc">
-            {(p) => <input {...p} inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} />}
+            {(p) => <MoneyInput {...p} value={price} onChange={setPrice} />}
           </Field>
         )}
         <div className="grid grid-cols-2 gap-3 sm:col-span-2">
-          <Field label="Từ ngày">{(p) => <input {...p} type="date" min={today} value={first} onChange={(e) => setFirst(e.target.value)} />}</Field>
-          <Field label="Đến hết ngày">{(p) => <input {...p} type="date" min={first || today} value={last} onChange={(e) => setLast(e.target.value)} />}</Field>
+          <DateField label="Từ ngày" min={today} value={first} onChange={setFirst} />
+          <DateField label="Đến hết ngày" min={first || today} value={last} onChange={setLast} />
         </div>
       </fieldset>
 
@@ -238,12 +240,12 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
 // ---- edit / end ---------------------------------------------------------------------------------------------
 
 function EditDialog({ row, onClose, onDone }: { row: PromotionRow; onClose: () => void; onDone: () => void }) {
-  const [price, setPrice] = useState(String(row.salePrice))
+  const [price, setPrice] = useState<number | null>(row.salePrice)
   const [first, setFirst] = useState(vnDay(row.startsAt))
   const [last, setLast] = useState(vnDay(row.endsAt, true))
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const sale = Number(price.replace(/[.\s]/g, ''))
+  const sale = price ?? 0
 
   const submit = async () => {
     setPending(true)
@@ -268,10 +270,10 @@ function EditDialog({ row, onClose, onDone }: { row: PromotionRow; onClose: () =
         Giá gốc hiện tại: <strong className="tabular-nums">{formatPrice(row.regularPrice)}</strong>
         {sale > 0 && sale < row.regularPrice && <> · giảm {discountPercent(row.regularPrice, sale)}%</>}
       </p>
-      <Field label="Giá khuyến mại (₫)">{(p) => <input {...p} inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} />}</Field>
+      <Field label="Giá khuyến mại (₫)">{(p) => <MoneyInput {...p} value={price} onChange={setPrice} />}</Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Từ ngày">{(p) => <input {...p} type="date" value={first} onChange={(e) => setFirst(e.target.value)} />}</Field>
-        <Field label="Đến hết ngày">{(p) => <input {...p} type="date" value={last} onChange={(e) => setLast(e.target.value)} />}</Field>
+        <DateField label="Từ ngày" value={first} onChange={setFirst} />
+        <DateField label="Đến hết ngày" min={first || undefined} value={last} onChange={setLast} />
       </div>
       <p className="text-xs text-muted">{REMINDER}</p>
     </Dialog>

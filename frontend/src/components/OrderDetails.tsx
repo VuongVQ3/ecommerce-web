@@ -1,21 +1,15 @@
 import type { ReactNode } from 'react'
 import type { Order, OrderStatus } from '../lib/api'
+import { ORDER_STATUS_LABEL, ORDER_STATUS_STYLE } from '../lib/orderStatus'
 import { orderSavings } from '../lib/pricing'
 import { PriceTag } from './Price'
 import { formatDateTime, formatPrice, formatWeight } from '../lib/format'
 
-const STATUS_STYLE: Record<OrderStatus, string> = {
-  PENDING: 'bg-amber-100 text-amber-900',
-  CONFIRMED: 'bg-sky-100 text-sky-900',
-  SHIPPING: 'bg-indigo-100 text-indigo-900',
-  COMPLETED: 'bg-brand-100 text-brand-800',
-  CANCELLED: 'bg-stone-200 text-stone-700',
-}
-
-export function StatusBadge({ status, label }: { status: OrderStatus; label: string }) {
+/** Label and colour come from lib/orderStatus (the `label` prop is kept for older callers and ignored). */
+export function StatusBadge({ status }: { status: OrderStatus; label?: string }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLE[status]}`}>
-      {label}
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${ORDER_STATUS_STYLE[status]}`}>
+      {ORDER_STATUS_LABEL[status]}
     </span>
   )
 }

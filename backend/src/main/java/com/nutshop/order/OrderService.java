@@ -61,6 +61,8 @@ public class OrderService {
 	public static final String ORDER_NOT_CANCELLABLE = "ORDER_NOT_CANCELLABLE";
 	public static final String INVALID_STATUS_TRANSITION = "INVALID_STATUS_TRANSITION";
 	public static final String IDEMPOTENCY_CONFLICT = "IDEMPOTENCY_CONFLICT";
+	public static final String INVALID_CANCEL_REASON = "INVALID_CANCEL_REASON";
+	public static final String COD_NOT_AVAILABLE = "COD_NOT_AVAILABLE";
 
 	static final String NOT_FOUND_MESSAGE = "Không tìm thấy đơn hàng. Vui lòng kiểm tra lại mã đơn và số điện thoại.";
 	private static final String MISSING_PRODUCT = "Sản phẩm không còn tồn tại";
@@ -85,6 +87,7 @@ public class OrderService {
 	private final OrderEmails emails;
 	private final OrderAccessTokens accessTokens;
 	private final PricingService pricing;
+	private final PhoneFlagService phoneFlags;
 	private final EmailSender emailSender;
 	private final TaskExecutor executor;
 	private final TransactionTemplate tx;
@@ -92,7 +95,8 @@ public class OrderService {
 
 	public OrderService(OrderRepository orders, OrderStatusHistoryRepository history, ProductRepository products,
 			InventoryService inventory, CartService carts, CartProperties cartProps, AdminUnits adminUnits,
-			OrderEmails emails, OrderAccessTokens accessTokens, PricingService pricing, EmailSender emailSender,
+			OrderEmails emails, OrderAccessTokens accessTokens, PricingService pricing, PhoneFlagService phoneFlags,
+			EmailSender emailSender,
 			@Qualifier("applicationTaskExecutor") TaskExecutor executor,
 			PlatformTransactionManager txManager, Clock clock) {
 		this.orders = orders;
@@ -105,6 +109,7 @@ public class OrderService {
 		this.emails = emails;
 		this.accessTokens = accessTokens;
 		this.pricing = pricing;
+		this.phoneFlags = phoneFlags;
 		this.emailSender = emailSender;
 		this.executor = executor;
 		this.tx = new TransactionTemplate(txManager);
@@ -123,6 +128,10 @@ public class OrderService {
 		Optional<OrderResponse> existing = replay(key, phone);
 		if (existing.isPresent()) {
 			return new PlaceResult(existing.get(), false);
+		}
+		// Every order is cash on delivery today; the reason a number is blocked is never revealed
+		if (phoneFlags.isCodBlocked(phone)) {
+			throw new ApiException(HttpStatus.CONFLICT, COD_NOT_AVAILABLE, "Vui lòng liên hệ hotline để được hỗ trợ đặt hàng.");
 		}
 		try {
 			return new PlaceResult(tx.execute(status -> create(req, key, phone, userId)), true);
@@ -297,7 +306,7 @@ public class OrderService {
 			throw new ApiException(HttpStatus.CONFLICT, ORDER_NOT_CANCELLABLE,
 					"Đơn hàng đã được xác nhận nên không thể tự huỷ. Vui lòng liên hệ cửa hàng.");
 		}
-		transition(order, OrderStatus.CANCELLED, userId, "Khách huỷ đơn");
+		transition(order, OrderStatus.CANCELLED, userId, "Khách huỷ đơn", CancelReason.CUSTOMER_REQUEST);
 		return toResponse(orders.findByCode(code).orElseThrow());
 	}
 
@@ -308,10 +317,30 @@ public class OrderService {
 	 */
 	@Transactional
 	public void transition(Order order, OrderStatus next, UUID actorId, String reason) {
+		transition(order, next, actorId, reason, null);
+	}
+
+	/**
+	 * @param cancelReason required meaning for CANCELLED (OTHER when null). A SHIPPING order can only be cancelled with
+	 * REFUSED_DELIVERY, and only a SHIPPING order can use it: the goods come back to the shelf (RETURN movements).
+	 * Callers lock the order row first, so a repeated request finds it CANCELLED and fails here (stock moves once).
+	 */
+	@Transactional
+	public void transition(Order order, OrderStatus next, UUID actorId, String reason, CancelReason cancelReason) {
 		OrderStatus from = order.getStatus();
 		if (!from.canTransitionTo(next)) {
 			throw new ApiException(HttpStatus.CONFLICT, INVALID_STATUS_TRANSITION,
 					"Không thể chuyển đơn từ \"" + from.label() + "\" sang \"" + next.label() + "\"");
+		}
+		boolean refused = next == OrderStatus.CANCELLED && from == OrderStatus.SHIPPING;
+		if (next == OrderStatus.CANCELLED) {
+			CancelReason code = cancelReason == null ? CancelReason.OTHER : cancelReason;
+			if (refused != (code == CancelReason.REFUSED_DELIVERY)) {
+				throw new ApiException(HttpStatus.CONFLICT, INVALID_CANCEL_REASON, refused
+						? "Đơn đang giao chỉ có thể huỷ với lý do \"Khách không nhận hàng\""
+						: "Lý do \"Khách không nhận hàng\" chỉ dùng cho đơn đang giao");
+			}
+			order.setCancelReason(code);
 		}
 		// Copy lines first: stock updates clear the persistence context
 		List<OrderItem> lines = List.copyOf(order.getItems());
@@ -337,7 +366,11 @@ public class OrderService {
 			});
 		}
 		for (OrderItem line : lines) {
-			if (next == OrderStatus.CANCELLED) {
+			if (refused) {
+				// Already out of the warehouse: the returned parcel goes back on the shelf
+				inventory.returnStock(line.getProductId(), line.getQuantity(), order.getId(), actorId, reason);
+			}
+			else if (next == OrderStatus.CANCELLED) {
 				inventory.release(line.getProductId(), line.getQuantity(), order.getId(), actorId, reason);
 			}
 			else if (next == OrderStatus.SHIPPING) {

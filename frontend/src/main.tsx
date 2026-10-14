@@ -20,6 +20,7 @@ import HomePage from './pages/HomePage'
 import NotFoundPage from './pages/NotFoundPage'
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordResetPages'
 import ProductDetailPage from './pages/ProductDetailPage'
+import { AcceptInvitePage, ChangePasswordPage } from './pages/PasswordPages'
 import ProductsPage from './pages/ProductsPage'
 import TrackOrderPage from './pages/TrackOrderPage'
 import VerifyEmailPage from './pages/VerifyEmailPage'
@@ -62,6 +63,9 @@ const router = createBrowserRouter([
                   { path: 'san-pham/:id', lazy: page(() => import('./admin/ProductFormPage')) },
                   { path: 'danh-muc', lazy: page(() => import('./admin/CategoriesPage')) },
                   { path: 'khuyen-mai', lazy: page(() => import('./admin/PromotionsPage')) },
+                  { path: 'nguoi-dung', lazy: page(() => import('./admin/UsersPage')) },
+                  { path: 'nguoi-dung/:id', lazy: page(() => import('./admin/UserDetailPage')) },
+                  { path: 'nhat-ky', lazy: page(() => import('./admin/AuditLogPage')) },
                 ],
               },
               { path: '*', element: <NotFoundPage /> },
@@ -89,6 +93,7 @@ const router = createBrowserRouter([
           { path: '/tra-cuu-don-hang', element: <OrderLookupPage /> },
           { path: '/don-hang/:code', element: <TrackOrderPage /> },
           { path: '/xac-minh-email', element: <VerifyEmailPage /> },
+          { path: '/dat-mat-khau', element: <AcceptInvitePage /> },
           { path: '/danh-muc/:slug', element: <ProductsPage /> },
           { path: '/dieu-khoan-su-dung', element: <TermsPage /> },
           { path: '/chinh-sach-doi-tra', element: <ReturnPolicyPage /> },
@@ -106,6 +111,7 @@ const router = createBrowserRouter([
                   { index: true, element: <AccountInfoPage /> },
                   { path: 'don-hang', element: <MyOrdersPage /> },
                   { path: 'don-hang/:code', element: <MyOrderDetailPage /> },
+                  { path: 'doi-mat-khau', element: <ChangePasswordPage /> },
                   { path: '*', element: <NotFoundPage /> },
                 ],
               },

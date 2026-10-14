@@ -64,13 +64,16 @@ class AuthServiceTest {
 	@Mock
 	EmailVerificationService verification;
 
+	@Mock
+	com.nutshop.user.UserStatusCache statuses;
+
 	AuthService service;
 
 	@BeforeEach
 	void setUp() {
 		given(passwordEncoder.encode(anyString())).willReturn(DUMMY_HASH);
 		service = new AuthService(users, passwordEncoder, tokenService, refreshTokens, googleVerifier, turnstile,
-				verification, Clock.fixed(NOW, ZoneOffset.UTC));
+				verification, statuses, Clock.fixed(NOW, ZoneOffset.UTC));
 	}
 
 	private static final Instant NOW = Instant.parse("2026-10-07T12:00:00Z");

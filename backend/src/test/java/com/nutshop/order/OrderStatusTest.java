@@ -14,7 +14,8 @@ class OrderStatusTest {
 	private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED = Map.of(
 			PENDING, EnumSet.of(CONFIRMED, CANCELLED),
 			CONFIRMED, EnumSet.of(SHIPPING, CANCELLED),
-			SHIPPING, EnumSet.of(COMPLETED),
+			// CANCELLED only with REFUSED_DELIVERY (checked by OrderService)
+			SHIPPING, EnumSet.of(COMPLETED, CANCELLED),
 			COMPLETED, EnumSet.noneOf(OrderStatus.class),
 			CANCELLED, EnumSet.noneOf(OrderStatus.class));
 

@@ -1,5 +1,7 @@
 package com.nutshop.auth;
 
+import com.nutshop.auth.AuthDtos.AcceptInviteRequest;
+import com.nutshop.auth.AuthDtos.ChangePasswordRequest;
 import com.nutshop.auth.AuthDtos.ForgotPasswordRequest;
 import com.nutshop.auth.AuthDtos.GoogleLoginRequest;
 import com.nutshop.auth.AuthDtos.LoginRequest;
@@ -43,9 +45,12 @@ public class AuthController {
 	private final AuthCookies cookies;
 	private final GoogleTokenVerifier googleVerifier;
 	private final EmailVerificationService emailVerification;
+	private final StaffInvitationService invitations;
 
 	public AuthController(AuthService authService, PasswordResetService passwordReset, AuthCookies cookies,
-			GoogleTokenVerifier googleVerifier, EmailVerificationService emailVerification) {
+			GoogleTokenVerifier googleVerifier, EmailVerificationService emailVerification,
+			StaffInvitationService invitations) {
+		this.invitations = invitations;
 		this.authService = authService;
 		this.passwordReset = passwordReset;
 		this.cookies = cookies;
@@ -64,7 +69,7 @@ public class AuthController {
 		if (req.isHoneypotFilled()) {
 			log.info("Registration honeypot triggered from {}", request.getRemoteAddr());
 			return new UserResponse(UUID.randomUUID(), req.email().trim().toLowerCase(Locale.ROOT), req.fullName().trim(),
-					null, Role.CUSTOMER.name(), false);
+					null, Role.CUSTOMER.name(), false, false);
 		}
 		return complete(authService.register(req, ClientInfo.from(request)), response);
 	}
@@ -135,6 +140,21 @@ public class AuthController {
 	@ResponseStatus(HttpStatus.ACCEPTED)
 	public void resendVerification(@AuthenticationPrincipal Jwt jwt) {
 		emailVerification.resend(UUID.fromString(jwt.getSubject()));
+	}
+
+	/** Signed in. Other sessions are signed out; this browser gets new cookies. */
+	@PostMapping("/change-password")
+	public UserResponse changePassword(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChangePasswordRequest req,
+			HttpServletRequest request, HttpServletResponse response) {
+		return complete(authService.changePassword(UUID.fromString(jwt.getSubject()), req.currentPassword(),
+				req.newPassword(), ClientInfo.from(request)), response);
+	}
+
+	/** Public: the invitation token is the proof. The new staff member signs in afterwards. */
+	@PostMapping("/accept-invite")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void acceptInvite(@Valid @RequestBody AcceptInviteRequest req) {
+		invitations.accept(req.token(), req.newPassword());
 	}
 
 	@GetMapping("/me")

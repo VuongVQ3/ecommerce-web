@@ -34,6 +34,24 @@ public class PasswordResetToken {
 	protected PasswordResetToken() {
 	}
 
+	/** RESET: "quên mật khẩu" (30 minutes). INVITE: new staff account sets its first password (48 hours). */
+	public enum Purpose {
+		RESET, INVITE
+	}
+
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false, updatable = false)
+	private Purpose purpose = Purpose.RESET;
+
+	public PasswordResetToken(User user, String tokenHash, Instant createdAt, Instant expiresAt, Purpose purpose) {
+		this(user, tokenHash, createdAt, expiresAt);
+		this.purpose = purpose;
+	}
+
+	public Purpose getPurpose() {
+		return purpose;
+	}
+
 	public PasswordResetToken(User user, String tokenHash, Instant createdAt, Instant expiresAt) {
 		this.user = user;
 		this.tokenHash = tokenHash;

@@ -89,6 +89,8 @@ export interface User {
   role: Role
   /** False until the owner opens the link in the verification email (Google accounts are verified). */
   emailVerified: boolean
+  /** Staff/admin password below the rules: the back office stays closed until it is changed. */
+  passwordChangeRequired: boolean
 }
 
 export interface RegisterInput {
@@ -503,6 +505,14 @@ export const api = {
     apiRequest<{ email: string; attachedOrders: number }>('/api/auth/verify-email', post({ token })),
 
   resendVerification: () => apiRequest<void>('/api/auth/verify-email/resend', post()),
+
+  /** Signed in. Other sessions are signed out; this browser gets new cookies. */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiRequest<User>('/api/auth/change-password', post({ currentPassword, newPassword })),
+
+  /** First password of an invited staff account (public: the token is the proof). */
+  acceptInvite: (token: string, newPassword: string) =>
+    apiRequest<void>('/api/auth/accept-invite', post({ token, newPassword, acceptTerms: true })),
 
   // Cart: guests (public). Same shape as a signed-in cart, priced by the server.
   cartValidate: (items: CartLineInput[], signal?: AbortSignal) =>

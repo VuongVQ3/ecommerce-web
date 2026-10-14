@@ -11,7 +11,7 @@ import java.util.UUID;
 public class InventoryMovement {
 
 	public enum Type {
-		ORDER_RESERVE, ORDER_CANCEL, ORDER_SHIP, IMPORT, ADJUST
+		ORDER_RESERVE, ORDER_CANCEL, ORDER_SHIP, IMPORT, ADJUST, RETURN
 	}
 
 	@Id

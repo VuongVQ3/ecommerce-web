@@ -11,7 +11,7 @@ const auth = vi.hoisted(() => ({ current: { user: null as User | null, loading: 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth.current }))
 
 const PRICE = 100_000
-const user: User = { id: 'u1', email: 'an@example.com', fullName: 'An', phone: null, role: 'CUSTOMER', emailVerified: true }
+const user: User = { id: 'u1', email: 'an@example.com', fullName: 'An', phone: null, role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false }
 const almonds = { id: 1, name: 'Hạnh nhân', maxPurchasable: 10 }
 const walnuts = { id: 2, name: 'Óc chó', maxPurchasable: 3 }
 

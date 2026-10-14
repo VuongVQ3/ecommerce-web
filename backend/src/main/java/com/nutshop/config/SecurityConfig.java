@@ -7,6 +7,8 @@ import com.nutshop.security.ProblemResponses;
 import com.nutshop.security.RateLimitFilter;
 import com.nutshop.security.RateLimiter;
 import com.nutshop.security.RequestedWithHeaderFilter;
+import com.nutshop.security.UserStatusFilter;
+import com.nutshop.user.UserStatusCache;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.ObjectProvider;
@@ -33,6 +35,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
@@ -83,6 +86,7 @@ public class SecurityConfig {
 			PATHS.matcher(HttpMethod.POST, "/api/orders/track/*/cancel"),
 			PATHS.matcher(HttpMethod.POST, "/api/orders/track/*/claim-account"),
 			PATHS.matcher(HttpMethod.POST, "/api/auth/verify-email"),
+			PATHS.matcher(HttpMethod.POST, "/api/auth/accept-invite"),
 			PATHS.matcher("/error"));
 
 	/**
@@ -129,7 +133,9 @@ public class SecurityConfig {
 			@Qualifier("orderTrackRateLimiter") RateLimiter orderTrackRateLimiter,
 			@Qualifier("claimAccountRateLimiter") RateLimiter claimAccountRateLimiter,
 			@Qualifier("orderClaimRateLimiter") RateLimiter orderClaimRateLimiter,
-			@Qualifier("verifyEmailRateLimiter") RateLimiter verifyEmailRateLimiter) throws Exception {
+			@Qualifier("verifyEmailRateLimiter") RateLimiter verifyEmailRateLimiter,
+			@Qualifier("acceptInviteRateLimiter") RateLimiter acceptInviteRateLimiter, UserStatusCache userStatuses)
+			throws Exception {
 		http.csrf(csrf -> csrf.disable()) // replaced by RequestedWithHeaderFilter (stateless, cookie-based auth)
 			.cors(Customizer.withDefaults())
 			.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -164,6 +170,10 @@ public class SecurityConfig {
 					"order-claim"), RequestedWithHeaderFilter.class)
 			.addFilterAfter(new RateLimitFilter(verifyEmailRateLimiter, PATHS.matcher(HttpMethod.POST, "/api/auth/verify-email"),
 					"verify-email"), RequestedWithHeaderFilter.class)
+			.addFilterAfter(new RateLimitFilter(acceptInviteRateLimiter, PATHS.matcher(HttpMethod.POST, "/api/auth/accept-invite"),
+					"accept-invite"), RequestedWithHeaderFilter.class)
+			// Locked accounts, role changes and required password changes apply even to still-valid access tokens
+			.addFilterAfter(new UserStatusFilter(userStatuses), BearerTokenAuthenticationFilter.class)
 			.exceptionHandling(e -> e.accessDeniedHandler((req, res, ex) -> ProblemResponses.write(res,
 					HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập chức năng này")))
 			.oauth2ResourceServer(o -> o.bearerTokenResolver(bearerTokenResolver())
@@ -260,6 +270,13 @@ public class SecurityConfig {
 	@Bean
 	RateLimiter orderClaimRateLimiter(@Value("${app.rate-limit.order-claim.max-requests}") int maxRequests,
 			@Value("${app.rate-limit.order-claim.window}") Duration window, Clock clock) {
+		return new RateLimiter(maxRequests, window, clock);
+	}
+
+	/** Per IP, for setting a first password from a staff invitation link. */
+	@Bean
+	RateLimiter acceptInviteRateLimiter(@Value("${app.rate-limit.accept-invite.max-requests}") int maxRequests,
+			@Value("${app.rate-limit.accept-invite.window}") Duration window, Clock clock) {
 		return new RateLimiter(maxRequests, window, clock);
 	}
 

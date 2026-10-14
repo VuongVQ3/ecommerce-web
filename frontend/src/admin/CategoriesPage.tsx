@@ -77,8 +77,23 @@ export default function CategoriesPage() {
       ) : data.length === 0 ? (
         <EmptyState title="Chưa có danh mục nào." />
       ) : (
-        <div className={table.wrap}>
-          <table className={`${table.table} min-w-0`}>
+        <>
+          <ul className="space-y-3 md:hidden">
+            {data.map((c) => (
+              <li key={c.id} className="flex items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white p-4 text-sm">
+                <div className="min-w-0">
+                  <p className="font-medium break-words text-stone-900">{c.name}</p>
+                  <p className="font-mono break-all text-stone-600">{c.slug}</p>
+                  <p className="text-muted tabular-nums">{c.productCount} sản phẩm</p>
+                </div>
+                <button type="button" className={`${btn.secondary} shrink-0`} onClick={() => setEditing(c)}>
+                  Đổi tên
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className={`${table.wrap} hidden md:block`}>
+          <table className="w-full text-left text-sm">
             <thead>
               <tr>
                 <th className={table.th}>Tên</th>
@@ -104,7 +119,8 @@ export default function CategoriesPage() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
       {editing && (
         <CategoryDialog

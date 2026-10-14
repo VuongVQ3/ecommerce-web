@@ -1,6 +1,9 @@
 package com.nutshop.admin;
 
 import com.nutshop.admin.AdminDtos.CancelRequest;
+import com.nutshop.admin.AdminDtos.ConfirmRequest;
+import com.nutshop.admin.AdminDtos.PhoneFlagRequest;
+import com.nutshop.admin.AdminDtos.ReasonRequest;
 import com.nutshop.admin.AdminDtos.ImportRequest;
 import com.nutshop.admin.AdminDtos.NoteRequest;
 import com.nutshop.admin.AdminDtos.ShipRequest;
@@ -11,10 +14,13 @@ import com.nutshop.order.AdminOrderService.Action;
 import com.nutshop.order.AdminOrderService.AdminOrderDetail;
 import com.nutshop.order.AdminOrderService.OrderList;
 import com.nutshop.order.OrderStatus;
+import com.nutshop.order.PhoneFlag;
+import com.nutshop.order.PhoneFlagService;
 import com.nutshop.security.Roles;
 import com.nutshop.user.Role;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -31,8 +37,11 @@ public class AdminController {
 	private final AdminOrderService orders;
 	private final AdminInventoryService inventory;
 	private final DashboardService dashboard;
+	private final PhoneFlagService phoneFlags;
 
-	public AdminController(AdminOrderService orders, AdminInventoryService inventory, DashboardService dashboard) {
+	public AdminController(AdminOrderService orders, AdminInventoryService inventory, DashboardService dashboard,
+			PhoneFlagService phoneFlags) {
+		this.phoneFlags = phoneFlags;
 		this.orders = orders;
 		this.inventory = inventory;
 		this.dashboard = dashboard;
@@ -59,9 +68,11 @@ public class AdminController {
 		return orders.detail(code);
 	}
 
+	/** With the result of contacting the customer; UNREACHABLE only adds a note (the order stays PENDING). */
 	@PostMapping("/orders/{code}/confirm")
-	public AdminOrderDetail confirm(@PathVariable String code, @AuthenticationPrincipal Jwt jwt) {
-		return orders.act(code, Action.CONFIRM, null, null, null, userId(jwt));
+	public AdminOrderDetail confirm(@PathVariable String code, @Valid @RequestBody ConfirmRequest req,
+			@AuthenticationPrincipal Jwt jwt) {
+		return orders.confirm(code, req.contact(), req.note(), userId(jwt));
 	}
 
 	@PostMapping("/orders/{code}/ship")
@@ -78,13 +89,44 @@ public class AdminController {
 	@PostMapping("/orders/{code}/cancel")
 	public AdminOrderDetail cancel(@PathVariable String code, @Valid @RequestBody CancelRequest req,
 			@AuthenticationPrincipal Jwt jwt) {
-		return orders.act(code, Action.CANCEL, null, null, req.reason(), userId(jwt));
+		return orders.act(code, Action.CANCEL, null, null, req.reason(), req.reasonCode(), userId(jwt));
 	}
 
 	@PostMapping("/orders/{code}/notes")
 	public AdminOrderDetail addNote(@PathVariable String code, @Valid @RequestBody NoteRequest req,
 			@AuthenticationPrincipal Jwt jwt) {
 		return orders.addNote(code, req.body(), userId(jwt));
+	}
+
+	// ---- customers by phone ---------------------------------------------------------------------------------
+
+	/** Order history of a phone number; {@code exclude} = the order being looked at (not counted as "first"). */
+	@GetMapping("/customers/by-phone/{phone}/stats")
+	public PhoneFlagService.CustomerStats customerStats(@PathVariable String phone,
+			@RequestParam(required = false) String exclude) {
+		return phoneFlags.stats(phone, exclude);
+	}
+
+	@GetMapping("/phone-flags")
+	public PageResponse<PhoneFlagService.FlagView> phoneFlagList(@RequestParam(required = false) PhoneFlag.Level level,
+			@RequestParam(required = false) String q, @RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "50") int size) {
+		return phoneFlags.list(level, q, page, size);
+	}
+
+	/** STAFF: add WATCH only. ADMIN: any level, also change an existing flag. */
+	@PutMapping("/phone-flags/{phone}")
+	public PhoneFlagService.FlagView setPhoneFlag(@PathVariable String phone, @Valid @RequestBody PhoneFlagRequest req,
+			@AuthenticationPrincipal Jwt jwt) {
+		return phoneFlags.set(phone, req.level(), req.reason(), userId(jwt));
+	}
+
+	/** ADMIN only. */
+	@PostMapping("/phone-flags/{phone}/remove")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void removePhoneFlag(@PathVariable String phone, @Valid @RequestBody ReasonRequest req,
+			@AuthenticationPrincipal Jwt jwt) {
+		phoneFlags.remove(phone, req.reason(), userId(jwt));
 	}
 
 	// ---- inventory --------------------------------------------------------------------------------------------

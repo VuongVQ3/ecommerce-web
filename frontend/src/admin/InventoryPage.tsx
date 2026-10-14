@@ -4,10 +4,11 @@ import { ErrorMessage, Spinner } from '../components/Feedback'
 import { useToast } from '../components/Toast'
 import { ApiError } from '../lib/api'
 import { adminApi, type MovementType, type StockRow } from '../lib/adminApi'
-import { formatDateTime, formatPrice } from '../lib/format'
+import { formatAdminDateTime, formatPrice } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
 import { btn, input, table } from './styles'
-import { Dialog, EmptyState, Field, PageHeader, Pagination } from './ui'
+import MoneyInput from './MoneyInput'
+import { ActionMenu, Dialog, EmptyState, Field, PageHeader, Pagination } from './ui'
 
 const MOVEMENT_LABEL: Record<MovementType, string> = {
   IMPORT: 'Nhập hàng',
@@ -15,6 +16,7 @@ const MOVEMENT_LABEL: Record<MovementType, string> = {
   ORDER_RESERVE: 'Giữ hàng cho đơn',
   ORDER_CANCEL: 'Trả lại (huỷ đơn)',
   ORDER_SHIP: 'Xuất kho (giao đơn)',
+  RETURN: 'Hàng hoàn về (khách không nhận)',
 }
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
@@ -23,7 +25,8 @@ const message = (err: unknown) => (err instanceof Error ? err.message : String(e
 const toInt = (value: string) => (value.trim() === '' ? undefined : Number(value.replace(/[.\s]/g, '')))
 
 function ImportDialog({ product, onDone, onClose }: { product: StockRow; onDone: () => void; onClose: () => void }) {
-  const [form, setForm] = useState({ quantity: '', unitCost: '', supplier: '', note: '' })
+  const [form, setForm] = useState({ quantity: '', supplier: '', note: '' })
+  const [unitCost, setUnitCost] = useState<number | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -31,10 +34,9 @@ function ImportDialog({ product, onDone, onClose }: { product: StockRow; onDone:
 
   const submit = async () => {
     const quantity = toInt(form.quantity)
-    const unitCost = toInt(form.unitCost)
     const next: Record<string, string> = {}
     if (!quantity || !Number.isInteger(quantity) || quantity <= 0) next.quantity = 'Số lượng phải là số nguyên lớn hơn 0'
-    if (unitCost !== undefined && (!Number.isInteger(unitCost) || unitCost < 0)) next.unitCost = 'Giá nhập không hợp lệ'
+    if (unitCost !== null && unitCost > 1_000_000_000) next.unitCost = 'Giá nhập quá lớn'
     setErrors(next)
     if (Object.keys(next).length) return
     setPending(true)
@@ -42,7 +44,7 @@ function ImportDialog({ product, onDone, onClose }: { product: StockRow; onDone:
     try {
       await adminApi.importStock(product.id, {
         quantity: quantity!,
-        unitCost,
+        unitCost: unitCost ?? undefined,
         supplier: form.supplier.trim() || undefined,
         note: form.note.trim() || undefined,
       })
@@ -64,7 +66,7 @@ function ImportDialog({ product, onDone, onClose }: { product: StockRow; onDone:
           {(p) => <input {...p} inputMode="numeric" value={form.quantity} onChange={set('quantity')} autoFocus />}
         </Field>
         <Field label="Giá nhập / đơn vị (₫)" error={errors.unitCost} hint="Không bắt buộc">
-          {(p) => <input {...p} inputMode="numeric" value={form.unitCost} onChange={set('unitCost')} />}
+          {(p) => <MoneyInput {...p} value={unitCost} onChange={setUnitCost} />}
         </Field>
       </div>
       <Field label="Nhà cung cấp" error={errors.supplier} hint="Không bắt buộc">
@@ -154,7 +156,7 @@ function HistoryDialog({ product, onClose }: { product: StockRow; onClose: () =>
             <tbody>
               {data.items.map((m) => (
                 <tr key={m.id}>
-                  <td className={`${table.td} whitespace-nowrap`}>{formatDateTime(m.createdAt)}</td>
+                  <td className={`${table.td} whitespace-nowrap`}>{formatAdminDateTime(m.createdAt)}</td>
                   <td className={table.td}>{MOVEMENT_LABEL[m.type]}</td>
                   <td className={`${table.td} text-right font-semibold tabular-nums ${m.quantity < 0 ? 'text-danger' : 'text-success'}`}>
                     {m.quantity > 0 ? '+' : ''}
@@ -208,6 +210,12 @@ export default function InventoryPage() {
     reload()
   }
 
+  const rowActions = (p: StockRow) => [
+    { label: 'Nhập hàng', onSelect: () => setOpen({ kind: 'import', product: p }) },
+    { label: 'Kiểm kê', onSelect: () => setOpen({ kind: 'stocktake', product: p }) },
+    { label: 'Lịch sử', onSelect: () => setOpen({ kind: 'history', product: p }) },
+  ]
+
   const onSearch = (e: FormEvent) => {
     e.preventDefault()
     update({ q: search.trim() })
@@ -217,7 +225,7 @@ export default function InventoryPage() {
     <>
       <PageHeader title="Tồn kho" />
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <form onSubmit={onSearch} role="search" className="flex min-w-64 flex-1 gap-2">
+        <form onSubmit={onSearch} role="search" className="flex min-w-0 flex-1 basis-64 gap-2">
           <input
             type="search"
             value={search}
@@ -243,8 +251,41 @@ export default function InventoryPage() {
       ) : data.items.length === 0 ? (
         <EmptyState title={low ? 'Không có sản phẩm nào dưới ngưỡng.' : 'Không tìm thấy sản phẩm.'} />
       ) : (
-        <div className={table.wrap} aria-busy={loading}>
-          <table className={table.table}>
+        <div aria-busy={loading}>
+          <ul className="space-y-3 md:hidden">
+            {data.items.map((p) => (
+              <li key={p.id} className={`rounded-2xl border p-4 text-sm ${p.lowStock ? 'border-amber-200 bg-amber-50' : 'border-stone-200 bg-white'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium break-words text-stone-900">{p.name}</p>
+                    <p className="text-xs text-muted">
+                      {!p.active && 'Đang ẩn · '}Ngưỡng cảnh báo: {p.lowStockThreshold}
+                    </p>
+                  </div>
+                  <ActionMenu label={`Thao tác với ${p.name}`} items={rowActions(p)} />
+                </div>
+                <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <dt className="text-xs text-muted">Tồn kho</dt>
+                    <dd className="tabular-nums">{p.onHand}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted">Đang giữ</dt>
+                    <dd className="tabular-nums">{p.reserved}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted">Có thể bán</dt>
+                    <dd className={`font-semibold tabular-nums ${p.lowStock ? 'text-amber-900' : ''}`}>
+                      {p.available}
+                      {p.lowStock && <span className="ml-1 rounded bg-amber-200 px-1.5 py-0.5 text-xs">Sắp hết</span>}
+                    </dd>
+                  </div>
+                </dl>
+              </li>
+            ))}
+          </ul>
+        <div className={`${table.wrap} hidden md:block`}>
+          <table className="w-full text-left text-sm">
             <thead>
               <tr>
                 <th className={table.th}>Sản phẩm</th>
@@ -272,7 +313,10 @@ export default function InventoryPage() {
                     {p.lowStock && <span className="ml-1.5 rounded bg-amber-200 px-1.5 py-0.5 text-xs">Sắp hết</span>}
                   </td>
                   <td className={`${table.td} text-right`}>
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end xl:hidden">
+                      <ActionMenu label={`Thao tác với ${p.name}`} items={rowActions(p)} />
+                    </div>
+                    <div className="hidden justify-end gap-2 xl:flex">
                       <button type="button" className={btn.secondary} onClick={() => setOpen({ kind: 'import', product: p })}>
                         Nhập hàng
                       </button>
@@ -288,6 +332,7 @@ export default function InventoryPage() {
               ))}
             </tbody>
           </table>
+        </div>
         </div>
       )}
 

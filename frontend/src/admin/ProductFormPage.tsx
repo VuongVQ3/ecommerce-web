@@ -1,19 +1,22 @@
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { Controller } from 'react-hook-form'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useAuthForm } from '../auth/useAuthForm'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { FormError, TextField } from '../components/FormFields'
 import { useToast } from '../components/Toast'
 import { ApiError } from '../lib/api'
-import { adminApi, type AdminCategory, type AdminProduct } from '../lib/adminApi'
+import { adminApi, promotionApi, type AdminCategory, type AdminProduct, type PromotionRow } from '../lib/adminApi'
+import { formatLastDay, formatPrice } from '../lib/format'
 import { cloudinaryUrl } from '../lib/images'
 import { slugify } from '../lib/slug'
 import { useAsync } from '../lib/useAsync'
 import NotFoundPage from '../pages/NotFoundPage'
-import { EMPTY_PRODUCT, productSchema, toForm, toInput, type ProductForm } from './productSchema'
+import MoneyInput from './MoneyInput'
+import { EMPTY_PRODUCT, isBigPriceChange, priceChangePercent, productSchema, toForm, toInput, type ProductForm } from './productSchema'
 import { VisibilityDialog } from './ProductsPage'
 import { btn, card, input } from './styles'
-import { PageHeader } from './ui'
+import { Dialog, PageHeader, UnsavedChangesGuard } from './ui'
 
 const MAX_IMAGES = 5
 const MAX_BYTES = 5 * 1024 * 1024
@@ -146,10 +149,50 @@ function ImageManager({ product, onChange }: { product: AdminProduct; onChange: 
   )
 }
 
-function ProductEditor({ product, categories }: { product: AdminProduct | null; categories: AdminCategory[] }) {
+/** "Giá cũ 189.000₫ → Giá mới 1.890.000₫ (+900%)": shown before saving a price that moved by more than half. */
+export function PriceChangeDialog({
+  oldPrice,
+  newPrice,
+  onConfirm,
+  onCancel,
+}: {
+  oldPrice: number
+  newPrice: number
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const percent = priceChangePercent(oldPrice, newPrice)
+  return (
+    <Dialog title="Giá thay đổi nhiều, kiểm tra lại?" submitLabel="Xác nhận đổi giá" cancelLabel="Sửa lại" onSubmit={onConfirm} onClose={onCancel}>
+      <p className="text-sm text-stone-700">
+        Giá cũ <strong className="tabular-nums">{formatPrice(oldPrice)}</strong> → Giá mới{' '}
+        <strong className="tabular-nums">{formatPrice(newPrice)}</strong>{' '}
+        <span className={`font-semibold ${percent > 0 ? 'text-danger' : 'text-amber-800'}`}>
+          ({percent > 0 ? '+' : ''}
+          {percent}%)
+        </span>
+      </p>
+      <p className="text-sm text-muted">Giá mới áp dụng ngay cho khách trên cửa hàng.</p>
+    </Dialog>
+  )
+}
+
+function ProductEditor({
+  product,
+  categories,
+  promotion,
+}: {
+  product: AdminProduct | null
+  categories: AdminCategory[]
+  promotion: PromotionRow | null
+}) {
   const navigate = useNavigate()
   const toast = useToast()
   const [current, setCurrent] = useState(product)
+  // Values just saved: the form restarts from them (not dirty any more)
+  const [saved, setSaved] = useState<ProductForm | null>(null)
+  // Waiting for the admin's answer about a large price change
+  const [priceAsk, setPriceAsk] = useState<{ oldPrice: number; newPrice: number; answer: (ok: boolean) => void } | null>(null)
   const [confirmVisibility, setConfirmVisibility] = useState(false)
   // Until the slug is edited by hand on a new product, it follows the name
   const [slugTouched, setSlugTouched] = useState(product !== null)
@@ -158,14 +201,24 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
     productSchema,
     product ? toForm(product) : EMPTY_PRODUCT,
     async (values) => {
+      const input = toInput(values)
       if (current) {
-        const saved = await adminApi.updateProduct(current.id, toInput(values))
+        if (isBigPriceChange(current.price, input.price)) {
+          const ok = await new Promise<boolean>((answer) => setPriceAsk({ oldPrice: current.price, newPrice: input.price, answer }))
+          setPriceAsk(null)
+          if (!ok) {
+            requestAnimationFrame(() => document.getElementById('price')?.focus())
+            return
+          }
+        }
+        const saved = await adminApi.updateProduct(current.id, input)
         setCurrent(saved)
+        setSaved(toForm(saved))
         toast({ message: 'Đã lưu sản phẩm', tone: 'success' })
       } else {
-        const created = await adminApi.createProduct(toInput(values))
+        const created = await adminApi.createProduct(input)
         toast({ message: 'Đã tạo sản phẩm. Hãy thêm ảnh và nhập kho.', tone: 'success' })
-        navigate(`/admin/san-pham/${created.id}`, { replace: true })
+        navigate(`/admin/san-pham/${created.id}`, { replace: true, state: { skipUnsavedGuard: true } })
       }
     },
     {
@@ -180,8 +233,13 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
   )
   const {
     register,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = form
+  useEffect(() => {
+    if (saved) form.reset(saved)
+  }, [saved, form])
+  const priceText = form.watch('price')
+  const priceValue = /^\d+$/.test(priceText) ? Number(priceText) : null
 
   const nameField = register('name')
   const slugField = register('slug')
@@ -252,7 +310,43 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
             </select>
             {errors.categoryId && <p className="mt-1 text-sm text-danger">{errors.categoryId.message}</p>}
           </div>
-          {num('price', 'Giá bán (₫)')}
+          <Controller
+            control={form.control}
+            name="price"
+            render={({ field, fieldState }) => (
+              <div>
+                <label htmlFor="price" className="text-sm font-medium text-stone-700">
+                  Giá bán (₫)
+                </label>
+                <MoneyInput
+                  id="price"
+                  ref={field.ref}
+                  name={field.name}
+                  value={field.value === '' ? null : Number(field.value)}
+                  onChange={(n) => field.onChange(n == null ? '' : String(n))}
+                  onBlur={field.onBlur}
+                  aria-invalid={fieldState.error ? true : undefined}
+                  aria-describedby="price-help"
+                  className={`${input} mt-1`}
+                />
+                <div id="price-help" className="mt-1 space-y-0.5 text-sm">
+                  {fieldState.error ? (
+                    <p className="text-danger">{fieldState.error.message}</p>
+                  ) : (
+                    priceValue != null && <p className="text-muted tabular-nums">= {formatPrice(priceValue)}</p>
+                  )}
+                  {!fieldState.error && priceValue != null && priceValue % 1000 !== 0 && (
+                    <p className="text-amber-800">Giá không chẵn nghìn, kiểm tra lại nhé.</p>
+                  )}
+                  {promotion && (
+                    <p className="text-brand-800">
+                      Đang khuyến mại: {formatPrice(promotion.salePrice)} đến hết {formatLastDay(promotion.endsAt)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          />
           {num('weightGrams', 'Khối lượng (g)')}
         </div>
         <div className="grid gap-5 md:grid-cols-2">
@@ -299,6 +393,15 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
         <p className="text-sm text-muted">Có thể thêm ảnh sau khi tạo sản phẩm. Sản phẩm mới có tồn kho 0: nhập hàng ở trang Tồn kho.</p>
       )}
 
+      <UnsavedChangesGuard when={isDirty && !pending && !priceAsk} />
+      {priceAsk && (
+        <PriceChangeDialog
+          oldPrice={priceAsk.oldPrice}
+          newPrice={priceAsk.newPrice}
+          onConfirm={() => priceAsk.answer(true)}
+          onCancel={() => priceAsk.answer(false)}
+        />
+      )}
       {confirmVisibility && current && (
         <VisibilityDialog
           product={current}
@@ -319,11 +422,13 @@ export default function ProductFormPage() {
   const productId = id ? Number(id) : null
   const { data, error, reload } = useAsync(
     async (signal) => {
-      const [categories, product] = await Promise.all([
+      const [categories, product, promotions] = await Promise.all([
         adminApi.categories(signal),
         productId ? adminApi.product(productId, signal) : Promise.resolve(null),
+        productId ? promotionApi.list(signal) : Promise.resolve([]),
       ])
-      return { categories, product }
+      const promotion = promotions.find((p) => p.productId === productId && p.status === 'RUNNING') ?? null
+      return { categories, product, promotion }
     },
     [productId],
   )
@@ -332,5 +437,5 @@ export default function ProductFormPage() {
   if (error instanceof ApiError && error.status === 404) return <NotFoundPage />
   if (error) return <ErrorMessage message={error.message} onRetry={reload} />
   if (!data || (data.product?.id ?? null) !== productId) return <Spinner />
-  return <ProductEditor key={productId ?? 'new'} product={data.product} categories={data.categories} />
+  return <ProductEditor key={productId ?? 'new'} product={data.product} categories={data.categories} promotion={data.promotion} />
 }

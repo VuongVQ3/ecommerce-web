@@ -15,6 +15,7 @@ import { orderSavings } from '../lib/pricing'
 import { removeRecentOrders, saveRecentOrder, trackingPath } from '../lib/recentOrders'
 import { loginUrl } from '../lib/redirect'
 import { useAsync } from '../lib/useAsync'
+import { ORDER_STATUS_LABEL } from '../lib/orderStatus'
 import { useJustPlaced } from '../lib/useJustPlaced'
 import { BRAND, usePageMeta } from '../lib/usePageMeta'
 import { LegalLinks } from './AuthPages'
@@ -24,12 +25,9 @@ export interface TrackOrderState {
   justPlaced?: boolean
 }
 
-const STEPS: { status: OrderStatus; label: string }[] = [
-  { status: 'PENDING', label: 'Chờ xác nhận' },
-  { status: 'CONFIRMED', label: 'Đã xác nhận' },
-  { status: 'SHIPPING', label: 'Đang giao' },
-  { status: 'COMPLETED', label: 'Hoàn tất' },
-]
+const STEPS: { status: OrderStatus; label: string }[] = (['PENDING', 'CONFIRMED', 'SHIPPING', 'COMPLETED'] as const).map(
+  (status) => ({ status, label: ORDER_STATUS_LABEL[status] }),
+)
 
 const dismissKey = (code: string) => `hatlanh_claim_dismissed_${code}`
 

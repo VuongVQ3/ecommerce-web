@@ -112,3 +112,23 @@ export const cancelReasonSchema = z
 
 export type LoginForm = z.infer<typeof loginSchema>
 export type RegisterForm = z.infer<typeof registerSchema>
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string(),
+    newPassword,
+    confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu'),
+  })
+  .refine((v) => v.confirmPassword === '' || v.newPassword === v.confirmPassword, {
+    message: PASSWORD_MISMATCH,
+    path: ['confirmPassword'],
+  })
+
+export type ChangePasswordForm = z.infer<typeof changePasswordSchema>
+
+export const acceptInviteSchema = z
+  .object({ newPassword, confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu') })
+  .refine((v) => v.confirmPassword === '' || v.newPassword === v.confirmPassword, {
+    message: PASSWORD_MISMATCH,
+    path: ['confirmPassword'],
+  })
