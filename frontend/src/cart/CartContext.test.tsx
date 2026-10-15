@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../components/Toast'
 import { api, type CartLineInput, type CartView, type User } from '../lib/api'
-import { CartProvider, useCart } from './CartContext'
+import { CartProvider, QUANTITY_DEBOUNCE_MS, useCart } from './CartContext'
 import { GUEST_CART_KEY } from './cartStorage'
 
 const auth = vi.hoisted(() => ({ current: { user: null as User | null, loading: false } }))
@@ -187,5 +187,70 @@ describe('signing in with a guest cart', () => {
 
     await waitFor(() => expect(api.cart).toHaveBeenCalled())
     expect(stored()).toEqual(before)
+  })
+})
+
+describe('quantity changes', () => {
+  it('shows +/− at once and sends fast clicks as one request when signed in', async () => {
+    auth.current = { user, loading: false }
+    vi.spyOn(api, 'cart').mockResolvedValue(viewOf([{ productId: 1, quantity: 1 }]))
+    const set = vi
+      .spyOn(api, 'cartSetQuantity')
+      .mockImplementation(async (productId, quantity) => ({ cart: viewOf([{ productId, quantity }]), warning: null }))
+    const { cart } = renderCart()
+    await waitFor(() => expect(cart.current!.getQuantity(1)).toBe(1))
+
+    vi.useFakeTimers()
+    try {
+      let done: Promise<unknown> = Promise.resolve()
+      act(() => {
+        done = Promise.all([cart.current!.setQuantity(1, 2), cart.current!.setQuantity(1, 3)])
+      })
+      // Shown before any request
+      expect(cart.current!.getQuantity(1)).toBe(3)
+      expect(cart.current!.count).toBe(3)
+      expect(cart.current!.lines[0].quantity).toBe(3)
+      expect(set).not.toHaveBeenCalled()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(QUANTITY_DEBOUNCE_MS)
+        await done
+      })
+      expect(set).toHaveBeenCalledTimes(1)
+      expect(set).toHaveBeenCalledWith(1, 3)
+      expect(cart.current!.getQuantity(1)).toBe(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('goes back to the server quantity when the change fails', async () => {
+    auth.current = { user, loading: false }
+    vi.spyOn(api, 'cart').mockResolvedValue(viewOf([{ productId: 1, quantity: 2 }]))
+    vi.spyOn(api, 'cartSetQuantity').mockRejectedValue(new Error('Chỉ còn 2 sản phẩm'))
+    const { cart } = renderCart()
+    await waitFor(() => expect(cart.current!.getQuantity(1)).toBe(2))
+
+    let failure: Promise<unknown> = Promise.resolve()
+    act(() => {
+      failure = cart.current!.setQuantity(1, 5)
+    })
+    expect(cart.current!.getQuantity(1)).toBe(5)
+    await act(async () => {
+      await expect(failure).rejects.toThrow('Chỉ còn 2')
+    })
+    expect(cart.current!.getQuantity(1)).toBe(2)
+  })
+
+  it('as a guest, 0 removes the line and a missing line is added back', async () => {
+    const { cart } = renderCart()
+    await act(() => cart.current!.addItem(almonds, 2))
+
+    await act(() => cart.current!.setQuantity(1, 0))
+    expect(cart.current!.getQuantity(1)).toBe(0)
+    expect(stored()?.items ?? []).toEqual([])
+
+    await act(() => cart.current!.setQuantity(1, 2))
+    expect(stored().items).toEqual([{ productId: 1, quantity: 2 }])
+    expect(cart.current!.getQuantity(1)).toBe(2)
   })
 })

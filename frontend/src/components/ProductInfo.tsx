@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import AddToCartButton from '../cart/AddToCartButton'
+import { useCart } from '../cart/CartContext'
 import QuantityStepper from '../cart/QuantityStepper'
 import type { Nutrition, Pricing, ProductDetail } from '../lib/api'
-import { formatLastDay, formatPrice, formatWeight } from '../lib/format'
+import { formatPrice, formatPromotionEnd, formatWeight } from '../lib/format'
 import { stockLabel } from '../lib/images'
 import { DiscountBadge, PriceTag } from './Price'
 
@@ -32,7 +34,7 @@ export function ProductPrice({
       {product.discountPercent && product.promotionEndsAt && (
         <p className="mt-2 text-sm text-stone-700">
           <span className="font-semibold text-success">Tiết kiệm {formatPrice(product.regularPrice - product.price)}</span>
-          {' · '}Khuyến mại đến hết {formatLastDay(product.promotionEndsAt)}
+          {' · '}Khuyến mại {formatPromotionEnd(product.promotionEndsAt, { year: false }).toLowerCase()}
         </p>
       )}
     </>
@@ -126,7 +128,11 @@ export function NutritionTable({
   )
 }
 
-/** Quantity picker (bounded by maxPurchasable) + add button. Discontinued products get a notice instead. */
+/**
+ * Quantity picker + add button: the quantity is what will be added, bounded by what the cart can still take
+ * (maxPurchasable minus what is already in it). Shows how many are already in the cart. Discontinued products get a
+ * notice instead.
+ */
 export function AddToCartControl({
   product,
   className = 'mt-8',
@@ -137,6 +143,11 @@ export function AddToCartControl({
   onAdded?: (quantity: number) => void
 }) {
   const [quantity, setQuantity] = useState(1)
+  const { getQuantity } = useCart()
+  const inCart = getQuantity(product.id)
+  const room = Math.max(product.maxPurchasable - inCart, 0)
+  const full = product.maxPurchasable > 0 && room === 0
+  const chosen = Math.max(Math.min(quantity, room), 1)
 
   if (!product.active) {
     return (
@@ -150,19 +161,38 @@ export function AddToCartControl({
   return (
     <div className={`${className} flex flex-wrap items-center gap-3`}>
       {product.maxPurchasable > 0 && (
-        <QuantityStepper value={quantity} max={product.maxPurchasable} onChange={setQuantity} label={product.name} />
+        <QuantityStepper value={chosen} max={Math.max(room, 1)} onChange={setQuantity} label={product.name} disabled={full} />
       )}
       <div className="w-full sm:w-auto sm:flex-1">
-        <AddToCartButton
-          product={ref}
-          quantity={quantity}
-          variant="page"
-          onAdded={() => {
-            onAdded?.(quantity)
-            setQuantity(1)
-          }}
-        />
+        {full ? (
+          <button
+            type="button"
+            disabled
+            className="w-full cursor-not-allowed rounded-full bg-stone-200 px-6 py-3 font-semibold text-stone-600 sm:w-auto"
+          >
+            Đã đạt số lượng tối đa
+          </button>
+        ) : (
+          <AddToCartButton
+            product={ref}
+            quantity={chosen}
+            variant="page"
+            onAdded={() => {
+              onAdded?.(chosen)
+              setQuantity(1)
+            }}
+          />
+        )}
       </div>
+      {inCart > 0 && (
+        <p className="w-full text-sm text-stone-700" aria-live="polite">
+          <span className="font-semibold text-success">✓ Đã có {inCart} trong giỏ</span>
+          {' · '}
+          <Link to="/gio-hang" className="font-semibold text-brand-700 underline hover:text-brand-800">
+            Xem giỏ hàng
+          </Link>
+        </p>
+      )}
       {product.maxPurchasable > 0 && product.stockStatus.status === 'IN_STOCK' && (
         <p className="w-full text-sm text-muted">Tối đa {product.maxPurchasable} sản phẩm cho mỗi đơn.</p>
       )}

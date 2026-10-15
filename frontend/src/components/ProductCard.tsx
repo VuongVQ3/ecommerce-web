@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Link } from 'react-router'
-import AddToCartButton from '../cart/AddToCartButton'
+import CardCartControl from '../cart/CardCartControl'
 import type { ProductSummary } from '../lib/api'
 import { formatWeight } from '../lib/format'
 import { stockLabel } from '../lib/images'
@@ -93,7 +93,7 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
           <PriceTag price={product.price} regularPrice={product.regularPrice} />
           <span className="text-sm text-muted">/ {formatWeight(product.weightGrams)}</span>
         </div>
-        <AddToCartButton product={{ id: product.id, name: product.name, maxPurchasable: product.maxPurchasable }} />
+        <CardCartControl product={{ id: product.id, name: product.name, maxPurchasable: product.maxPurchasable }} />
       </div>
     </article>
   )

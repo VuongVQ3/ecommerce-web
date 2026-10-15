@@ -23,6 +23,8 @@ interface State {
   loading: boolean
   /** Units added but not yet confirmed by the server, so the header badge reacts instantly. */
   optimistic: number
+  /** Signed in: quantities chosen with setQuantity, shown at once while the (debounced) request runs. */
+  pending: Record<number, number>
   drawerOpen: boolean
 }
 
@@ -31,6 +33,8 @@ type Action =
   | { type: 'guest'; guest: GuestCart }
   | { type: 'loading'; loading: boolean }
   | { type: 'optimistic'; delta: number }
+  | { type: 'pending'; productId: number; quantity: number }
+  | { type: 'settled'; productId: number }
   | { type: 'drawer'; open: boolean }
 
 function reducer(state: State, action: Action): State {
@@ -43,10 +47,20 @@ function reducer(state: State, action: Action): State {
       return { ...state, loading: action.loading }
     case 'optimistic':
       return { ...state, optimistic: Math.max(0, state.optimistic + action.delta) }
+    case 'pending':
+      return { ...state, pending: { ...state.pending, [action.productId]: action.quantity } }
+    case 'settled': {
+      const pending = { ...state.pending }
+      delete pending[action.productId]
+      return { ...state, pending }
+    }
     case 'drawer':
       return { ...state, drawerOpen: action.open }
   }
 }
+
+/** Signed-in quantity changes within this window are sent as one request (fast +/+/+ clicks). */
+export const QUANTITY_DEBOUNCE_MS = 400
 
 const EMPTY_VIEW: CartView = {
   items: [],
@@ -65,9 +79,15 @@ interface CartContextValue {
   lines: CartLine[]
   /** Badge count: confirmed units plus units still being added. */
   count: number
+  /** Units of a product in the cart as shown right now (includes changes not confirmed yet). No request. */
+  getQuantity: (productId: number) => number
   loading: boolean
   mode: 'guest' | 'user'
   addItem: (product: CartProductRef, quantity?: number) => Promise<CartResult>
+  /**
+   * 0 removes the line. Shown at once; signed in, changes made within QUANTITY_DEBOUNCE_MS are sent as one request
+   * (all callers get its result). On failure the line goes back to the server's quantity and the promise rejects.
+   */
   setQuantity: (productId: number, quantity: number) => Promise<CartResult>
   removeItem: (productId: number) => Promise<void>
   clear: () => Promise<void>
@@ -81,6 +101,12 @@ interface CartContextValue {
 }
 
 const CartContext = createContext<CartContextValue | null>(null)
+
+interface QueuedChange {
+  quantity: number
+  timer: ReturnType<typeof setTimeout>
+  waiters: { resolve: (r: CartResult) => void; reject: (e: unknown) => void }[]
+}
 
 const limitedMessage = (n: number) => `Chỉ còn ${n} sản phẩm`
 
@@ -97,6 +123,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     guest: readGuestCart(),
     loading: true,
     optimistic: 0,
+    pending: {},
     drawerOpen: false,
   }))
   const mode: 'guest' | 'user' = user ? 'user' : 'guest'
@@ -196,10 +223,48 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [priceGuestCart],
   )
 
+  // Signed in: one timer per product; every caller waiting on it gets the result of the single request
+  const queued = useRef(new Map<number, QueuedChange>())
+  useEffect(() => {
+    const map = queued.current
+    return () => {
+      // Signed out or another account: drop what was waiting
+      map.forEach((q) => clearTimeout(q.timer))
+      map.clear()
+    }
+  }, [userId])
+
+  const flush = useCallback(
+    async (productId: number) => {
+      const entry = queued.current.get(productId)
+      if (!entry) return
+      queued.current.delete(productId)
+      const stillLatest = () => !queued.current.has(productId)
+      try {
+        const res = await api.cartSetQuantity(productId, entry.quantity)
+        await applyView(Promise.resolve(res.cart))
+        if (stillLatest()) dispatch({ type: 'settled', productId })
+        entry.waiters.forEach((w) => w.resolve({ warning: res.warning?.message ?? null }))
+      } catch (err) {
+        // Back to what the server really has
+        if (stillLatest()) dispatch({ type: 'settled', productId })
+        await applyView(api.cart()).catch(() => {})
+        entry.waiters.forEach((w) => w.reject(err))
+      }
+    },
+    [applyView],
+  )
+
   const addItem = useCallback(
     (product: CartProductRef, quantity = 1): Promise<CartResult> =>
       withOptimistic(quantity, async () => {
         if (userId) {
+          // A +/− change still waiting for its timer goes first, so the server adds to the right quantity
+          const waiting = queued.current.get(product.id)
+          if (waiting) {
+            clearTimeout(waiting.timer)
+            await flush(product.id)
+          }
           const res = await api.cartAdd(product.id, quantity)
           applyView(Promise.resolve(res.cart))
           return { warning: res.warning?.message ?? null }
@@ -211,27 +276,37 @@ export function CartProvider({ children }: { children: ReactNode }) {
         await saveGuest([...items.filter((i) => i.productId !== product.id), { productId: product.id, quantity: next }])
         return { warning: existing + quantity > product.maxPurchasable ? limitedMessage(product.maxPurchasable) : null }
       }),
-    [userId, withOptimistic, applyView, saveGuest],
+    [userId, withOptimistic, applyView, saveGuest, flush],
   )
 
   const setQuantity = useCallback(
     async (productId: number, quantity: number): Promise<CartResult> => {
       if (userId) {
-        const res = await api.cartSetQuantity(productId, quantity)
-        applyView(Promise.resolve(res.cart))
-        return { warning: res.warning?.message ?? null }
+        dispatch({ type: 'pending', productId, quantity })
+        return new Promise<CartResult>((resolve, reject) => {
+          const previous = queued.current.get(productId)
+          if (previous) clearTimeout(previous.timer)
+          queued.current.set(productId, {
+            quantity,
+            waiters: [...(previous?.waiters ?? []), { resolve, reject }],
+            timer: setTimeout(() => void flush(productId), QUANTITY_DEBOUNCE_MS),
+          })
+        })
       }
       const max = state.view?.items.find((l) => l.productId === productId)?.maxPurchasable ?? quantity
       const capped = Math.min(quantity, max)
       const items = readGuestCart().items
+      const present = items.some((i) => i.productId === productId)
       await saveGuest(
         capped <= 0
           ? items.filter((i) => i.productId !== productId)
-          : items.map((i) => (i.productId === productId ? { ...i, quantity: capped } : i)),
+          : present
+            ? items.map((i) => (i.productId === productId ? { ...i, quantity: capped } : i))
+            : [...items, { productId, quantity: capped }],
       )
       return { warning: quantity > max ? limitedMessage(max) : null }
     },
-    [userId, applyView, saveGuest, state.view],
+    [userId, saveGuest, state.view, flush],
   )
 
   const removeItem = useCallback(
@@ -266,16 +341,42 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const openDrawer = useCallback(() => dispatch({ type: 'drawer', open: true }), [])
   const closeDrawer = useCallback(() => dispatch({ type: 'drawer', open: false }), [])
 
-  const confirmed =
-    mode === 'guest'
-      ? state.guest.items.reduce((sum, i) => sum + i.quantity, 0)
-      : (state.view?.totalQuantity ?? 0)
+  // One source for every quantity on screen (cards, product page, badge, quick cart, cart page): the stored guest
+  // cart, or the server cart with the changes still on their way
+  const quantities = useMemo(() => {
+    const map = new Map<number, number>()
+    if (mode === 'guest') state.guest.items.forEach((i) => map.set(i.productId, i.quantity))
+    else state.view?.items.forEach((l) => map.set(l.productId, l.quantity))
+    Object.entries(state.pending).forEach(([id, q]) => map.set(Number(id), q))
+    return map
+  }, [mode, state.guest, state.view, state.pending])
+
+  const shownView = useMemo<CartView | null>(() => {
+    const view = state.view
+    if (!view) return null
+    let changed = false
+    const items: CartLine[] = []
+    for (const line of view.items) {
+      const q = quantities.get(line.productId) ?? 0
+      if (q === line.quantity) items.push(line)
+      else {
+        changed = true
+        if (q > 0) items.push({ ...line, quantity: q, requestedQuantity: q, lineTotal: line.price * q })
+      }
+    }
+    return changed ? { ...view, items, totalQuantity: items.reduce((sum, l) => sum + l.quantity, 0) } : view
+  }, [state.view, quantities])
+
+  const getQuantity = useCallback((productId: number) => quantities.get(productId) ?? 0, [quantities])
+
+  const confirmed = [...quantities.values()].reduce((sum, q) => sum + q, 0)
 
   const value = useMemo<CartContextValue>(
     () => ({
-      view: state.view,
-      lines: state.view?.items ?? [],
+      view: shownView,
+      lines: shownView?.items ?? [],
       count: confirmed + state.optimistic,
+      getQuantity,
       loading: state.loading,
       mode,
       addItem,
@@ -288,7 +389,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
       openDrawer,
       closeDrawer,
     }),
-    [state, confirmed, mode, addItem, setQuantity, removeItem, clear, resetAfterOrder, refresh, openDrawer, closeDrawer],
+    [
+      state,
+      shownView,
+      confirmed,
+      getQuantity,
+      mode,
+      addItem,
+      setQuantity,
+      removeItem,
+      clear,
+      resetAfterOrder,
+      refresh,
+      openDrawer,
+      closeDrawer,
+    ],
   )
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

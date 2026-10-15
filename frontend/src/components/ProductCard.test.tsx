@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ProductSummary } from '../lib/api'
 import ProductCard from './ProductCard'
 
-vi.mock('../cart/CartContext', () => ({ useCart: () => ({ addItem: vi.fn(), openDrawer: vi.fn() }) }))
+vi.mock('../cart/CartContext', () => ({ useCart: () => ({ addItem: vi.fn(), openDrawer: vi.fn(), getQuantity: () => 0, setQuantity: vi.fn() }) }))
 vi.mock('./Toast', () => ({ useToast: () => vi.fn() }))
 
 const base: ProductSummary = {
