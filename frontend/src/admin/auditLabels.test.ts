@@ -12,7 +12,8 @@ describe('audit labels', () => {
 
   it('formats values for people', () => {
     expect(formatAuditValue('price', 189000, product)).toBe('189.000₫')
-    expect(formatAuditValue('endsAt', '2026-10-16T17:00:00Z', product)).toBe('17/10/2026 00:00')
+    expect(formatAuditValue('endsAt', '2026-10-16T17:00:00Z', product)).toBe('Đến hết 16/10/2026')
+    expect(formatAuditValue('startsAt', '2026-10-09T17:00:00Z', product)).toBe('10/10/2026 00:00')
     expect(formatAuditValue('active', false, product)).toBe('Đã ẩn')
     expect(formatAuditValue('active', true, { entityType: 'PRODUCT', action: 'PROMOTION_ENDED' })).toBe('Đang chạy')
     expect(formatAuditValue('active', false, { entityType: 'USER', action: 'USER_LOCKED' })).toBe('Đã khoá')

@@ -1,5 +1,5 @@
 import type { AuditRow } from '../lib/adminApi'
-import { formatAdminDateTime, formatPrice } from '../lib/format'
+import { formatAdminDateTime, formatPrice, formatPromotionEnd } from '../lib/format'
 import { CANCEL_REASON_LABEL, ORDER_STATUS_LABEL, type CancelReasonCode } from '../lib/orderStatus'
 import type { OrderStatus, Role } from '../lib/api'
 import { ROLE_LABEL } from './labels'
@@ -135,6 +135,7 @@ export function formatAuditValue(field: string, value: unknown, ctx: ValueContex
     if (field === 'status') return ORDER_STATUS_LABEL[value as OrderStatus] ?? value
     if (field === 'role') return ROLE_LABEL[value as Role] ?? value
     if (field === 'method') return METHOD_LABEL[value] ?? value
+    if (field === 'endsAt' && ISO_DATE_TIME.test(value) && !Number.isNaN(Date.parse(value))) return formatPromotionEnd(value)
     if (ISO_DATE_TIME.test(value) && !Number.isNaN(Date.parse(value))) return formatAdminDateTime(value)
     return value
   }

@@ -8,19 +8,6 @@ export const formatDateTime = (iso: string) => formatAdminDateTime(iso)
 
 export const formatWeight =(grams: number) => (grams >= 1000 ? `${grams / 1000}kg` : `${grams}g`)
 
-const dayMonth = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' })
-
-/**
- * Last day of a promotion as dd/MM in Vietnam time. The end instant is exclusive: a promotion ending at midnight
- * on 1/11 runs "đến hết 31/10".
- */
-export const formatLastDay = (endExclusiveIso: string) => {
-  // Built from parts: some browsers format vi-VN day/month as "21-10"
-  const parts = dayMonth.formatToParts(new Date(Date.parse(endExclusiveIso) - 1))
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
-  return `${get('day')}/${get('month')}`
-}
-
 const VN = 'Asia/Ho_Chi_Minh'
 const partsFormatter = new Intl.DateTimeFormat('en-GB', {
   timeZone: VN,
@@ -60,4 +47,20 @@ export function formatRelative(iso: string, now: number = Date.now()): string {
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days} ngày trước`
   return formatAdminDateTime(iso).slice(0, 10)
+}
+
+/**
+ * End of a promotion. ends_at is exclusive: a promotion chosen "đến hết 16/10" ends at 17/10 00:00 Vietnam time, so a
+ * midnight end shows the day before it: "Đến hết 16/10/2026". An end in the middle of a day (ended early) shows that
+ * moment: "16/10/2026 15:30".
+ *
+ * @param year false for short storefront texts ("Đến hết 16/10")
+ * @param prefix false for a bare date in a "from – to" range ("16/10/2026")
+ */
+export function formatPromotionEnd(endsAt: string, { year = true, prefix = true }: { year?: boolean; prefix?: boolean } = {}): string {
+  const end = vnParts(endsAt)
+  const day = (p: ReturnType<typeof vnParts>) => `${p.day}/${p.month}${year ? `/${p.year}` : ''}`
+  if (end.hour !== '00' || end.minute !== '00') return `${day(end)} ${end.hour}:${end.minute}`
+  const last = day(vnParts(new Date(Date.parse(endsAt) - 1)))
+  return prefix ? `Đến hết ${last}` : last
 }

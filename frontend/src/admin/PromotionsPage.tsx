@@ -8,7 +8,7 @@ import {
   type PromotionStatus,
   type PromotionUsage,
 } from '../lib/adminApi'
-import { formatPrice } from '../lib/format'
+import { formatPrice, formatPromotionEnd } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
 import {
   daysInYear,
@@ -132,7 +132,9 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
       </p>
 
       <fieldset>
-        <legend className="text-sm font-semibold text-stone-900">1. Chọn sản phẩm ({selected.length})</legend>
+        <legend className="text-sm font-semibold text-stone-900">
+          <span aria-hidden="true">1. </span>Chọn sản phẩm<span aria-hidden="true"> ({selected.length})</span>
+        </legend>
         <input
           type="search"
           value={search}
@@ -144,12 +146,28 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
         <ul className="mt-2 max-h-64 divide-y divide-stone-100 overflow-y-auto rounded-xl border border-stone-200">
           {products.map((p) => (
             <li key={p.id}>
-              <label className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm hover:bg-stone-50">
-                <input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggle(p.id)} className="size-4 accent-brand-600" />
-                <span className="min-w-0 flex-1 font-medium text-stone-900">{p.name}</span>
-                <span className="tabular-nums text-stone-700">{formatPrice(p.price)}</span>
-                {p.runningSalePrice != null && <span className="text-xs text-red-700">Đang KM {formatPrice(p.runningSalePrice)}</span>}
-                <DaysUsage used={p.daysUsed} max={usage.maxDaysPerYear} />
+              {/* The whole row toggles; the name is the checkbox's name, price and days describe it */}
+              <label
+                htmlFor={`promo-product-${p.id}`}
+                className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm hover:bg-stone-50"
+              >
+                <input
+                  id={`promo-product-${p.id}`}
+                  type="checkbox"
+                  checked={selected.includes(p.id)}
+                  onChange={() => toggle(p.id)}
+                  aria-labelledby={`promo-product-${p.id}-name`}
+                  aria-describedby={`promo-product-${p.id}-info`}
+                  className="size-4 accent-brand-600"
+                />
+                <span id={`promo-product-${p.id}-name`} className="min-w-0 flex-1 font-medium text-stone-900">
+                  {p.name}
+                </span>
+                <span id={`promo-product-${p.id}-info`} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="tabular-nums text-stone-700">{formatPrice(p.price)}</span>
+                  {p.runningSalePrice != null && <span className="text-xs text-red-700">Đang KM {formatPrice(p.runningSalePrice)}</span>}
+                  <DaysUsage used={p.daysUsed} max={usage.maxDaysPerYear} />
+                </span>
               </label>
             </li>
           ))}
@@ -158,16 +176,33 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="mb-2 text-sm font-semibold text-stone-900">2. Mức giảm và thời gian</legend>
-        <div className="space-y-2 sm:col-span-2">
-          <label className="mr-6 inline-flex items-center gap-2 text-sm">
-            <input type="radio" name="mode" checked={mode === 'percent'} onChange={() => setMode('percent')} className="accent-brand-600" />
+        <fieldset className="space-y-2 sm:col-span-2">
+          <legend className="sr-only">Cách tính giá khuyến mại</legend>
+          <label htmlFor="promo-mode-percent" className="mr-6 inline-flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              id="promo-mode-percent"
+              type="radio"
+              name="mode"
+              value="percent"
+              checked={mode === 'percent'}
+              onChange={() => setMode('percent')}
+              className="accent-brand-600"
+            />
             Giảm theo %
           </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input type="radio" name="mode" checked={mode === 'price'} onChange={() => setMode('price')} className="accent-brand-600" />
+          <label htmlFor="promo-mode-price" className="inline-flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              id="promo-mode-price"
+              type="radio"
+              name="mode"
+              value="price"
+              checked={mode === 'price'}
+              onChange={() => setMode('price')}
+              className="accent-brand-600"
+            />
             Nhập giá khuyến mại (một sản phẩm)
           </label>
-        </div>
+        </fieldset>
         {mode === 'percent' ? (
           <Field label="Giảm (%)" hint="Giá mới làm tròn xuống bội số 1.000₫">
             {(p) => <input {...p} inputMode="numeric" value={percent} onChange={(e) => setPercent(e.target.value)} />}
@@ -405,7 +440,7 @@ export default function PromotionsPage() {
                     </div>
                   </td>
                   <td className={`${table.td} whitespace-nowrap`}>
-                    {dmy(vnDay(r.startsAt))} – {dmy(vnDay(r.endsAt, true))}
+                    {dmy(vnDay(r.startsAt))} – {formatPromotionEnd(r.endsAt, { prefix: false })}
                   </td>
                   <td className={table.td}>
                     <DaysUsage used={r.productDaysThisYear} max={maxDays} />

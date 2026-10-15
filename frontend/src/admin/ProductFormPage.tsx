@@ -7,7 +7,7 @@ import { FormError, TextField } from '../components/FormFields'
 import { useToast } from '../components/Toast'
 import { ApiError } from '../lib/api'
 import { adminApi, type AdminCategory, type AdminProduct } from '../lib/adminApi'
-import { formatLastDay, formatPrice } from '../lib/format'
+import { formatPrice, formatPromotionEnd } from '../lib/format'
 import { cloudinaryUrl } from '../lib/images'
 import { slugify } from '../lib/slug'
 import { useAsync } from '../lib/useAsync'
@@ -347,7 +347,7 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
                   )}
                   {priceLockedUntil && (
                     <p className="text-brand-800">
-                      Đang có khuyến mại đến {formatLastDay(priceLockedUntil)} —{' '}
+                      Đang có khuyến mại {formatPromotionEnd(priceLockedUntil, { year: false }).toLowerCase()} —{' '}
                       <Link to="/admin/khuyen-mai" className="font-semibold underline hover:text-brand-700">
                         kết thúc khuyến mại để đổi giá
                       </Link>
