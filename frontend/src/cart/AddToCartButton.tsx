@@ -10,13 +10,15 @@ interface Props {
   variant?: 'card' | 'page'
   /** Called after a successful add (e.g. to reset a quantity picker). */
   onAdded?: () => void
+  /** Accessible name when the visible text alone is ambiguous (cards: "Thêm Hạnh nhân vào giỏ"). */
+  ariaLabel?: string
 }
 
 /**
  * Discontinued: renders nothing. Sold out: disabled "Hết hàng". Otherwise adds with an optimistic badge update,
  * guards against double clicks, and confirms with a toast ("Đã thêm …" / "Chỉ còn N sản phẩm").
  */
-export default function AddToCartButton({ product, quantity = 1, variant = 'card', onAdded }: Props) {
+export default function AddToCartButton({ product, quantity = 1, variant = 'card', onAdded, ariaLabel }: Props) {
   const { addItem, openDrawer } = useCart()
   const toast = useToast()
   const [pending, setPending] = useState(false)
@@ -28,7 +30,7 @@ export default function AddToCartButton({ product, quantity = 1, variant = 'card
   const base =
     variant === 'page'
       ? 'w-full rounded-full px-6 py-3 font-semibold sm:w-auto'
-      : 'w-full rounded-full px-4 py-2 text-sm font-semibold'
+      : 'h-10 w-full rounded-full px-4 text-sm font-semibold'
 
   if (soldOut) {
     return (
@@ -73,6 +75,7 @@ export default function AddToCartButton({ product, quantity = 1, variant = 'card
       }}
       disabled={pending}
       aria-busy={pending}
+      aria-label={ariaLabel}
       className={`${base} bg-brand-600 text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-wait disabled:opacity-70`}
     >
       {pending ? 'Đang thêm...' : variant === 'page' ? 'Thêm vào giỏ hàng' : 'Thêm vào giỏ'}

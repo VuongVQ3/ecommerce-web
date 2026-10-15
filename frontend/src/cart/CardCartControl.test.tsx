@@ -51,9 +51,9 @@ afterEach(() => {
 describe('CardCartControl', () => {
   it('turns the add button into − n trong giỏ +, synced with the badge, capped at maxPurchasable', async () => {
     renderCard()
-    fireEvent.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm Granola vào giỏ' }))
     expect(await screen.findByText('1 Granola trong giỏ hàng')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Thêm vào giỏ' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Thêm Granola vào giỏ' })).toBeNull()
 
     const plus = screen.getByRole('button', { name: 'Thêm 1 Granola' }) as HTMLButtonElement
     fireEvent.click(plus)
@@ -69,10 +69,10 @@ describe('CardCartControl', () => {
 
   it('removes at 0 and "Hoàn tác" restores the previous quantity', async () => {
     renderCard()
-    fireEvent.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm Granola vào giỏ' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Bớt 1 Granola' }))
 
-    expect(await screen.findByRole('button', { name: 'Thêm vào giỏ' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Thêm Granola vào giỏ' })).toBeTruthy()
     expect(screen.getByText('Đã xoá Granola khỏi giỏ')).toBeTruthy()
     expect(screen.getByTestId('badge').textContent).toBe('0')
 

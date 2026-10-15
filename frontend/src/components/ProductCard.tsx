@@ -85,9 +85,16 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
             {product.name}
           </Link>
         </h3>
-        <div className="flex min-w-0 flex-nowrap gap-1.5 overflow-hidden text-xs whitespace-nowrap">
-          <span className="min-w-0 truncate rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">{product.protein}g protein</span>
-          <span className="min-w-0 shrink-0 truncate rounded-full bg-nut-light px-2 py-0.5 text-nut">{product.calories} kcal</span>
+        <div className="flex min-w-0 flex-nowrap gap-1 overflow-hidden sm:gap-1.5 text-xs whitespace-nowrap">
+          {/* "đạm" on phones so the two chips fit side by side */}
+          <span
+            title={`${product.protein}g protein / 100g`}
+            className="min-w-0 truncate rounded-full bg-brand-50 px-1.5 py-0.5 text-brand-700 sm:px-2"
+          >
+            {product.protein}g <span className="sm:hidden">đạm</span>
+            <span className="max-sm:hidden">protein</span>
+          </span>
+          <span className="min-w-0 shrink-0 truncate rounded-full bg-nut-light px-1.5 py-0.5 text-nut sm:px-2">{product.calories} kcal</span>
         </div>
         <div className="mt-auto flex flex-wrap items-baseline justify-between gap-x-2 pt-2">
           <PriceTag price={product.price} regularPrice={product.regularPrice} />

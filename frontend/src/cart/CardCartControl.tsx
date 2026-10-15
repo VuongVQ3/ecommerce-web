@@ -18,7 +18,7 @@ export default function CardCartControl({ product }: { product: CartProductRef }
   if (n === 0) {
     return (
       <div className="fade-swap flex">
-        <AddToCartButton product={product} />
+        <AddToCartButton product={product} ariaLabel={`Thêm ${product.name} vào giỏ`} />
       </div>
     )
   }
@@ -56,12 +56,12 @@ export default function CardCartControl({ product }: { product: CartProductRef }
   const soldOut = product.maxPurchasable <= 0
   const atMax = n >= product.maxPurchasable
   const plusTitle = soldOut ? 'Đã hết hàng' : atMax ? `Tối đa ${product.maxPurchasable} sản phẩm` : undefined
-  // 36px tall like the button it replaces (34px inside the border); the ::before extends each tap target to 40×40
+  // 40px tall like the button it replaces (38px inside the border); the ::before extends each tap target to 40×40
   const step =
-    'relative flex h-full w-10 shrink-0 items-center justify-center text-lg leading-none font-semibold before:absolute before:-inset-y-[3px] before:inset-x-0 before:content-[""] hover:bg-brand-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:text-stone-400 disabled:hover:bg-transparent'
+    'relative flex h-full w-10 shrink-0 items-center justify-center text-lg leading-none font-semibold before:absolute before:-inset-y-px before:inset-x-0 before:content-[""] hover:bg-brand-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:text-stone-400 disabled:hover:bg-transparent'
 
   return (
-    <div className="fade-swap flex h-9 w-full items-center overflow-hidden rounded-full border border-brand-600 bg-white text-sm text-brand-700">
+    <div className="fade-swap flex h-10 w-full items-center overflow-hidden rounded-full border border-brand-600 bg-white text-sm text-brand-700">
       <button type="button" onClick={() => change(n - 1)} aria-label={`Bớt 1 ${product.name}`} className={`${step} rounded-l-full`}>
         <span aria-hidden="true">−</span>
       </button>
