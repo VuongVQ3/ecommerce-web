@@ -5,7 +5,7 @@ import { StatusBadge } from '../components/OrderDetails'
 import type { OrderStatus } from '../lib/api'
 import { adminApi, type AdminOrderRow } from '../lib/adminApi'
 import { formatAdminDateTime, formatPrice, formatRelative, formatShortDateTime } from '../lib/format'
-import { ORDER_STATUS_LABEL, ORDER_STATUSES } from '../lib/orderStatus'
+import { CANCEL_REASON_LABEL, ORDER_STATUS_LABEL, ORDER_STATUSES, type CancelReasonCode } from '../lib/orderStatus'
 import { useAsync } from '../lib/useAsync'
 import { DateRangeFilter } from './DateField'
 import { FlagIcon } from './phoneFlags'
@@ -182,13 +182,14 @@ export default function OrdersPage() {
   const from = params.get('from') ?? ''
   const to = params.get('to') ?? ''
   const q = params.get('q') ?? ''
+  const cancelReasonCode = (params.get('cancelReasonCode') ?? '') as CancelReasonCode | ''
   const page = Number(params.get('page') ?? 0)
   const [sheetOpen, setSheetOpen] = useState(false)
   const chips = useRef<HTMLDivElement>(null)
 
   const { data, error, loading, reload } = useAsync(
-    (signal) => adminApi.orders({ status, from, to, q, page }, signal),
-    [status, from, to, q, page],
+    (signal) => adminApi.orders({ status, from, to, q, cancelReasonCode, page }, signal),
+    [status, from, to, q, cancelReasonCode, page],
   )
 
   // Keep the selected status chip visible when the row scrolls sideways
@@ -203,6 +204,8 @@ export default function OrdersPage() {
       else next.delete(k)
     }
     if (!('page' in changes)) next.delete('page')
+    // The cancel reason filter only exists next to "Đã huỷ"
+    if ('status' in changes && changes.status !== 'CANCELLED') next.delete('cancelReasonCode')
     setParams(next)
   }
 
@@ -237,6 +240,23 @@ export default function OrdersPage() {
         ))}
       </div>
 
+      {status === 'CANCELLED' && (
+        <div className="mb-4 max-w-sm">
+          <select
+            aria-label="Lý do huỷ"
+            value={cancelReasonCode}
+            onChange={(e) => update({ cancelReasonCode: e.target.value })}
+            className={input}
+          >
+            <option value="">Mọi lý do huỷ</option>
+            {(Object.keys(CANCEL_REASON_LABEL) as CancelReasonCode[]).map((c) => (
+              <option key={c} value={c}>
+                {CANCEL_REASON_LABEL[c]}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="mb-4 md:hidden">
         <button type="button" className={`${btn.secondary} w-full`} onClick={() => setSheetOpen(true)} aria-haspopup="dialog">
           Bộ lọc{activeFilters > 0 && ` (${activeFilters})`}
@@ -265,7 +285,7 @@ export default function OrdersPage() {
         <Spinner />
       ) : data.page.items.length === 0 ? (
         <EmptyState title="Không có đơn hàng nào.">
-          {(status || from || to || q) && (
+          {(status || from || to || q || cancelReasonCode) && (
             <button type="button" className={btn.link} onClick={() => setParams(new URLSearchParams())}>
               Xoá bộ lọc
             </button>

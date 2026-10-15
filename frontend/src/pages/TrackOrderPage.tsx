@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
-import { CANCEL_REASONS, cancelReasonSchema, claimAccountSchema, type ClaimAccountForm } from '../auth/schemas'
+import { claimAccountSchema, type ClaimAccountForm } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { Checkbox, FormError, PasswordChecklist, PasswordField, SubmitButton, TextField } from '../components/FormFields'
-import Modal from '../components/Modal'
+import CancelOrderDialog from '../components/CancelOrderDialog'
 import { PriceTag } from '../components/Price'
 import { StatusBadge } from '../components/OrderDetails'
 import { useToast } from '../components/Toast'
@@ -110,104 +110,6 @@ function Progress({ order }: { order: TrackedOrder }) {
         )
       })}
     </ol>
-  )
-}
-
-function CancelDialog({
-  order,
-  token,
-  onClose,
-  onCancelled,
-}: {
-  order: TrackedOrder
-  token: string
-  onClose: () => void
-  onCancelled: (o: TrackedOrder) => void
-}) {
-  const [choice, setChoice] = useState('')
-  const [other, setOther] = useState('')
-  const [errors, setErrors] = useState<{ choice?: string; other?: string }>({})
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
-  const otherId = useId()
-
-  const submit = async () => {
-    const parsed = cancelReasonSchema.safeParse({ choice, other })
-    if (!parsed.success) {
-      const fieldErrors: { choice?: string; other?: string } = {}
-      for (const issue of parsed.error.issues) fieldErrors[issue.path[0] as 'choice' | 'other'] ??= issue.message
-      setErrors(fieldErrors)
-      return
-    }
-    setErrors({})
-    setPending(true)
-    setError(null)
-    try {
-      onCancelled(await api.cancelTrackedOrder(order.code, token, choice === 'other' ? other.trim() : choice))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-      setPending(false)
-    }
-  }
-
-  return (
-    <Modal
-      title={`Huỷ đơn ${order.code}?`}
-      submitLabel="Huỷ đơn hàng"
-      pendingLabel="Đang huỷ..."
-      cancelLabel="Giữ đơn"
-      danger
-      onSubmit={submit}
-      onClose={onClose}
-      pending={pending}
-      error={error}
-    >
-      <p className="text-sm text-stone-600">Thao tác này không hoàn tác được.</p>
-      <fieldset aria-describedby={errors.choice ? `${otherId}-choice-error` : undefined}>
-        <legend className="text-sm font-medium text-stone-800">Lý do huỷ</legend>
-        <div className="mt-2 space-y-2">
-          {[...CANCEL_REASONS, 'other'].map((reason) => (
-            <label key={reason} className="flex cursor-pointer items-center gap-3 text-sm text-stone-800">
-              <input
-                type="radio"
-                name="cancel-reason"
-                value={reason}
-                checked={choice === reason}
-                onChange={() => {
-                  setChoice(reason)
-                  setErrors({})
-                }}
-                className="size-4 accent-brand-600"
-              />
-              {reason === 'other' ? 'Lý do khác' : reason}
-            </label>
-          ))}
-        </div>
-        {errors.choice && (
-          <p id={`${otherId}-choice-error`} className="mt-1 text-sm text-danger">
-            {errors.choice}
-          </p>
-        )}
-      </fieldset>
-      {choice === 'other' && (
-        <div>
-          <label htmlFor={otherId} className="text-sm font-medium text-stone-700">
-            Lý do của bạn
-          </label>
-          <textarea
-            id={otherId}
-            rows={2}
-            maxLength={300}
-            value={other}
-            onChange={(e) => setOther(e.target.value)}
-            aria-invalid={errors.other ? true : undefined}
-            className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-base outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            autoFocus
-          />
-          {errors.other && <p className="mt-1 text-sm text-danger">{errors.other}</p>}
-        </div>
-      )}
-    </Modal>
   )
 }
 
@@ -591,11 +493,11 @@ export default function TrackOrderPage() {
       {order.canClaim && !authLoading && !user && <ClaimAccountBox order={order} token={token} />}
 
       {cancelling && (
-        <CancelDialog
-          order={order}
-          token={token}
+        <CancelOrderDialog
+          code={order.code}
           onClose={() => setCancelling(false)}
-          onCancelled={(o) => {
+          onSubmit={async (input) => {
+            const o = await api.cancelTrackedOrder(order.code, token, input)
             setUpdated(o)
             setCancelling(false)
             toast({ tone: 'success', message: `Đã huỷ đơn ${o.code}` })

@@ -259,19 +259,29 @@ class OrderTrackingE2ETest {
 		assertThat(stock(id)).containsExactly(20, 2);
 
 		mvc.perform(json(post("/api/orders/track/" + order[0] + "/cancel").param("t", SecureTokens.generate()),
-				"{\"reason\":\"Đặt nhầm\"}")).andExpect(status().isNotFound());
-		mvc.perform(json(post("/api/orders/track/" + order[0] + "/cancel").param("t", order[1]), "{\"reason\":\" \"}"))
-			.andExpect(status().isBadRequest());
+				"{\"reasonCode\":\"DUPLICATE_ORDER\"}")).andExpect(status().isNotFound());
+		mvc.perform(json(post("/api/orders/track/" + order[0] + "/cancel").param("t", order[1]), "{\"reason\":\"Đặt nhầm\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_CANCEL_REASON"));
+		mvc.perform(json(post("/api/orders/track/" + order[0] + "/cancel").param("t", order[1]), "{\"reasonCode\":\"OTHER\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("CANCEL_REASON_REQUIRED"));
 		assertThat(stock(id)).containsExactly(20, 2);
 
-		mvc.perform(json(post("/api/orders/track/" + order[0] + "/cancel").param("t", order[1]), "{\"reason\":\"Đặt nhầm\"}"))
+		mvc.perform(json(post("/api/orders/track/" + order[0] + "/cancel").param("t", order[1]),
+				"{\"reasonCode\":\"OTHER\",\"reason\":\"Đặt nhầm\"}"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value("CANCELLED"))
 			.andExpect(jsonPath("$.canCancel").value(false))
-			.andExpect(jsonPath("$.history[1].reason").value("Khách huỷ đơn: Đặt nhầm"));
+			.andExpect(jsonPath("$.history[1].reason").value("Khách huỷ: Lý do khác – Đặt nhầm"))
+			.andExpect(jsonPath("$.cancelReasonCode").value("OTHER"))
+			.andExpect(jsonPath("$.cancelReason").value("Đặt nhầm"))
+			.andExpect(jsonPath("$.cancelledByType").value("CUSTOMER"));
 		assertThat(stock(id)).containsExactly(20, 0);
+		assertThat(jdbc.queryForObject("SELECT actor_type FROM audit_logs WHERE action = 'ORDER_CANCEL' AND entity_id = ?",
+				String.class, order[0])).isEqualTo("CUSTOMER");
 
-		mvc.perform(json(post("/api/orders/track/" + order[0] + "/cancel").param("t", order[1]), "{\"reason\":\"Lần nữa\"}"))
+		mvc.perform(json(post("/api/orders/track/" + order[0] + "/cancel").param("t", order[1]), "{\"reasonCode\":\"CHANGED_MIND\"}"))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_NOT_CANCELLABLE"));
 		assertThat(stock(id)).containsExactly(20, 0);

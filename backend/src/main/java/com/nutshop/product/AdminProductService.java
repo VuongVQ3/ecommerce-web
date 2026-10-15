@@ -23,6 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -58,7 +59,7 @@ public class AdminProductService {
 	public record ProductAdminDetail(Long id, String name, String slug, Long categoryId, String description,
 			String origin, long price, int weightGrams, BigDecimal calories, BigDecimal protein, BigDecimal fat,
 			BigDecimal carbs, BigDecimal fiber, int lowStockThreshold, boolean active, int onHand, int reserved,
-			int available, List<ImageRow> images) {
+			int available, List<ImageRow> images, Instant priceLockedUntil) {
 	}
 
 	/** What the audit log stores for a product (editable fields only). */
@@ -124,7 +125,10 @@ public class AdminProductService {
 	public ProductAdminDetail create(Long categoryId, String requestedSlug, Product.Details details, UUID actorId) {
 		Category category = category(categoryId);
 		Product product = products.save(new Product(category, slugFor(requestedSlug, details.name(), null), details));
-		audit.record(actorId, "PRODUCT_CREATED", "PRODUCT", product.getId(), null, AuditView.of(product));
+		audit.entry("PRODUCT_CREATED", "PRODUCT", product.getId(), product.getName())
+			.by(actorId)
+			.changes(null, AuditView.of(product))
+			.record();
 		return detail(product);
 	}
 
@@ -133,12 +137,12 @@ public class AdminProductService {
 			UUID actorId) {
 		Product product = products.lockById(id).orElseThrow(AdminProductService::productNotFound);
 		if (details.price() != product.getPrice()) {
-			// A running or upcoming sale price must stay below the regular price
-			promotions.checkNewRegularPrice(id, details.price());
+			// Frozen while a promotion is running or upcoming
+			promotions.checkNewRegularPrice(id);
 		}
 		AuditView before = AuditView.of(product);
 		product.update(category(categoryId), slugFor(requestedSlug, details.name(), id), details);
-		audit.record(actorId, "PRODUCT_UPDATED", "PRODUCT", id, before, AuditView.of(product));
+		audit.entry("PRODUCT_UPDATED", "PRODUCT", id, product.getName()).by(actorId).changes(before, AuditView.of(product)).record();
 		return detail(product);
 	}
 
@@ -148,8 +152,10 @@ public class AdminProductService {
 		Product product = products.findById(id).orElseThrow(AdminProductService::productNotFound);
 		if (product.isActive() != active) {
 			product.setActive(active);
-			audit.record(actorId, active ? "PRODUCT_SHOWN" : "PRODUCT_HIDDEN", "PRODUCT", id, Map.of("active", !active),
-					Map.of("active", active));
+			audit.entry(active ? "PRODUCT_SHOWN" : "PRODUCT_HIDDEN", "PRODUCT", id, product.getName())
+				.by(actorId)
+				.changes(Map.of("active", !active), Map.of("active", active))
+				.record();
 		}
 		return detail(product);
 	}
@@ -192,8 +198,10 @@ public class AdminProductService {
 					product.setImageUrl(stored.url());
 				}
 				images.save(image);
-				audit.record(actorId, "PRODUCT_IMAGE_ADDED", "PRODUCT", id, null,
-						Map.of("publicId", stored.publicId(), "primary", image.isPrimary()));
+				audit.entry("PRODUCT_IMAGE_ADDED", "PRODUCT", id, product.getName())
+					.by(actorId)
+					.changes(null, Map.of("publicId", stored.publicId(), "primary", image.isPrimary()))
+					.record();
 				return detail(product);
 			});
 		}
@@ -222,7 +230,10 @@ public class AdminProductService {
 				product.setImageUrl(rest.getFirst().getUrl());
 			}
 		}
-		audit.record(actorId, "PRODUCT_IMAGE_DELETED", "PRODUCT", id, Map.of("publicId", image.getPublicId()), null);
+		audit.entry("PRODUCT_IMAGE_DELETED", "PRODUCT", id, products.findById(id).map(Product::getName).orElse(null))
+			.by(actorId)
+			.changes(Map.of("publicId", image.getPublicId()), null)
+			.record();
 		String publicId = image.getPublicId();
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override
@@ -245,7 +256,10 @@ public class AdminProductService {
 		fresh.setPrimary(true);
 		Product product = products.findById(id).orElseThrow();
 		product.setImageUrl(url);
-		audit.record(actorId, "PRODUCT_IMAGE_PRIMARY", "PRODUCT", id, null, Map.of("publicId", fresh.getPublicId()));
+		audit.entry("PRODUCT_IMAGE_PRIMARY", "PRODUCT", id, product.getName())
+			.by(actorId)
+			.changes(null, Map.of("publicId", fresh.getPublicId()))
+			.record();
 		return detail(product);
 	}
 
@@ -263,8 +277,10 @@ public class AdminProductService {
 	public CategoryRow createCategory(String name, String requestedSlug, UUID actorId) {
 		String slug = categorySlug(requestedSlug, name, null);
 		Category category = categories.save(new Category(name.trim(), slug));
-		audit.record(actorId, "CATEGORY_CREATED", "CATEGORY", category.getId(), null,
-				Map.of("name", category.getName(), "slug", slug));
+		audit.entry("CATEGORY_CREATED", "CATEGORY", category.getId(), category.getName())
+			.by(actorId)
+			.changes(null, Map.of("name", category.getName(), "slug", slug))
+			.record();
 		return new CategoryRow(category.getId(), category.getName(), category.getSlug(), 0);
 	}
 
@@ -274,8 +290,10 @@ public class AdminProductService {
 			.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CATEGORY_NOT_FOUND", "Không tìm thấy danh mục"));
 		Map<String, String> before = Map.of("name", category.getName(), "slug", category.getSlug());
 		category.rename(name.trim(), categorySlug(requestedSlug, name, id));
-		audit.record(actorId, "CATEGORY_UPDATED", "CATEGORY", id, before,
-				Map.of("name", category.getName(), "slug", category.getSlug()));
+		audit.entry("CATEGORY_UPDATED", "CATEGORY", id, category.getName())
+			.by(actorId)
+			.changes(before, Map.of("name", category.getName(), "slug", category.getSlug()))
+			.record();
 		return new CategoryRow(id, category.getName(), category.getSlug(), products.countByCategoryId(id));
 	}
 
@@ -286,7 +304,8 @@ public class AdminProductService {
 				p.getOrigin(), p.getPrice(), p.getWeightGrams(), p.getCalories(), p.getProtein(), p.getFat(),
 				p.getCarbs(), p.getFiber(), p.getLowStockThreshold(), p.isActive(), p.getOnHand(), p.getReserved(),
 				p.availableQuantity(),
-				images.findByProductIdOrderByPrimaryDescPositionAsc(p.getId()).stream().map(ImageRow::from).toList());
+				images.findByProductIdOrderByPrimaryDescPositionAsc(p.getId()).stream().map(ImageRow::from).toList(),
+				promotions.priceLockedUntil(p.getId()));
 	}
 
 	private Category category(Long id) {

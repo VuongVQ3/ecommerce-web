@@ -13,6 +13,7 @@ export default function Modal({
   cancelLabel = 'Đóng',
   pending = false,
   danger = false,
+  submitDisabled = false,
   error,
   children,
 }: {
@@ -24,6 +25,8 @@ export default function Modal({
   cancelLabel?: string
   pending?: boolean
   danger?: boolean
+  /** e.g. until a required choice is made */
+  submitDisabled?: boolean
   error?: string | null
   children: ReactNode
 }) {
@@ -42,7 +45,7 @@ export default function Modal({
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (!pending) onSubmit()
+    if (!pending && !submitDisabled) onSubmit()
   }
 
   return (
@@ -76,7 +79,7 @@ export default function Modal({
           </button>
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || submitDisabled}
             aria-busy={pending}
             className={`rounded-full px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-70 ${
               danger ? 'bg-red-700 hover:bg-red-800' : 'bg-brand-600 hover:bg-brand-700'

@@ -27,6 +27,7 @@ import testsupport.RegisterJson;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -339,6 +340,23 @@ class AdminE2ETest {
 		assertThat(mail).isNotNull();
 		assertThat(mail.text()).contains("Hết hàng tại kho");
 		assertThat(audits("ORDER_CANCEL", code)).isEqualTo(1);
+		assertThat(jdbc.queryForMap("SELECT cancel_reason, cancelled_by_type FROM orders WHERE code = ?", code))
+			.containsEntry("cancel_reason", "Hết hàng tại kho").containsEntry("cancelled_by_type", "STAFF");
+		assertThat(jdbc.queryForMap("SELECT actor_type, reason_code, reason FROM audit_logs WHERE action = 'ORDER_CANCEL' AND entity_id = ?", code))
+			.containsEntry("actor_type", "STAFF").containsEntry("reason_code", "OUT_OF_STOCK")
+			.containsEntry("reason", "Hết hàng tại kho");
+		mvc.perform(get("/api/admin/orders/" + code).cookie(staff))
+			.andExpect(jsonPath("$.order.cancelReasonCode").value("OUT_OF_STOCK"))
+			.andExpect(jsonPath("$.order.cancelledByType").value("STAFF"));
+		mvc.perform(get("/api/admin/orders").param("cancelReasonCode", "OUT_OF_STOCK").param("q", code).cookie(staff))
+			.andExpect(jsonPath("$.page.items[0].code").value(code));
+		mvc.perform(get("/api/admin/orders").param("cancelReasonCode", "CHANGED_MIND").param("q", code).cookie(staff))
+			.andExpect(jsonPath("$.page.items").isEmpty());
+
+		// Customer-only reasons are not for staff
+		String other = placeOrder(id, 1);
+		mvc.perform(json(post("/api/admin/orders/" + other + "/cancel"), "{\"reasonCode\":\"CHANGED_MIND\",\"reason\":\"x\"}")
+			.cookie(staff)).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_CANCEL_REASON"));
 		assertLedgerMatches(id);
 	}
 
@@ -433,10 +451,18 @@ class AdminE2ETest {
 			.andExpect(jsonPath("$.price").value(150_000))
 			.andExpect(jsonPath("$.slug").value(firstSlug));
 		assertThat(audits("PRODUCT_UPDATED", first)).isEqualTo(1);
-		String after = jdbc.queryForObject(
-				"SELECT after ->> 'price' FROM audit_logs WHERE action = 'PRODUCT_UPDATED' AND entity_id = ?",
-				String.class, String.valueOf(first));
-		assertThat(after).isEqualTo("150000");
+		Map<String, Object> change = jdbc.queryForMap(
+				"SELECT before::text AS b, after::text AS a, entity_label FROM audit_logs WHERE action = 'PRODUCT_UPDATED' AND entity_id = ?",
+				String.valueOf(first));
+		// Only what changed (name and price), under the new name
+		assertThat(change.get("a").toString()).contains("\"price\": 150000").contains("\"name\": \"Hạt điều mới\"")
+			.doesNotContain("weightGrams").doesNotContain("description");
+		assertThat(change.get("b").toString()).doesNotContain("weightGrams");
+		assertThat(change.get("entity_label")).isEqualTo("Hạt điều mới");
+		// Saving without changes writes nothing
+		mvc.perform(json(put("/api/admin/products/" + first), productJson("Hạt điều mới", firstSlug, 150_000)).cookie(admin))
+			.andExpect(status().isOk());
+		assertThat(audits("PRODUCT_UPDATED", first)).isEqualTo(1);
 
 		mvc.perform(json(patch("/api/admin/products/" + first + "/active"), "{\"active\":false}").cookie(admin))
 			.andExpect(status().isOk())

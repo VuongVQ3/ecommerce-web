@@ -138,7 +138,10 @@ public class EmailVerificationService {
 		if (!user.markEmailVerified(clock.instant())) {
 			return 0;
 		}
-		audit.record(user.getId(), "USER_EMAIL_VERIFIED", "USER", user.getId(), null, Map.of("method", method));
+		audit.entry("USER_EMAIL_VERIFIED", "USER", user.getId(), AuditLog.userLabel(user.getFullName(), user.getEmail()))
+			.byCustomer(user.getId())
+			.changes(null, Map.of("method", method))
+			.record();
 		return hooks.orderedStream().mapToInt(h -> h.onEmailVerified(user.getId(), user.getEmail())).sum();
 	}
 

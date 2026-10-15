@@ -136,7 +136,10 @@ public class PromotionService {
 		validate(product, salePrice, startsAt, endsAt, null);
 		ProductPromotion promotion = promotions.saveAndFlush(
 				new ProductPromotion(productId, salePrice, startsAt, endsAt, actorId, pricing.now()));
-		audit.record(actorId, "PROMOTION_CREATED", "PRODUCT", productId, null, AuditView.of(promotion));
+		audit.entry("PROMOTION_CREATED", "PRODUCT", productId, product.getName())
+			.by(actorId)
+			.changes(null, AuditView.of(promotion))
+			.record();
 		return row(promotion, product);
 	}
 
@@ -153,7 +156,10 @@ public class PromotionService {
 		AuditView before = AuditView.of(promotion);
 		promotion.reschedule(salePrice, startsAt, endsAt, pricing.now());
 		promotions.flush();
-		audit.record(actorId, "PROMOTION_UPDATED", "PRODUCT", product.getId(), before, AuditView.of(promotion));
+		audit.entry("PROMOTION_UPDATED", "PRODUCT", product.getId(), product.getName())
+			.by(actorId)
+			.changes(before, AuditView.of(promotion))
+			.record();
 		return row(promotion, product);
 	}
 
@@ -175,7 +181,10 @@ public class PromotionService {
 			}
 			default -> throw new ApiException(HttpStatus.CONFLICT, "PROMOTION_ALREADY_ENDED", "Khuyến mại này đã kết thúc");
 		};
-		audit.record(actorId, action, "PRODUCT", product.getId(), before, AuditView.of(promotion));
+		audit.entry(action, "PRODUCT", product.getId(), product.getName())
+			.by(actorId)
+			.changes(before, AuditView.of(promotion))
+			.record();
 		return row(promotion, product);
 	}
 
@@ -210,21 +219,25 @@ public class PromotionService {
 	}
 
 	/**
-	 * Called when an admin changes a regular price: the new price must stay above every running or upcoming sale
-	 * price, otherwise that promotion would raise the price instead of lowering it.
+	 * Called when an admin changes a regular price. While a promotion is running or upcoming the regular price is
+	 * frozen (in either direction): the discount % and the max-discount rule were checked against the old price.
 	 */
 	@Transactional(readOnly = true)
-	public void checkNewRegularPrice(long productId, long newPrice) {
-		promotions.findCurrentOrUpcoming(productId, pricing.now())
+	public void checkNewRegularPrice(long productId) {
+		if (!promotions.findCurrentOrUpcoming(productId, pricing.now()).isEmpty()) {
+			throw new ApiException(HttpStatus.CONFLICT, "PROMOTION_CONFLICT",
+					"Sản phẩm đang có khuyến mại. Hãy kết thúc khuyến mại trước khi đổi giá gốc.");
+		}
+	}
+
+	/** End of the last running or upcoming promotion of a product (the regular price is frozen until then). */
+	@Transactional(readOnly = true)
+	public Instant priceLockedUntil(long productId) {
+		return promotions.findCurrentOrUpcoming(productId, pricing.now())
 			.stream()
-			.filter(p -> newPrice <= p.getSalePrice())
-			.findFirst()
-			.ifPresent(p -> {
-				throw new ApiException(HttpStatus.CONFLICT, "PROMOTION_PRICE_CONFLICT",
-						"Giá gốc mới phải cao hơn giá khuyến mại " + money(p.getSalePrice()) + " ("
-								+ period(p.getStartsAt(), p.getEndsAt())
-								+ "). Hãy kết thúc khuyến mại đó trước khi giảm giá gốc.");
-			});
+			.map(ProductPromotion::getEndsAt)
+			.max(Comparator.naturalOrder())
+			.orElse(null);
 	}
 
 	// ---- rules --------------------------------------------------------------------------------------------------

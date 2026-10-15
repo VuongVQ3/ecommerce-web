@@ -133,13 +133,15 @@ public class PhoneFlagService {
 					: "Chỉ quản trị viên mới chặn được thanh toán khi nhận hàng");
 		}
 		Instant now = clock.instant();
-		Map<String, String> before = existing.map(f -> Map.of("level", f.getLevel().name(), "reason", f.getReason()))
-			.orElse(null);
+		Map<String, String> before = existing.map(f -> Map.of("level", f.getLevel().name())).orElse(null);
 		PhoneFlag flag = existing.orElseGet(() -> new PhoneFlag(phone, level, reason.trim(), actorId, now));
 		flag.update(level, reason.trim(), actorId, now);
 		flags.saveAndFlush(flag);
-		audit.record(actorId, existing.isPresent() ? "PHONE_FLAG_UPDATED" : "PHONE_FLAG_CREATED", "PHONE", phone, before,
-				Map.of("level", level.name(), "reason", reason.trim()));
+		audit.entry(existing.isPresent() ? "PHONE_FLAG_UPDATED" : "PHONE_FLAG_CREATED", "PHONE", phone, phone)
+			.by(actorId)
+			.changes(before, Map.of("level", level.name()))
+			.reason(reason)
+			.record();
 		return view(flag, names(List.of(actorId)));
 	}
 
@@ -153,8 +155,11 @@ public class PhoneFlagService {
 		PhoneFlag flag = flags.findByPhone(phone)
 			.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "FLAG_NOT_FOUND", "Số điện thoại này chưa bị đánh dấu"));
 		flags.delete(flag);
-		audit.record(actorId, "PHONE_FLAG_REMOVED", "PHONE", phone,
-				Map.of("level", flag.getLevel().name(), "reason", flag.getReason()), Map.of("reason", reason.trim()));
+		audit.entry("PHONE_FLAG_REMOVED", "PHONE", phone, phone)
+			.by(actorId)
+			.changes(Map.of("level", flag.getLevel().name()), null)
+			.reason(reason)
+			.record();
 	}
 
 	private boolean isAdmin(UUID actorId) {

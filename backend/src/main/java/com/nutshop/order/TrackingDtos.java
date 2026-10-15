@@ -30,11 +30,8 @@ public final class TrackingDtos {
 	public record TrackedOrder(String code, String status, String statusLabel, Instant createdAt, String customerName,
 			String maskedPhone, String maskedEmail, boolean hasEmail, String province, String ward, String addressLine,
 			String paymentMethod, List<OrderItemResponse> items, long subtotal, long shippingFee, long total,
-			String carrier, String trackingNumber, List<StatusChange> history, boolean canCancel, boolean canClaim) {
-	}
-
-	public record CancelRequest(
-			@NotBlank(message = "Vui lòng chọn hoặc nhập lý do huỷ đơn") @Size(max = 300, message = "Lý do tối đa 300 ký tự") String reason) {
+			String carrier, String trackingNumber, List<StatusChange> history, boolean canCancel, boolean canClaim,
+			String cancelReasonCode, String cancelReasonLabel, String cancelReason, String cancelledByType) {
 	}
 
 	/** Same password rules as registration; name, email and phone come from the order. */

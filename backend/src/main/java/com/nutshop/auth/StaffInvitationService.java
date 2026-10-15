@@ -78,8 +78,11 @@ public class StaffInvitationService {
 		String raw = SecureTokens.generate();
 		tokens.save(new PasswordResetToken(user, SecureTokens.hash(raw), now, now.plus(TTL),
 				PasswordResetToken.Purpose.INVITE));
-		audit.record(actorId, "USER_INVITED", "USER", user.getId(), null,
-				Map.of("email", email, "role", user.getRole().name(), "reason", reason.trim()));
+		audit.entry("USER_INVITED", "USER", user.getId(), AuditLog.userLabel(user.getFullName(), email))
+			.by(actorId)
+			.changes(null, Map.of("email", email, "role", user.getRole().name()))
+			.reason(reason)
+			.record();
 		EmailMessage message = email(user, site.absolute("/dat-mat-khau?token=" + raw));
 		UUID userId = user.getId();
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

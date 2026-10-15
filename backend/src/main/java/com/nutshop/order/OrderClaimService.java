@@ -106,7 +106,9 @@ public class OrderClaimService implements VerifiedEmailHook {
 	private void attach(Order order, UUID userId, String method) {
 		order.assignTo(userId);
 		accessTokens.revokeAll(order);
-		audit.record(userId, "ORDER_CLAIMED", "ORDER", order.getCode(), null,
-				Map.of("userId", userId.toString(), "method", method));
+		audit.entry("ORDER_CLAIMED", "ORDER", order.getCode(), order.getCode())
+			.byCustomer(userId)
+			.changes(null, Map.of("method", method))
+			.record();
 	}
 }

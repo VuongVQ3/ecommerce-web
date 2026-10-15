@@ -179,6 +179,33 @@ class AdminUsersE2ETest {
 	}
 
 	@Test
+	void auditLogIsReadableFilteredAndPaged() throws Exception {
+		Account admin = account("ADMIN");
+		Account staff = account("STAFF");
+		as(admin, json(post("/api/admin/users/" + staff.id() + "/active"), "{\"active\":false,\"reason\":\"nghỉ việc\"}"))
+			.andExpect(status().isOk());
+		// A row written before entity_label existed: the current name is looked up
+		long id = product(5);
+		jdbc.update("""
+				INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, before, after)
+				VALUES (?, 'PRODUCT_UPDATED', 'PRODUCT', ?, '{"price": 1}', '{"price": 2}')""", admin.id(), String.valueOf(id));
+
+		as(admin, get("/api/admin/audit-logs").param("actorId", admin.id().toString()).param("action", "USER_LOCKED"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.size").value(50))
+			.andExpect(jsonPath("$.totalItems").value(1))
+			.andExpect(jsonPath("$.items[0].actorType").value("STAFF"))
+			.andExpect(jsonPath("$.items[0].entityLabel").value("Người STAFF (" + staff.email() + ")"))
+			.andExpect(jsonPath("$.items[0].reason").value("nghỉ việc"))
+			.andExpect(jsonPath("$.items[0].before.active").value(true))
+			.andExpect(jsonPath("$.items[0].after.active").value(false))
+			.andExpect(jsonPath("$.items[0].after.reason").doesNotExist());
+		as(admin, get("/api/admin/audit-logs").param("actorId", admin.id().toString()).param("entityType", "PRODUCT"))
+			.andExpect(jsonPath("$.items[0].entityLabel").value("Hạt hoàn kho"))
+			.andExpect(jsonPath("$.items[0].after.price").value(2));
+	}
+
+	@Test
 	void lockingRevokesSessionsAndOldAccessTokens() throws Exception {
 		Account admin = account("ADMIN");
 		Account staff = account("STAFF");

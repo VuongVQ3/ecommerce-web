@@ -1,6 +1,7 @@
 package com.nutshop.order;
 
 import com.nutshop.common.ApiException;
+import com.nutshop.order.OrderDtos.CustomerCancelRequest;
 import com.nutshop.order.OrderDtos.OrderItemResponse;
 import com.nutshop.order.OrderDtos.StatusChange;
 import com.nutshop.order.TrackingDtos.TrackedOrder;
@@ -39,14 +40,9 @@ public class GuestOrderService {
 
 	/** Same rules as a signed-in buyer cancelling: only while PENDING; reserved stock goes back to the shelf. */
 	@Transactional
-	public TrackedOrder cancel(String code, String token, String reason) {
+	public TrackedOrder cancel(String code, String token, CustomerCancelRequest req) {
 		Order order = find(code, token, true);
-		if (order.getStatus() != OrderStatus.PENDING) {
-			throw new ApiException(HttpStatus.CONFLICT, OrderService.ORDER_NOT_CANCELLABLE,
-					"Đơn hàng đã được xác nhận nên không thể tự huỷ. Vui lòng liên hệ cửa hàng.");
-		}
-		orderService.transition(order, OrderStatus.CANCELLED, null, "Khách huỷ đơn: " + reason.trim(),
-				CancelReason.CUSTOMER_REQUEST);
+		orderService.cancelByCustomer(order, null, req);
 		return view(orders.findByCode(order.getCode()).orElseThrow());
 	}
 
@@ -70,7 +66,9 @@ public class GuestOrderService {
 				o.getProvince(), o.getWard(), o.getAddressLine(), o.getPaymentMethod(),
 				o.getItems().stream().map(OrderItemResponse::from).toList(), o.getSubtotal(), o.getShippingFee(),
 				o.getTotal(), o.getCarrier(), o.getTrackingNumber(), changes, o.getStatus() == OrderStatus.PENDING,
-				o.getUserId() == null);
+				o.getUserId() == null, o.getCancelReason() == null ? null : o.getCancelReason().name(),
+				o.getCancelReason() == null ? null : o.getCancelReason().label(), o.getCancelReasonNote(),
+				o.getCancelledBy() == null ? null : o.getCancelledBy().name());
 	}
 
 	/** 0912345678 → 09******78 */

@@ -5,6 +5,7 @@ import { orderLookupSchema } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { FormError, SubmitButton, TextField } from '../components/FormFields'
+import CancelOrderDialog from '../components/CancelOrderDialog'
 import OrderDetails, { StatusBadge } from '../components/OrderDetails'
 import { useToast } from '../components/Toast'
 import { api, ApiError, type Order } from '../lib/api'
@@ -90,7 +91,7 @@ export function MyOrdersPage() {
   )
 }
 
-/** /tai-khoan/don-hang/:code, with a two-step "cancel" while the order is still pending. */
+/** /tai-khoan/don-hang/:code; the buyer can cancel (with a reason) while the order is still pending. */
 export function MyOrderDetailPage() {
   const { code = '' } = useParams()
   const toast = useToast()
@@ -98,7 +99,6 @@ export function MyOrderDetailPage() {
   const detail = useAsync((signal) => api.myOrder(code, signal), [code])
   const [cancelled, setCancelled] = useState<Order | null>(null)
   const [confirming, setConfirming] = useState(false)
-  const [busy, setBusy] = useState(false)
   const order = cancelled ?? detail.data
 
   if (detail.error) {
@@ -110,40 +110,14 @@ export function MyOrderDetailPage() {
   }
   if (!order) return <Spinner />
 
-  const cancel = async () => {
-    setBusy(true)
-    try {
-      setCancelled(await api.cancelOrder(order.code))
-      toast({ tone: 'success', message: `Đã huỷ đơn ${order.code}` })
-    } catch (err) {
-      toast({ tone: 'error', message: err instanceof Error ? err.message : 'Không huỷ được đơn hàng' })
-      detail.reload()
-    } finally {
-      setBusy(false)
-      setConfirming(false)
-    }
-  }
-
   const actions = order.canCancel ? (
-    confirming ? (
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4" role="alert">
-        <p className="flex-1 text-sm text-stone-800">Huỷ đơn {order.code}? Thao tác này không hoàn tác được.</p>
-        <button type="button" onClick={cancel} disabled={busy} className="rounded-full bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-60">
-          {busy ? 'Đang huỷ...' : 'Huỷ đơn'}
-        </button>
-        <button type="button" onClick={() => setConfirming(false)} disabled={busy} className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-800">
-          Giữ đơn
-        </button>
-      </div>
-    ) : (
-      <button
-        type="button"
-        onClick={() => setConfirming(true)}
-        className="rounded-full border border-red-200 bg-white px-5 py-2 text-sm font-semibold text-danger hover:bg-red-50"
-      >
-        Huỷ đơn hàng
-      </button>
-    )
+    <button
+      type="button"
+      onClick={() => setConfirming(true)}
+      className="rounded-full border border-red-200 bg-white px-5 py-2 text-sm font-semibold text-danger hover:bg-red-50"
+    >
+      Huỷ đơn hàng
+    </button>
   ) : null
 
   return (
@@ -163,6 +137,23 @@ export function MyOrderDetailPage() {
       <div className="mt-4">
         <OrderDetails order={order} actions={actions} />
       </div>
+      {confirming && (
+        <CancelOrderDialog
+          code={order.code}
+          onClose={() => setConfirming(false)}
+          onSubmit={async (input) => {
+            try {
+              setCancelled(await api.cancelOrder(order.code, input))
+            } catch (err) {
+              // Confirmed meanwhile: show the fresh status behind the dialog
+              if (err instanceof ApiError && err.code === 'ORDER_NOT_CANCELLABLE') detail.reload()
+              throw err
+            }
+            setConfirming(false)
+            toast({ tone: 'success', message: `Đã huỷ đơn ${order.code}` })
+          }}
+        />
+      )}
     </div>
   )
 }

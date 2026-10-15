@@ -1,3 +1,5 @@
+import type { CancelReasonCode, CustomerCancelReasonCode } from './orderStatus'
+
 export interface Category {
   id: number
   name: string
@@ -205,6 +207,12 @@ export interface Order {
   shippingFee: number
   total: number
   history: { status: OrderStatus; label: string; at: string; reason: string | null }[]
+  /** Set once CANCELLED */
+  cancelReasonCode: CancelReasonCode | null
+  cancelReasonLabel: string | null
+  /** Note given with the cancellation */
+  cancelReason: string | null
+  cancelledByType: 'STAFF' | 'CUSTOMER' | null
   /** Guest orders, only in the response that placed the order: secret of the tracking link. */
   accessToken?: string
   /** Guest orders, only in that response: SITE_URL/don-hang/{code}?t={accessToken} */
@@ -235,6 +243,16 @@ export interface TrackedOrder {
   canCancel: boolean
   /** Not attached to an account yet. */
   canClaim: boolean
+  cancelReasonCode: Order['cancelReasonCode']
+  cancelReasonLabel: string | null
+  cancelReason: string | null
+  cancelledByType: Order['cancelledByType']
+}
+
+/** What a customer sends to cancel: a reason code, and a note (required with OTHER, up to 300 characters). */
+export interface CustomerCancelInput {
+  reasonCode: CustomerCancelReasonCode
+  reason?: string
 }
 
 export interface ClaimAccountInput {
@@ -478,7 +496,8 @@ export const api = {
   myOrder: (code: string, signal?: AbortSignal) =>
     apiRequest<Order>(`/api/orders/me/${encodeURIComponent(code)}`, { signal }),
 
-  cancelOrder: (code: string) => apiRequest<Order>(`/api/orders/me/${encodeURIComponent(code)}/cancel`, post()),
+  cancelOrder: (code: string, input: CustomerCancelInput) =>
+    apiRequest<Order>(`/api/orders/me/${encodeURIComponent(code)}/cancel`, post(input)),
 
   lookupOrder: (code: string, phone: string) =>
     apiRequest<Order>(`/api/orders/lookup?code=${encodeURIComponent(code)}&phone=${encodeURIComponent(phone)}`),
@@ -487,8 +506,8 @@ export const api = {
   trackOrder: (code: string, token: string, signal?: AbortSignal) =>
     apiRequest<TrackedOrder>(trackPath(code, token), { signal, redirectOnAuthFailure: false }),
 
-  cancelTrackedOrder: (code: string, token: string, reason: string) =>
-    apiRequest<TrackedOrder>(trackPath(code, token, '/cancel'), post({ reason })),
+  cancelTrackedOrder: (code: string, token: string, input: CustomerCancelInput) =>
+    apiRequest<TrackedOrder>(trackPath(code, token, '/cancel'), post(input)),
 
   /** Creates the account from the order, attaches it and signs in (cookies). */
   claimAccount: (code: string, token: string, input: ClaimAccountInput) =>

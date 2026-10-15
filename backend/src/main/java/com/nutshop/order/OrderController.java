@@ -1,6 +1,7 @@
 package com.nutshop.order;
 
 import com.nutshop.common.PageResponse;
+import com.nutshop.order.OrderDtos.CustomerCancelRequest;
 import com.nutshop.order.OrderDtos.OrderResponse;
 import com.nutshop.order.OrderDtos.OrderSummary;
 import com.nutshop.order.OrderDtos.PlaceOrderRequest;
@@ -47,8 +48,9 @@ public class OrderController {
 	}
 
 	@PostMapping("/me/{code}/cancel")
-	public OrderResponse cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable String code) {
-		return orderService.cancelMine(userId(jwt), code);
+	public OrderResponse cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable String code,
+			@RequestBody(required = false) CustomerCancelRequest req) {
+		return orderService.cancelMine(userId(jwt), code, req);
 	}
 
 	@GetMapping("/lookup")

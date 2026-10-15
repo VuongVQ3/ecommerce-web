@@ -53,7 +53,10 @@ public class AdminBootstrap implements ApplicationRunner {
 		}
 		Role previous = user.getRole();
 		user.changeRole(Role.ADMIN);
-		audit.record(null, "USER_PROMOTED", "USER", user.getId(), Map.of("role", previous), Map.of("role", Role.ADMIN));
+		audit.entry("USER_PROMOTED", "USER", user.getId(), AuditLog.userLabel(user.getFullName(), user.getEmail()))
+			.by(null)
+			.changes(Map.of("role", previous), Map.of("role", Role.ADMIN))
+			.record();
 		log.info("Promoted user {} to ADMIN (ADMIN_EMAIL)", user.getId());
 	}
 }

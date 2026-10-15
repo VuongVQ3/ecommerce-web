@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -278,20 +279,49 @@ class OrderE2ETest {
 		// Another account cannot see it
 		mvc.perform(get("/api/orders/me/" + code).cookie(signUp())).andExpect(status().isNotFound());
 
-		mvc.perform(post("/api/orders/me/" + code + "/cancel").header("X-Requested-With", "XMLHttpRequest").cookie(session))
+		// A customer reason is required; staff-only codes and OTHER without a note are rejected
+		for (String bad : new String[] { "", "{}", "{\"reasonCode\":\"NOPE\"}", "{\"reasonCode\":\"OUT_OF_STOCK\"}" }) {
+			mvc.perform(cancelMine(code, bad).cookie(session))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("INVALID_CANCEL_REASON"));
+		}
+		mvc.perform(cancelMine(code, "{\"reasonCode\":\"OTHER\",\"reason\":\"   \"}").cookie(session))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("CANCEL_REASON_REQUIRED"));
+		mvc.perform(cancelMine(code, "{\"reasonCode\":\"CHANGED_MIND\",\"reason\":\"" + "x".repeat(301) + "\"}").cookie(session))
+			.andExpect(status().isBadRequest());
+		assertThat(reserved(id)).isEqualTo(2);
+
+		mvc.perform(cancelMine(code, "{\"reasonCode\":\"CHANGE_ADDRESS\",\"reason\":\"  Chuyển nhà  \"}").cookie(session))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value("CANCELLED"))
 			.andExpect(jsonPath("$.canCancel").value(false))
 			.andExpect(jsonPath("$.history", hasSize(2)))
-			.andExpect(jsonPath("$.history[1].reason").value("Khách huỷ đơn"));
+			.andExpect(jsonPath("$.history[1].reason").value("Khách huỷ: Muốn đổi địa chỉ giao hàng – Chuyển nhà"))
+			.andExpect(jsonPath("$.cancelReasonCode").value("CHANGE_ADDRESS"))
+			.andExpect(jsonPath("$.cancelReasonLabel").value("Muốn đổi địa chỉ giao hàng"))
+			.andExpect(jsonPath("$.cancelReason").value("Chuyển nhà"))
+			.andExpect(jsonPath("$.cancelledByType").value("CUSTOMER"));
+		Map<String, Object> audit = jdbc.queryForMap(
+				"SELECT actor_id, actor_type, reason_code, reason, entity_label FROM audit_logs WHERE action = 'ORDER_CANCEL' AND entity_id = ?",
+				code);
+		assertThat(audit).containsEntry("actor_id", null).containsEntry("actor_type", "CUSTOMER")
+			.containsEntry("reason_code", "CHANGE_ADDRESS").containsEntry("reason", "Chuyển nhà")
+			.containsEntry("entity_label", code);
 
 		assertThat(reserved(id)).isZero();
 		assertThat(jdbc.queryForList("SELECT type || ':' || quantity FROM inventory_movements WHERE product_id = ? "
 				+ "ORDER BY created_at", String.class, id)).containsExactly("ORDER_RESERVE:2", "ORDER_CANCEL:-2");
 
-		mvc.perform(post("/api/orders/me/" + code + "/cancel").header("X-Requested-With", "XMLHttpRequest").cookie(session))
+		mvc.perform(cancelMine(code, "{\"reasonCode\":\"CHANGED_MIND\"}").cookie(session))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_NOT_CANCELLABLE"));
+	}
+
+	private static MockHttpServletRequestBuilder cancelMine(String code, String body) {
+		return post("/api/orders/me/" + code + "/cancel").header("X-Requested-With", "XMLHttpRequest")
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(body);
 	}
 
 	@Test

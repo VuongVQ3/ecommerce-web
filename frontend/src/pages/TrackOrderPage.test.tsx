@@ -39,6 +39,10 @@ const tracked: TrackedOrder = {
   ],
   canCancel: false,
   canClaim: true,
+  cancelReasonCode: null,
+  cancelReasonLabel: null,
+  cancelReason: null,
+  cancelledByType: null,
 }
 
 function Where() {
@@ -116,21 +120,21 @@ describe('TrackOrderPage', () => {
     await waitFor(() => expect(readRecentOrders()).toEqual([]))
   })
 
-  it('requires a reason to cancel', async () => {
+  it('cancels with a chosen reason', async () => {
     vi.spyOn(api, 'trackOrder').mockResolvedValue({ ...tracked, status: 'PENDING', statusLabel: 'Chờ xác nhận', canCancel: true })
     const cancel = vi
       .spyOn(api, 'cancelTrackedOrder')
       .mockResolvedValue({ ...tracked, status: 'CANCELLED', statusLabel: 'Đã huỷ', canCancel: false })
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: 'Huỷ đơn hàng' }))
-    const confirm = screen.getAllByRole('button', { name: 'Huỷ đơn hàng' }).at(-1)!
-    fireEvent.click(confirm)
-    expect(await screen.findByText('Vui lòng chọn lý do huỷ đơn')).toBeTruthy()
-    expect(cancel).not.toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: `Huỷ đơn ${CODE}?` })).toBeTruthy()
+    const confirm = screen.getByRole('button', { name: 'Huỷ đơn' }) as HTMLButtonElement
+    expect(confirm.disabled).toBe(true)
 
-    fireEvent.click(screen.getByLabelText('Không còn nhu cầu'))
+    fireEvent.click(screen.getByLabelText('Đặt trùng đơn'))
+    expect(confirm.disabled).toBe(false)
     fireEvent.click(confirm)
-    await waitFor(() => expect(cancel).toHaveBeenCalledWith(CODE, TOKEN, 'Không còn nhu cầu'))
+    await waitFor(() => expect(cancel).toHaveBeenCalledWith(CODE, TOKEN, { reasonCode: 'DUPLICATE_ORDER', reason: undefined }))
   })
 
   it('creates an account from the order and goes to the saved order', async () => {

@@ -104,12 +104,6 @@ export function claimAccountSchema(needsEmail: boolean) {
 
 export type ClaimAccountForm = z.infer<ReturnType<typeof claimAccountSchema>>
 
-export const CANCEL_REASONS = ['Đặt nhầm sản phẩm hoặc số lượng', 'Muốn đổi địa chỉ giao hàng', 'Không còn nhu cầu']
-
-export const cancelReasonSchema = z
-  .object({ choice: z.string().min(1, 'Vui lòng chọn lý do huỷ đơn'), other: z.string().trim().max(300, 'Tối đa 300 ký tự') })
-  .refine((v) => v.choice !== 'other' || v.other.length > 0, { message: 'Vui lòng nhập lý do', path: ['other'] })
-
 export type LoginForm = z.infer<typeof loginSchema>
 export type RegisterForm = z.infer<typeof registerSchema>
 

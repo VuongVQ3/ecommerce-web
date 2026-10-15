@@ -3,7 +3,7 @@ package com.nutshop.order;
 import com.nutshop.auth.AuthCookies;
 import com.nutshop.auth.AuthDtos.UserResponse;
 import com.nutshop.auth.ClientInfo;
-import com.nutshop.order.TrackingDtos.CancelRequest;
+import com.nutshop.order.OrderDtos.CustomerCancelRequest;
 import com.nutshop.order.TrackingDtos.ClaimAccountRequest;
 import com.nutshop.order.TrackingDtos.ClaimItem;
 import com.nutshop.order.TrackingDtos.ClaimResult;
@@ -48,8 +48,8 @@ public class OrderTrackingController {
 
 	@PostMapping("/track/{code}/cancel")
 	public ResponseEntity<TrackedOrder> cancel(@PathVariable String code, @RequestParam(defaultValue = "") String t,
-			@Valid @RequestBody CancelRequest req) {
-		return privately(guestOrders.cancel(code, t, req.reason()));
+			@RequestBody(required = false) CustomerCancelRequest req) {
+		return privately(guestOrders.cancel(code, t, req));
 	}
 
 	/** Creates the account from the order, attaches the order and signs in (same cookies as /api/auth/login). */

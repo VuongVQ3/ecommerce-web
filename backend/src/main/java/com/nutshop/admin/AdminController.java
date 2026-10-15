@@ -10,6 +10,7 @@ import com.nutshop.admin.AdminDtos.ShipRequest;
 import com.nutshop.admin.AdminDtos.StocktakeRequest;
 import com.nutshop.common.PageResponse;
 import com.nutshop.order.AdminOrderService;
+import com.nutshop.order.CancelReason;
 import com.nutshop.order.AdminOrderService.Action;
 import com.nutshop.order.AdminOrderService.AdminOrderDetail;
 import com.nutshop.order.AdminOrderService.OrderList;
@@ -58,9 +59,9 @@ public class AdminController {
 	public OrderList orders(@RequestParam(required = false) OrderStatus status,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-			@RequestParam(required = false) String q, @RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "20") int size) {
-		return orders.list(status, from, to, q, page, size);
+			@RequestParam(required = false) String q, @RequestParam(required = false) CancelReason cancelReasonCode,
+			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+		return orders.list(status, from, to, q, cancelReasonCode, page, size);
 	}
 
 	@GetMapping("/orders/{code}")

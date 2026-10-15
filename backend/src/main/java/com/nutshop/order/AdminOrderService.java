@@ -108,10 +108,20 @@ public class AdminOrderService {
 	 */
 	@Transactional(readOnly = true)
 	public OrderList list(OrderStatus status, LocalDate from, LocalDate to, String q, int page, int size) {
+		return list(status, from, to, q, null, page, size);
+	}
+
+	/** @param cancelReason only orders cancelled with this reason */
+	@Transactional(readOnly = true)
+	public OrderList list(OrderStatus status, LocalDate from, LocalDate to, String q, CancelReason cancelReason,
+			int page, int size) {
 		Specification<Order> spec = (root, query, cb) -> {
 			List<Predicate> where = new ArrayList<>();
 			if (status != null) {
 				where.add(cb.equal(root.get("status"), status));
+			}
+			if (cancelReason != null) {
+				where.add(cb.equal(root.get("cancelReason"), cancelReason));
 			}
 			if (from != null) {
 				where.add(cb.greaterThanOrEqualTo(root.get("createdAt"), from.atStartOfDay(VIETNAM).toInstant()));
@@ -181,7 +191,7 @@ public class AdminOrderService {
 		String body = contact.note + (StringUtils.hasText(note) ? ": " + note.trim() : "");
 		notes.save(new OrderNote(order.getId(), actorId, body.length() > 1000 ? body.substring(0, 1000) : body));
 		if (contact == ContactResult.UNREACHABLE) {
-			audit.record(actorId, "ORDER_CONTACT_FAILED", "ORDER", code, null, Map.of("note", body));
+			audit.entry("ORDER_CONTACT_FAILED", "ORDER", code, code).by(actorId).reason(body).record();
 			return detail(code);
 		}
 		return act(code, Action.CONFIRM, null, null, null, null, actorId);
@@ -217,9 +227,21 @@ public class AdminOrderService {
 		if (action == Action.CANCEL && cancelReason == null) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "REASON_REQUIRED", "Vui lòng chọn lý do huỷ đơn");
 		}
+		if (action == Action.CANCEL && !cancelReason.forStaff()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, OrderService.INVALID_CANCEL_REASON,
+					"Lý do này chỉ dành cho khách tự huỷ đơn");
+		}
+		if (action == Action.CANCEL) {
+			// Before the transition: its stock updates clear the persistence context
+			order.setCancellation(historyReason, CancelReason.By.STAFF);
+		}
 		orderService.transition(order, action.target, actorId,
 				action == Action.CANCEL ? cancelReason.label() + ": " + historyReason : historyReason, cancelReason);
-		audit.record(actorId, "ORDER_" + action.name(), "ORDER", code, before, AuditView.of(order));
+		audit.entry("ORDER_" + action.name(), "ORDER", code, code)
+			.by(actorId)
+			.changes(before, AuditView.of(order))
+			.reason(action == Action.CANCEL ? cancelReason.name() : null, action == Action.CANCEL ? historyReason : null)
+			.record();
 		return detail(code);
 	}
 
@@ -227,7 +249,7 @@ public class AdminOrderService {
 	public AdminOrderDetail addNote(String code, String body, UUID actorId) {
 		Order order = orders.findByCode(code).orElseThrow(AdminOrderService::notFound);
 		notes.save(new OrderNote(order.getId(), actorId, body.trim()));
-		audit.record(actorId, "ORDER_NOTE_ADDED", "ORDER", code, null, Map.of("note", body.trim()));
+		audit.entry("ORDER_NOTE_ADDED", "ORDER", code, code).by(actorId).changes(null, Map.of("note", body.trim())).record();
 		return detail(code);
 	}
 

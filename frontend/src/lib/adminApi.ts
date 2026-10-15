@@ -39,6 +39,8 @@ export interface OrderFilters {
   from?: string
   to?: string
   q?: string
+  /** Only orders cancelled with this reason */
+  cancelReasonCode?: CancelReasonCode | ''
   page?: number
 }
 
@@ -131,6 +133,8 @@ export interface AdminProduct extends Omit<ProductInput, 'origin'> {
   reserved: number
   available: number
   images: AdminImage[]
+  /** End (exclusive) of the last running or upcoming promotion: the regular price cannot change until then */
+  priceLockedUntil: string | null
 }
 
 export interface AdminCategory {
@@ -157,7 +161,7 @@ export const adminApi = {
 
   orders: (f: OrderFilters, signal?: AbortSignal) =>
     apiRequest<{ page: Page<AdminOrderRow>; pendingCount: number }>(
-      `/api/admin/orders${query({ status: f.status, from: f.from, to: f.to, q: f.q, page: f.page })}`,
+      `/api/admin/orders${query({ status: f.status, from: f.from, to: f.to, q: f.q, cancelReasonCode: f.cancelReasonCode, page: f.page })}`,
       { signal },
     ),
   order: (code: string, signal?: AbortSignal) => apiRequest<AdminOrderDetail>(order(code), { signal }),
@@ -324,14 +328,30 @@ export interface AuditRow {
   id: string
   createdAt: string
   actorId: string | null
+  /** STAFF, CUSTOMER (actorName = the account, or the name on the order for guests) or SYSTEM */
+  actorType: 'STAFF' | 'CUSTOMER' | 'SYSTEM'
   actorName: string | null
   actorEmail: string | null
   action: string
   entityType: string
   entityId: string
-  /** JSON text or null */
-  before: string | null
-  after: string | null
+  /** Name when written (current name for older rows); null when unknown */
+  entityLabel: string | null
+  reasonCode: string | null
+  reason: string | null
+  /** Changed fields only (older rows: whole snapshots); null when not applicable. Text is tolerated (see snapshot()). */
+  before: Record<string, unknown> | string | null
+  after: Record<string, unknown> | string | null
+}
+
+export interface AuditFilters {
+  actorId?: string
+  entityType?: string
+  action?: string
+  from?: string
+  to?: string
+  page?: number
+  size?: number
 }
 
 export const userApi = {
@@ -344,7 +364,7 @@ export const userApi = {
     apiRequest<AdminUserRow>(`/api/admin/users/${id}/active`, post({ active, reason })),
   invite: (fullName: string, email: string, reason: string) =>
     apiRequest<AdminUserRow>('/api/admin/users/invitations', post({ fullName, email, reason })),
-  auditLogs: (f: { actor?: string; entityType?: string; from?: string; to?: string; page?: number }, signal?: AbortSignal) =>
+  auditLogs: (f: AuditFilters, signal?: AbortSignal) =>
     apiRequest<Page<AuditRow>>(`/api/admin/audit-logs${query({ ...f })}`, { signal }),
   auditActors: (signal?: AbortSignal) =>
     apiRequest<{ id: string; name: string; email: string }[]>('/api/admin/audit-logs/actors', { signal }),

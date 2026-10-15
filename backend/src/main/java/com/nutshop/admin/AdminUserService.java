@@ -13,6 +13,9 @@ import com.nutshop.user.User;
 import com.nutshop.user.UserRepository;
 import com.nutshop.user.UserStatusCache;
 import org.springframework.data.domain.PageRequest;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -24,9 +27,12 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -51,8 +57,14 @@ public class AdminUserService {
 	public record UserDetail(UserRow user, List<UserOrder> orders) {
 	}
 
-	public record AuditRow(UUID id, Instant createdAt, UUID actorId, String actorName, String actorEmail, String action,
-			String entityType, String entityId, String before, String after) {
+	/**
+	 * @param actorType STAFF, CUSTOMER (actorName = the account, or the name on the order for guests) or SYSTEM
+	 * @param entityLabel name when written (or the current one for older rows); null when unknown
+	 * @param before / after only the fields that changed (older rows hold whole snapshots); raw JSON objects
+	 */
+	public record AuditRow(UUID id, Instant createdAt, UUID actorId, String actorType, String actorName,
+			String actorEmail, String action, String entityType, String entityId, String entityLabel, String reasonCode,
+			String reason, JsonNode before, JsonNode after) {
 	}
 
 	public record Actor(UUID id, String name, String email) {
@@ -78,10 +90,12 @@ public class AdminUserService {
 	private final StaffInvitationService invitations;
 	private final UserStatusCache statuses;
 	private final AuditLog audit;
+	private final JsonMapper json;
 
 	public AdminUserService(JdbcTemplate jdbc, UserRepository users, OrderRepository orders,
 			RefreshTokenService refreshTokens, StaffInvitationService invitations, UserStatusCache statuses,
-			AuditLog audit) {
+			AuditLog audit, JsonMapper json) {
+		this.json = json;
 		this.jdbc = jdbc;
 		this.users = users;
 		this.orders = orders;
@@ -157,8 +171,11 @@ public class AdminUserService {
 		user.changeRole(role);
 		users.flush();
 		statuses.evict(id);
-		audit.record(actorId, "USER_ROLE_CHANGED", "USER", id, Map.of("role", before.name()),
-				Map.of("role", role.name(), "reason", reason.trim()));
+		audit.entry("USER_ROLE_CHANGED", "USER", id, AuditLog.userLabel(user.getFullName(), user.getEmail()))
+			.by(actorId)
+			.changes(Map.of("role", before.name()), Map.of("role", role.name()))
+			.reason(reason)
+			.record();
 		return row(id);
 	}
 
@@ -179,8 +196,12 @@ public class AdminUserService {
 			refreshTokens.revokeAll(id);
 		}
 		statuses.evict(id);
-		audit.record(actorId, active ? "USER_UNLOCKED" : "USER_LOCKED", "USER", id, Map.of("active", !active),
-				Map.of("active", active, "reason", reason.trim()));
+		audit.entry(active ? "USER_UNLOCKED" : "USER_LOCKED", "USER", id,
+				AuditLog.userLabel(user.getFullName(), user.getEmail()))
+			.by(actorId)
+			.changes(Map.of("active", !active), Map.of("active", active))
+			.reason(reason)
+			.record();
 		return row(id);
 	}
 
@@ -192,9 +213,13 @@ public class AdminUserService {
 
 	// ---- audit log ----------------------------------------------------------------------------------------------
 
+	/**
+	 * Newest first. @param from / to inclusive calendar days in Vietnam time. Rows written before entity_label existed
+	 * get the entity's current name (one query per entity type for the whole page); null when it no longer exists.
+	 */
 	@Transactional(readOnly = true)
-	public PageResponse<AuditRow> auditLog(UUID actor, String entityType, LocalDate from, LocalDate to, int page,
-			int size) {
+	public PageResponse<AuditRow> auditLog(UUID actor, String entityType, String action, LocalDate from, LocalDate to,
+			int page, int size) {
 		List<String> where = new ArrayList<>();
 		List<Object> args = new ArrayList<>();
 		if (actor != null) {
@@ -204,6 +229,10 @@ public class AdminUserService {
 		if (StringUtils.hasText(entityType)) {
 			where.add("a.entity_type = ?");
 			args.add(entityType.trim().toUpperCase(Locale.ROOT));
+		}
+		if (StringUtils.hasText(action)) {
+			where.add("a.action = ?");
+			args.add(action.trim().toUpperCase(Locale.ROOT));
 		}
 		if (from != null) {
 			where.add("a.created_at >= ?");
@@ -221,16 +250,85 @@ public class AdminUserService {
 		pageArgs.add(pageSize);
 		pageArgs.add((long) pageNo * pageSize);
 		List<AuditRow> rows = jdbc.query("""
-				SELECT a.id, a.created_at, a.actor_id, u.full_name, u.email, a.action, a.entity_type, a.entity_id,
+				SELECT a.id, a.created_at, a.actor_id, a.actor_type, u.full_name, u.email, a.action, a.entity_type,
+				       a.entity_id, a.entity_label, a.reason_code, a.reason,
 				       a.before::text AS before_json, a.after::text AS after_json
 				FROM audit_logs a LEFT JOIN users u ON u.id = a.actor_id""" + filter
-				+ " ORDER BY a.created_at DESC LIMIT ? OFFSET ?",
+				+ " ORDER BY a.created_at DESC, a.id LIMIT ? OFFSET ?",
 				(rs, n) -> new AuditRow(rs.getObject("id", UUID.class), rs.getTimestamp("created_at").toInstant(),
-						rs.getObject("actor_id", UUID.class), rs.getString("full_name"), rs.getString("email"),
-						rs.getString("action"), rs.getString("entity_type"), rs.getString("entity_id"),
-						rs.getString("before_json"), rs.getString("after_json")),
+						rs.getObject("actor_id", UUID.class), rs.getString("actor_type"), rs.getString("full_name"),
+						rs.getString("email"), rs.getString("action"), rs.getString("entity_type"),
+						rs.getString("entity_id"), rs.getString("entity_label"), rs.getString("reason_code"),
+						rs.getString("reason"), parse(rs.getString("before_json")), parse(rs.getString("after_json"))),
 				pageArgs.toArray());
-		return new PageResponse<>(rows, pageNo, pageSize, total, (int) ((total + pageSize - 1) / pageSize));
+		return new PageResponse<>(withNames(rows), pageNo, pageSize, total, (int) ((total + pageSize - 1) / pageSize));
+	}
+
+	/** Fills missing entity labels with current names, and the customer's name on orders they acted on as guests. */
+	private List<AuditRow> withNames(List<AuditRow> rows) {
+		Map<String, Set<String>> missing = new HashMap<>();
+		for (AuditRow r : rows) {
+			if (r.entityLabel() == null) {
+				missing.computeIfAbsent(r.entityType(), t -> new HashSet<>()).add(r.entityId());
+			}
+			if ("CUSTOMER".equals(r.actorType()) && r.actorId() == null && "ORDER".equals(r.entityType())) {
+				missing.computeIfAbsent("ORDER", t -> new HashSet<>()).add(r.entityId());
+			}
+		}
+		Map<String, String> productNames = lookup("SELECT id::text, name FROM products WHERE id::text", missing.get("PRODUCT"));
+		Map<String, String> categoryNames = lookup("SELECT id::text, name FROM categories WHERE id::text", missing.get("CATEGORY"));
+		Map<String, String> userNames = lookup(
+				"SELECT id::text, CASE WHEN full_name IS NULL OR full_name = '' THEN email ELSE full_name || ' (' || email || ')' END "
+						+ "FROM users WHERE id::text", missing.get("USER"));
+		Map<String, String> customers = lookup("SELECT code, customer_name FROM orders WHERE code", missing.get("ORDER"));
+		return rows.stream().map(r -> {
+			String label = r.entityLabel();
+			if (label == null) {
+				label = switch (r.entityType()) {
+					case "PRODUCT" -> productNames.get(r.entityId());
+					case "CATEGORY" -> categoryNames.get(r.entityId());
+					case "USER" -> userNames.get(r.entityId());
+					case "ORDER" -> customers.containsKey(r.entityId()) ? r.entityId() : null;
+					case "PHONE" -> r.entityId();
+					default -> null;
+				};
+			}
+			String actorName = r.actorName();
+			if (actorName == null && "CUSTOMER".equals(r.actorType()) && "ORDER".equals(r.entityType())) {
+				actorName = customers.get(r.entityId());
+			}
+			// Older rows kept the reason inside "after"
+			String reason = r.reason();
+			JsonNode after = r.after();
+			if (after instanceof ObjectNode o && o.has("reason")) {
+				JsonNode old = o.remove("reason");
+				if (reason == null && old.isString()) {
+					reason = old.asString();
+				}
+			}
+			if (r.before() instanceof ObjectNode o) {
+				o.remove("reason");
+			}
+			return new AuditRow(r.id(), r.createdAt(), r.actorId(), r.actorType(), actorName, r.actorEmail(), r.action(),
+					r.entityType(), r.entityId(), label, r.reasonCode(), reason, r.before(), after);
+		}).toList();
+	}
+
+	private JsonNode parse(String jsonText) {
+		return jsonText == null ? null : json.readTree(jsonText);
+	}
+
+	/** {@code select} ends with the key column; "IN (…)" is appended. */
+	private Map<String, String> lookup(String select, Set<String> keys) {
+		if (keys == null || keys.isEmpty()) {
+			return Map.of();
+		}
+		Map<String, String> found = new HashMap<>();
+		jdbc.query(select + " IN (" + String.join(",", java.util.Collections.nCopies(keys.size(), "?")) + ")",
+				rs -> {
+					found.put(rs.getString(1), rs.getString(2));
+				}, keys.toArray());
+		return found;
 	}
 
 	/** People who appear in the audit log, for the filter. */

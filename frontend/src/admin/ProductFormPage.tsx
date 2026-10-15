@@ -6,7 +6,7 @@ import { ErrorMessage, Spinner } from '../components/Feedback'
 import { FormError, TextField } from '../components/FormFields'
 import { useToast } from '../components/Toast'
 import { ApiError } from '../lib/api'
-import { adminApi, promotionApi, type AdminCategory, type AdminProduct, type PromotionRow } from '../lib/adminApi'
+import { adminApi, type AdminCategory, type AdminProduct } from '../lib/adminApi'
 import { formatLastDay, formatPrice } from '../lib/format'
 import { cloudinaryUrl } from '../lib/images'
 import { slugify } from '../lib/slug'
@@ -177,15 +177,7 @@ export function PriceChangeDialog({
   )
 }
 
-function ProductEditor({
-  product,
-  categories,
-  promotion,
-}: {
-  product: AdminProduct | null
-  categories: AdminCategory[]
-  promotion: PromotionRow | null
-}) {
+function ProductEditor({ product, categories }: { product: AdminProduct | null; categories: AdminCategory[] }) {
   const navigate = useNavigate()
   const toast = useToast()
   const [current, setCurrent] = useState(product)
@@ -196,12 +188,16 @@ function ProductEditor({
   const [confirmVisibility, setConfirmVisibility] = useState(false)
   // Until the slug is edited by hand on a new product, it follows the name
   const [slugTouched, setSlugTouched] = useState(product !== null)
+  // 409 PROMOTION_CONFLICT: a promotion started (or was created) after this page was loaded
+  const [priceConflict, setPriceConflict] = useState<string | null>(null)
+  const priceLockedUntil = current?.priceLockedUntil ?? null
 
   const { form, onSubmit, formError, pending } = useAuthForm<ProductForm>(
     productSchema,
     product ? toForm(product) : EMPTY_PRODUCT,
     async (values) => {
       const input = toInput(values)
+      setPriceConflict(null)
       if (current) {
         if (isBigPriceChange(current.price, input.price)) {
           const ok = await new Promise<boolean>((answer) => setPriceAsk({ oldPrice: current.price, newPrice: input.price, answer }))
@@ -225,6 +221,11 @@ function ProductEditor({
       onApiError: (err: ApiError, f) => {
         if (err.code === 'SLUG_EXISTS' || err.code === 'INVALID_SLUG') {
           f.setError('slug', { type: 'server', message: err.message }, { shouldFocus: true })
+          return true
+        }
+        if (err.code === 'PROMOTION_CONFLICT') {
+          setPriceConflict(err.message)
+          requestAnimationFrame(() => document.getElementById('price-conflict')?.focus())
           return true
         }
         return false
@@ -318,6 +319,11 @@ function ProductEditor({
                 <label htmlFor="price" className="text-sm font-medium text-stone-700">
                   Giá bán (₫)
                 </label>
+                {priceConflict && (
+                  <p id="price-conflict" tabIndex={-1} role="alert" className="mt-1 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">
+                    {priceConflict}
+                  </p>
+                )}
                 <MoneyInput
                   id="price"
                   ref={field.ref}
@@ -325,6 +331,7 @@ function ProductEditor({
                   value={field.value === '' ? null : Number(field.value)}
                   onChange={(n) => field.onChange(n == null ? '' : String(n))}
                   onBlur={field.onBlur}
+                  disabled={priceLockedUntil != null}
                   aria-invalid={fieldState.error ? true : undefined}
                   aria-describedby="price-help"
                   className={`${input} mt-1`}
@@ -338,9 +345,12 @@ function ProductEditor({
                   {!fieldState.error && priceValue != null && priceValue % 1000 !== 0 && (
                     <p className="text-amber-800">Giá không chẵn nghìn, kiểm tra lại nhé.</p>
                   )}
-                  {promotion && (
+                  {priceLockedUntil && (
                     <p className="text-brand-800">
-                      Đang khuyến mại: {formatPrice(promotion.salePrice)} đến hết {formatLastDay(promotion.endsAt)}
+                      Đang có khuyến mại đến {formatLastDay(priceLockedUntil)} —{' '}
+                      <Link to="/admin/khuyen-mai" className="font-semibold underline hover:text-brand-700">
+                        kết thúc khuyến mại để đổi giá
+                      </Link>
                     </p>
                   )}
                 </div>
@@ -422,13 +432,11 @@ export default function ProductFormPage() {
   const productId = id ? Number(id) : null
   const { data, error, reload } = useAsync(
     async (signal) => {
-      const [categories, product, promotions] = await Promise.all([
+      const [categories, product] = await Promise.all([
         adminApi.categories(signal),
         productId ? adminApi.product(productId, signal) : Promise.resolve(null),
-        productId ? promotionApi.list(signal) : Promise.resolve([]),
       ])
-      const promotion = promotions.find((p) => p.productId === productId && p.status === 'RUNNING') ?? null
-      return { categories, product, promotion }
+      return { categories, product }
     },
     [productId],
   )
@@ -437,5 +445,5 @@ export default function ProductFormPage() {
   if (error instanceof ApiError && error.status === 404) return <NotFoundPage />
   if (error) return <ErrorMessage message={error.message} onRetry={reload} />
   if (!data || (data.product?.id ?? null) !== productId) return <Spinner />
-  return <ProductEditor key={productId ?? 'new'} product={data.product} categories={data.categories} promotion={data.promotion} />
+  return <ProductEditor key={productId ?? 'new'} product={data.product} categories={data.categories} />
 }

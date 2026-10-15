@@ -69,6 +69,14 @@ public class Order {
 	@Column(name = "cancel_reason_code")
 	private CancelReason cancelReason;
 
+	/** Free-text note given with the cancellation (customer note or staff reason). */
+	@Column(name = "cancel_reason")
+	private String cancelReasonNote;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "cancelled_by_type")
+	private CancelReason.By cancelledBy;
+
 	/** Set when the order is handed to the carrier (SHIPPING). */
 	private String carrier;
 
@@ -146,6 +154,19 @@ public class Order {
 
 	public CancelReason getCancelReason() {
 		return cancelReason;
+	}
+
+	void setCancellation(String note, CancelReason.By by) {
+		this.cancelReasonNote = note == null || note.isBlank() ? null : note.length() > 300 ? note.substring(0, 300) : note;
+		this.cancelledBy = by;
+	}
+
+	public String getCancelReasonNote() {
+		return cancelReasonNote;
+	}
+
+	public CancelReason.By getCancelledBy() {
+		return cancelledBy;
 	}
 
 	void setShipment(String carrier, String trackingNumber) {

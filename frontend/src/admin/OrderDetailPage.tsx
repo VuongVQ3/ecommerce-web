@@ -7,7 +7,7 @@ import { useToast } from '../components/Toast'
 import { ApiError, type OrderStatus, type Role } from '../lib/api'
 import { adminApi, type AdminOrderDetail, type ContactResult, type OrderAction, type PhoneFlagView } from '../lib/adminApi'
 import { formatAdminDateTime } from '../lib/format'
-import { CANCEL_REASON_LABEL, type CancelReasonCode } from '../lib/orderStatus'
+import { CANCEL_REASON_LABEL, CANCELLED_BY_LABEL, type CancelReasonCode } from '../lib/orderStatus'
 import { useAsync } from '../lib/useAsync'
 import NotFoundPage from '../pages/NotFoundPage'
 import { FLAG_LABEL } from './labels'
@@ -558,9 +558,17 @@ export default function OrderDetailPage() {
               <p className="mt-2 text-stone-600">Chưa giao cho đơn vị vận chuyển.</p>
             )}
             {detail.cancelReasonCode && (
-              <p className="mt-3 text-stone-700">
-                Lý do huỷ: <strong>{CANCEL_REASON_LABEL[detail.cancelReasonCode]}</strong>
-              </p>
+              <div className="mt-3 text-stone-700">
+                <p>
+                  {detail.order.cancelledByType && (
+                    <span className="mr-2 rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold text-stone-700">
+                      {CANCELLED_BY_LABEL[detail.order.cancelledByType]}
+                    </span>
+                  )}
+                  Lý do huỷ: <strong>{CANCEL_REASON_LABEL[detail.cancelReasonCode]}</strong>
+                </p>
+                {detail.order.cancelReason && <p className="mt-1 break-words text-stone-600">Ghi chú: {detail.order.cancelReason}</p>}
+              </div>
             )}
           </section>
           <Notes detail={detail} onChange={setUpdated} />

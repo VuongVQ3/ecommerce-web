@@ -102,7 +102,11 @@ public class AdminInventoryService {
 		after.put("unitCost", unitCost);
 		after.put("supplier", trim(supplier));
 		after.put("movementId", movement.getId());
-		audit.record(actorId, "STOCK_IMPORTED", "PRODUCT", productId, Map.of("onHand", before), after);
+		audit.entry("STOCK_IMPORTED", "PRODUCT", productId, product.getName())
+			.by(actorId)
+			.changes(Map.of("onHand", before), after)
+			.reason(trim(note))
+			.record();
 		return StockRow.from(product);
 	}
 
@@ -115,8 +119,11 @@ public class AdminInventoryService {
 		InventoryService.Stocktake result = inventory.stocktake(productId, counted, reason.trim(), actorId);
 		product = product(productId);
 		if (result.difference() != 0) {
-			audit.record(actorId, "STOCK_ADJUSTED", "PRODUCT", productId, Map.of("onHand", result.previousOnHand()),
-					Map.of("onHand", counted, "difference", result.difference(), "reason", reason.trim()));
+			audit.entry("STOCK_ADJUSTED", "PRODUCT", productId, product.getName())
+				.by(actorId)
+				.changes(Map.of("onHand", result.previousOnHand()), Map.of("onHand", counted, "difference", result.difference()))
+				.reason(reason)
+				.record();
 		}
 		return new StocktakeResult(StockRow.from(product), result.previousOnHand(), counted, result.difference());
 	}

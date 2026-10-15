@@ -1,12 +1,14 @@
 package com.nutshop.order;
 
 import com.nutshop.address.AdminUnits;
+import com.nutshop.audit.AuditLog;
 import com.nutshop.cart.CartProperties;
 import com.nutshop.cart.CartService;
 import com.nutshop.common.ApiException;
 import com.nutshop.common.PageResponse;
 import com.nutshop.inventory.InventoryService;
 import com.nutshop.mail.EmailSender;
+import com.nutshop.order.OrderDtos.CustomerCancelRequest;
 import com.nutshop.order.OrderDtos.LineRequest;
 import com.nutshop.order.OrderDtos.OrderItemResponse;
 import com.nutshop.order.OrderDtos.OrderResponse;
@@ -62,6 +64,8 @@ public class OrderService {
 	public static final String INVALID_STATUS_TRANSITION = "INVALID_STATUS_TRANSITION";
 	public static final String IDEMPOTENCY_CONFLICT = "IDEMPOTENCY_CONFLICT";
 	public static final String INVALID_CANCEL_REASON = "INVALID_CANCEL_REASON";
+	public static final String CANCEL_REASON_REQUIRED = "CANCEL_REASON_REQUIRED";
+	public static final String CANCEL_REASON_TOO_LONG = "CANCEL_REASON_TOO_LONG";
 	public static final String COD_NOT_AVAILABLE = "COD_NOT_AVAILABLE";
 
 	static final String NOT_FOUND_MESSAGE = "Không tìm thấy đơn hàng. Vui lòng kiểm tra lại mã đơn và số điện thoại.";
@@ -92,13 +96,15 @@ public class OrderService {
 	private final TaskExecutor executor;
 	private final TransactionTemplate tx;
 	private final Clock clock;
+	private final AuditLog audit;
 
 	public OrderService(OrderRepository orders, OrderStatusHistoryRepository history, ProductRepository products,
 			InventoryService inventory, CartService carts, CartProperties cartProps, AdminUnits adminUnits,
 			OrderEmails emails, OrderAccessTokens accessTokens, PricingService pricing, PhoneFlagService phoneFlags,
 			EmailSender emailSender,
 			@Qualifier("applicationTaskExecutor") TaskExecutor executor,
-			PlatformTransactionManager txManager, Clock clock) {
+			PlatformTransactionManager txManager, Clock clock, AuditLog audit) {
+		this.audit = audit;
 		this.orders = orders;
 		this.history = history;
 		this.products = products;
@@ -300,14 +306,50 @@ public class OrderService {
 
 	/** The customer cancels their own order; only while it is still PENDING. Reserved stock is released. */
 	@Transactional
-	public OrderResponse cancelMine(UUID userId, String code) {
+	public OrderResponse cancelMine(UUID userId, String code, CustomerCancelRequest req) {
 		Order order = orders.findWithLockByCodeAndUserId(code, userId).orElseThrow(OrderService::notFound);
+		cancelByCustomer(order, userId, req);
+		return toResponse(orders.findByCode(code).orElseThrow());
+	}
+
+	/**
+	 * A customer cancels (signed in, or {@code userId} null with a tracking link): one of the customer reasons, a note
+	 * of up to 300 characters (required with OTHER), and only while PENDING. The caller has locked the order row.
+	 */
+	@Transactional
+	public void cancelByCustomer(Order order, UUID userId, CustomerCancelRequest req) {
+		CancelReason code = null;
+		try {
+			code = req == null || req.reasonCode() == null ? null : CancelReason.valueOf(req.reasonCode().trim());
+		}
+		catch (IllegalArgumentException ignored) {
+			// unknown code: same answer as a missing one
+		}
+		if (code == null || !code.forCustomer()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, INVALID_CANCEL_REASON, "Vui lòng chọn lý do huỷ đơn");
+		}
+		String note = req.reason() == null ? "" : req.reason().trim();
+		if (note.length() > 300) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, CANCEL_REASON_TOO_LONG, "Ghi chú tối đa 300 ký tự");
+		}
+		if (code == CancelReason.OTHER && note.isEmpty()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, CANCEL_REASON_REQUIRED, "Vui lòng ghi rõ lý do huỷ đơn");
+		}
 		if (order.getStatus() != OrderStatus.PENDING) {
 			throw new ApiException(HttpStatus.CONFLICT, ORDER_NOT_CANCELLABLE,
 					"Đơn hàng đã được xác nhận nên không thể tự huỷ. Vui lòng liên hệ cửa hàng.");
 		}
-		transition(order, OrderStatus.CANCELLED, userId, "Khách huỷ đơn", CancelReason.CUSTOMER_REQUEST);
-		return toResponse(orders.findByCode(code).orElseThrow());
+		String status = order.getStatus().name();
+		// Before the transition: its stock updates clear the persistence context
+		order.setCancellation(note, CancelReason.By.CUSTOMER);
+		transition(order, OrderStatus.CANCELLED, userId,
+				"Khách huỷ: " + code.label() + (note.isEmpty() ? "" : " – " + note), code);
+		// Actor stays empty: the log shows the customer's name from the order
+		audit.entry("ORDER_CANCEL", "ORDER", order.getCode(), order.getCode())
+			.byCustomer(null)
+			.changes(Map.of("status", status), Map.of("status", OrderStatus.CANCELLED.name()))
+			.reason(code.name(), note)
+			.record();
 	}
 
 	/**
@@ -393,7 +435,10 @@ public class OrderService {
 		return new OrderResponse(o.getCode(), o.getStatus().name(), o.getStatus().label(),
 				o.getStatus() == OrderStatus.PENDING, o.getCreatedAt(), o.getCustomerName(), o.getPhone(), o.getEmail(),
 				o.getProvince(), o.getWard(), o.getAddressLine(), o.getNote(), o.getPaymentMethod(), lines,
-				o.getSubtotal(), o.getShippingFee(), o.getTotal(), changes, null, null);
+				o.getSubtotal(), o.getShippingFee(), o.getTotal(), changes,
+				o.getCancelReason() == null ? null : o.getCancelReason().name(),
+				o.getCancelReason() == null ? null : o.getCancelReason().label(), o.getCancelReasonNote(),
+				o.getCancelledBy() == null ? null : o.getCancelledBy().name(), null, null);
 	}
 
 	private void sendConfirmation(Order order, String link) {

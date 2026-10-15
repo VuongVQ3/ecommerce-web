@@ -273,22 +273,60 @@ class PromotionE2ETest {
 			.isEqualTo(132_000);
 	}
 
+	private static final String PRODUCT_JSON = """
+			{"name":"Hạt KM 139000","categoryId":1,"description":"%s","price":%d,"weightGrams":500,
+			 "calories":500,"protein":20,"fat":40,"carbs":20,"fiber":10,"lowStockThreshold":10}""";
+
 	@Test
-	void regularPriceCannotDropToTheSalePriceAndPromotionsCanBeEndedOrCancelled() throws Exception {
+	void regularPriceIsFrozenWhileAPromotionIsRunningOrUpcoming() throws Exception {
+		Cookie admin = as("ADMIN");
+		long id = product(139_000);
+		promo(id, 111_000, Instant.now().minus(1, ChronoUnit.HOURS), Instant.now().plus(3, ChronoUnit.DAYS));
+
+		mvc.perform(get("/api/admin/products/" + id).cookie(admin)).andExpect(jsonPath("$.priceLockedUntil").isString());
+		// Raising (would show -52%, above the 50% cap) or lowering: both rejected
+		for (long price : new long[] { 230_000, 100_000 }) {
+			mvc.perform(json(put("/api/admin/products/" + id), PRODUCT_JSON.formatted("Sản phẩm test", price)).cookie(admin))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("PROMOTION_CONFLICT"))
+				.andExpect(jsonPath("$.message").value("Sản phẩm đang có khuyến mại. Hãy kết thúc khuyến mại trước khi đổi giá gốc."));
+		}
+		assertThat(jdbc.queryForObject("SELECT price FROM products WHERE id = ?", Long.class, id)).isEqualTo(139_000);
+		// Other fields stay editable
+		mvc.perform(json(put("/api/admin/products/" + id), PRODUCT_JSON.formatted("Mô tả mới", 139_000)).cookie(admin))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.description").value("Mô tả mới"));
+
+		// Upcoming promotions freeze it too
+		long upcoming = product(139_000);
+		promo(upcoming, 111_000, Instant.now().plus(2, ChronoUnit.DAYS), Instant.now().plus(5, ChronoUnit.DAYS));
+		mvc.perform(json(put("/api/admin/products/" + upcoming), PRODUCT_JSON.formatted("Sản phẩm test", 150_000)).cookie(admin))
+			.andExpect(status().isConflict());
+	}
+
+	@Test
+	void regularPriceIsEditableOnceThePromotionEndedOrWasCancelled() throws Exception {
+		Cookie admin = as("ADMIN");
+		long ended = product(139_000);
+		promo(ended, 111_000, Instant.now().minus(3, ChronoUnit.DAYS), Instant.now().minus(1, ChronoUnit.HOURS));
+		long cancelled = product(139_000);
+		promo(cancelled, 111_000, Instant.now().minus(1, ChronoUnit.HOURS), Instant.now().plus(3, ChronoUnit.DAYS));
+		jdbc.update("UPDATE product_promotions SET active = false WHERE product_id = ?", cancelled);
+
+		for (long id : new long[] { ended, cancelled }) {
+			mvc.perform(get("/api/admin/products/" + id).cookie(admin)).andExpect(jsonPath("$.priceLockedUntil").isEmpty());
+			mvc.perform(json(put("/api/admin/products/" + id), PRODUCT_JSON.formatted("Sản phẩm test", 230_000)).cookie(admin))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.price").value(230_000));
+		}
+	}
+
+	@Test
+	void promotionsCanBeEndedOrCancelled() throws Exception {
 		Cookie admin = as("ADMIN");
 		long id = product(189_000);
 		promo(id, 132_000, Instant.now().minus(1, ChronoUnit.HOURS), Instant.now().plus(3, ChronoUnit.DAYS));
 		String promoId = jdbc.queryForObject("SELECT id::text FROM product_promotions WHERE product_id = ?", String.class, id);
-
-		String product = """
-				{"name":"Hạt KM 189000","categoryId":1,"description":"Sản phẩm test","price":%d,"weightGrams":500,
-				 "calories":500,"protein":20,"fat":40,"carbs":20,"fiber":10,"lowStockThreshold":10}""";
-		mvc.perform(json(put("/api/admin/products/" + id), product.formatted(132_000)).cookie(admin))
-			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.code").value("PROMOTION_PRICE_CONFLICT"));
-		assertThat(jdbc.queryForObject("SELECT price FROM products WHERE id = ?", Long.class, id)).isEqualTo(189_000);
-		mvc.perform(json(put("/api/admin/products/" + id), product.formatted(199_000)).cookie(admin))
-			.andExpect(status().isOk());
 
 		// Running: only ending early is allowed
 		mvc.perform(json(put("/api/admin/promotions/" + promoId), """
@@ -297,7 +335,7 @@ class PromotionE2ETest {
 		mvc.perform(json(post("/api/admin/promotions/" + promoId + "/end"), "").cookie(admin))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value("ENDED"));
-		assertThat(pricing.priceOf(productRepository.findById(id).orElseThrow()).price()).isEqualTo(199_000);
+		assertThat(pricing.priceOf(productRepository.findById(id).orElseThrow()).price()).isEqualTo(189_000);
 		mvc.perform(json(post("/api/admin/promotions/" + promoId + "/end"), "").cookie(admin))
 			.andExpect(status().isConflict());
 

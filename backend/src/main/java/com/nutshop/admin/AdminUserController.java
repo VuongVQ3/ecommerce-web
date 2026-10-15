@@ -78,12 +78,12 @@ public class AdminUserController {
 	}
 
 	@GetMapping("/audit-logs")
-	public PageResponse<AuditRow> auditLog(@RequestParam(required = false) UUID actor,
-			@RequestParam(required = false) String entityType,
+	public PageResponse<AuditRow> auditLog(@RequestParam(required = false) UUID actorId,
+			@RequestParam(required = false) String entityType, @RequestParam(required = false) String action,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "30") int size) {
-		return users.auditLog(actor, entityType, from, to, page, size);
+			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
+		return users.auditLog(actorId, entityType, action, from, to, page, size);
 	}
 
 	@GetMapping("/audit-logs/actors")
