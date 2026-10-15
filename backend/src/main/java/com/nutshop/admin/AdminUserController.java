@@ -1,5 +1,6 @@
 package com.nutshop.admin;
 
+import com.nutshop.user.PersonName;
 import com.nutshop.admin.AdminUserService.Actor;
 import com.nutshop.admin.AdminUserService.AuditRow;
 import com.nutshop.admin.AdminUserService.UserDetail;
@@ -37,7 +38,7 @@ public class AdminUserController {
 	}
 
 	public record InviteRequest(
-			@NotBlank(message = "Vui lòng nhập họ tên") @Size(max = 100, message = "Họ tên tối đa 100 ký tự") String fullName,
+			@NotBlank(message = "Vui lòng nhập họ tên") @PersonName String fullName,
 			@NotBlank(message = "Vui lòng nhập email") @Email(message = "Email không hợp lệ") @Size(max = 255) String email,
 			@NotBlank(message = "Vui lòng nhập lý do") @Size(max = 500, message = "Lý do tối đa 500 ký tự") String reason) {
 	}

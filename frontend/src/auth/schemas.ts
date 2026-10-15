@@ -16,6 +16,20 @@ const newPassword = z
   .max(72, 'Mật khẩu phải từ 8 đến 72 ký tự')
   .refine((v) => /\p{L}/u.test(v) && /\d/.test(v), 'Mật khẩu phải có cả chữ và số')
 
+export const NAME_ERROR = 'Họ tên không hợp lệ'
+
+/**
+ * Same rule as the backend's @PersonName: after trimming 2–60 characters, letters (with accents), spaces, apostrophes,
+ * dots and hyphens only, at least one letter.
+ */
+export const isPersonName = (value: string) => {
+  const name = value.trim()
+  const length = [...name].length
+  return length >= 2 && length <= 60 && /^[\p{L}\p{M} .'’-]+$/u.test(name) && /\p{L}/u.test(name)
+}
+
+const personName = z.string().trim().min(1, 'Vui lòng nhập họ tên').refine(isPersonName, NAME_ERROR)
+
 export const loginSchema = z.object({
   email,
   password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
@@ -27,7 +41,7 @@ export const PASSWORD_MISMATCH = 'Mật khẩu nhập lại không khớp'
 
 export const registerSchema = z
   .object({
-    fullName: z.string().trim().min(1, 'Vui lòng nhập họ tên').max(100, 'Họ tên tối đa 100 ký tự'),
+    fullName: personName,
     email,
     password: newPassword,
     // Frontend-only check: never sent to the backend
@@ -55,7 +69,7 @@ export const forgotPasswordSchema = z.object({ email })
 
 // Checkout: same rules as OrderDtos.PlaceOrderRequest. Province/ward are select values (codes as strings).
 export const checkoutSchema = z.object({
-  customerName: z.string().trim().min(2, 'Họ tên phải từ 2 đến 100 ký tự').max(100, 'Họ tên phải từ 2 đến 100 ký tự'),
+  customerName: personName,
   phone: z
     .string()
     .trim()
@@ -83,11 +97,15 @@ export const orderLookupSchema = z.object({
 
 export const resetPasswordSchema = z.object({ newPassword })
 
-/** "Lưu đơn hàng vào tài khoản": name, phone (and usually email) come from the order. */
-export function claimAccountSchema(needsEmail: boolean) {
+/**
+ * "Lưu đơn hàng vào tài khoản": name, phone (and usually email) come from the order. The name is asked only when the
+ * one on the order is not a valid name (orders placed before names were checked).
+ */
+export function claimAccountSchema(needsEmail: boolean, needsName = false) {
   return z
     .object({
       email: needsEmail ? email : z.string(),
+      fullName: needsName ? personName : z.string(),
       password: newPassword,
       confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu'),
       marketingConsent: z.boolean(),

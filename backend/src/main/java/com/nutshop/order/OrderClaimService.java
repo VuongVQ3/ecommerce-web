@@ -1,5 +1,6 @@
 package com.nutshop.order;
 
+import com.nutshop.user.PersonName;
 import com.nutshop.audit.AuditLog;
 import com.nutshop.auth.AuthService;
 import com.nutshop.auth.AuthService.AuthResult;
@@ -60,7 +61,12 @@ public class OrderClaimService implements VerifiedEmailHook {
 		if (!StringUtils.hasText(email)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "EMAIL_REQUIRED", "Vui lòng nhập email để tạo tài khoản");
 		}
-		AuthResult result = auth.createAccountForOrder(email, order.getCustomerName(), order.getPhone(), req.password(),
+		String fullName = StringUtils.hasText(req.fullName()) ? req.fullName().strip() : order.getCustomerName();
+		// Orders placed before names were checked may carry one that is not a name
+		if (!PersonName.Validator.valid(fullName)) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_NAME", PersonName.MESSAGE);
+		}
+		AuthResult result = auth.createAccountForOrder(email, fullName, order.getPhone(), req.password(),
 				req.wantsMarketing(), client);
 		attach(order, result.user().id(), "NEW_ACCOUNT");
 		return result;

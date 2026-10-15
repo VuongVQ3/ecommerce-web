@@ -1,5 +1,6 @@
 package com.nutshop.order;
 
+import com.nutshop.user.PersonName;
 import com.nutshop.auth.AuthDtos;
 import com.nutshop.order.OrderDtos.OrderItemResponse;
 import com.nutshop.order.OrderDtos.StatusChange;
@@ -43,7 +44,9 @@ public final class TrackingDtos {
 			// Boxed on purpose: Jackson 3 rejects a missing JSON field for a primitive boolean
 			Boolean marketingConsent,
 			/** Only used when the order has no email. */
-			@Email(message = "Email không hợp lệ") @Size(max = 255, message = "Email quá dài") String email) {
+			@Email(message = "Email không hợp lệ") @Size(max = 255, message = "Email quá dài") String email,
+			/** Optional: the account's name when it should differ from the name on the order. */
+			@PersonName String fullName) {
 
 		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản sử dụng và Chính sách bảo mật";
 

@@ -126,7 +126,7 @@ class RegistrationE2ETest {
 		String email = uniqueEmail();
 		register(RegisterJson.of("An", email, PASSWORD)).andExpect(status().isCreated());
 
-		register(RegisterJson.of("An 2", email.toUpperCase(), PASSWORD)).andExpect(status().isConflict())
+		register(RegisterJson.of("An Hai", email.toUpperCase(), PASSWORD)).andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value(AuthService.EMAIL_EXISTS))
 			.andExpect(jsonPath("$.detail").value("Email này đã có tài khoản"));
 	}

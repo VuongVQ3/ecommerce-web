@@ -71,6 +71,8 @@ export interface ProductDetail extends Pricing {
   images: ProductImageInfo[]
   nutritionPer100g: Nutrition
   category: Category
+  /** Present when the URL used an old slug: the current one (replace the URL with it). */
+  redirectTo?: string
 }
 
 export interface Page<T> {
@@ -261,6 +263,8 @@ export interface ClaimAccountInput {
   marketingConsent: boolean
   /** Only when the order has no email. */
   email?: string
+  /** Only when the name on the order is not a valid name. */
+  fullName?: string
 }
 
 export interface OrderSummary {

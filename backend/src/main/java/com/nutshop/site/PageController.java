@@ -5,6 +5,7 @@ import com.nutshop.product.CategoryRepository;
 import com.nutshop.product.PricingService;
 import com.nutshop.product.ProductImageRepository;
 import com.nutshop.product.ProductRepository;
+import com.nutshop.product.ProductService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
@@ -31,9 +32,12 @@ public class PageController {
 	private final ProductImageRepository images;
 	private final CategoryRepository categories;
 	private final PricingService pricing;
+	private final ProductService productService;
 
 	public PageController(HtmlPages pages, PageMetaService meta, ProductRepository products,
-			ProductImageRepository images, CategoryRepository categories, PricingService pricing) {
+			ProductImageRepository images, CategoryRepository categories, PricingService pricing,
+			ProductService productService) {
+		this.productService = productService;
 		this.pages = pages;
 		this.meta = meta;
 		this.products = products;
@@ -67,8 +71,19 @@ public class PageController {
 	@GetMapping("/san-pham/{slug}")
 	@Transactional(readOnly = true)
 	public ResponseEntity<String> product(@PathVariable String slug, HttpServletRequest request) {
-		return products.findBySlug(slug)
-			.filter(p -> p.isActive())
+		var current = products.findBySlug(slug);
+		if (current.isEmpty()) {
+			// Old address (the product was renamed): permanent redirect, query string kept
+			var moved = productService.activeByOldSlug(slug);
+			if (moved.isPresent()) {
+				String target = UriComponentsBuilder.fromPath("/san-pham/" + moved.get().getSlug())
+					.query(request.getQueryString())
+					.build()
+					.toUriString();
+				return ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY).header(HttpHeaders.LOCATION, target).build();
+			}
+		}
+		return current.filter(p -> p.isActive())
 			.map(p -> pages.render(meta.product(p, images.findByProductIdOrderByPrimaryDescPositionAsc(p.getId()),
 					pricing.priceOf(p)), HttpStatus.OK))
 			.orElseGet(() -> pages.notFound(request.getRequestURI()));

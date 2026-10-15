@@ -274,6 +274,12 @@ public class AdminUserService {
 			if ("CUSTOMER".equals(r.actorType()) && r.actorId() == null && "ORDER".equals(r.entityType())) {
 				missing.computeIfAbsent("ORDER", t -> new HashSet<>()).add(r.entityId());
 			}
+			// Promotion snapshots refer to their product by id: shown by name
+			for (JsonNode side : new JsonNode[] { r.before(), r.after() }) {
+				if (side != null && side.has("productId") && side.get("productId").isNumber()) {
+					missing.computeIfAbsent("PRODUCT", t -> new HashSet<>()).add(side.get("productId").asString());
+				}
+			}
 		}
 		Map<String, String> productNames = lookup("SELECT id::text, name FROM products WHERE id::text", missing.get("PRODUCT"));
 		Map<String, String> categoryNames = lookup("SELECT id::text, name FROM categories WHERE id::text", missing.get("CATEGORY"));
@@ -308,6 +314,12 @@ public class AdminUserService {
 			}
 			if (r.before() instanceof ObjectNode o) {
 				o.remove("reason");
+			}
+			for (JsonNode side : new JsonNode[] { r.before(), after }) {
+				if (side instanceof ObjectNode o && o.has("productId") && o.get("productId").isNumber()) {
+					String id = o.get("productId").asString();
+					o.put("productId", productNames.getOrDefault(id, "#" + id));
+				}
 			}
 			return new AuditRow(r.id(), r.createdAt(), r.actorId(), r.actorType(), actorName, r.actorEmail(), r.action(),
 					r.entityType(), r.entityId(), label, r.reasonCode(), reason, r.before(), after);

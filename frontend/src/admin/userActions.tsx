@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isPersonName, NAME_ERROR } from '../auth/schemas'
 import { useAuth } from '../auth/AuthContext'
 import { useToast } from '../components/Toast'
 import { ApiError, type Role } from '../lib/api'
@@ -162,6 +163,7 @@ export function InviteDialog({ onDone, onClose }: { onDone: (u: AdminUserRow) =>
   const submit = async () => {
     const next: Record<string, string> = {}
     if (!form.fullName.trim()) next.fullName = 'Vui lòng nhập họ tên'
+    else if (!isPersonName(form.fullName)) next.fullName = NAME_ERROR
     if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) next.email = 'Email không hợp lệ'
     if (!form.reason.trim()) next.reason = 'Vui lòng nhập lý do'
     setErrors(next)
@@ -187,7 +189,7 @@ export function InviteDialog({ onDone, onClose }: { onDone: (u: AdminUserRow) =>
         trò Nhân viên.
       </p>
       <Field label="Họ tên" error={errors.fullName}>
-        {(p) => <input {...p} value={form.fullName} onChange={set('fullName')} maxLength={100} autoComplete="off" autoFocus />}
+        {(p) => <input {...p} value={form.fullName} onChange={set('fullName')} maxLength={60} autoComplete="off" autoFocus />}
       </Field>
       <Field label="Email" error={errors.email}>
         {(p) => <input {...p} type="email" value={form.email} onChange={set('email')} maxLength={255} autoComplete="off" />}

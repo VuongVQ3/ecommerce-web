@@ -200,9 +200,18 @@ class AdminUsersE2ETest {
 			.andExpect(jsonPath("$.items[0].before.active").value(true))
 			.andExpect(jsonPath("$.items[0].after.active").value(false))
 			.andExpect(jsonPath("$.items[0].after.reason").doesNotExist());
-		as(admin, get("/api/admin/audit-logs").param("actorId", admin.id().toString()).param("entityType", "PRODUCT"))
+		as(admin, get("/api/admin/audit-logs").param("actorId", admin.id().toString()).param("entityType", "PRODUCT")
+			.param("action", "PRODUCT_UPDATED"))
 			.andExpect(jsonPath("$.items[0].entityLabel").value("Hạt hoàn kho"))
 			.andExpect(jsonPath("$.items[0].after.price").value(2));
+		// Promotion snapshots show the product's name instead of its id
+		jdbc.update("""
+				INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, before, after)
+				VALUES (?, 'PROMOTION_CREATED', 'PRODUCT', ?, NULL, CAST(? AS jsonb))""", admin.id(), String.valueOf(id),
+				"{\"productId\": " + id + ", \"salePrice\": 90000}");
+		as(admin, get("/api/admin/audit-logs").param("actorId", admin.id().toString()).param("action", "PROMOTION_CREATED"))
+			.andExpect(jsonPath("$.items[0].after.productId").value("Hạt hoàn kho"))
+			.andExpect(jsonPath("$.items[0].after.salePrice").value(90000));
 	}
 
 	@Test
@@ -301,7 +310,7 @@ class AdminUsersE2ETest {
 
 		// Expired
 		String other = "moi2-" + UUID.randomUUID() + "@example.com";
-		as(admin, json(post("/api/admin/users/invitations"), "{\"fullName\":\"B\",\"email\":\"" + other + "\",\"reason\":\"x\"}"))
+		as(admin, json(post("/api/admin/users/invitations"), "{\"fullName\":\"Bình\",\"email\":\"" + other + "\",\"reason\":\"x\"}"))
 			.andExpect(status().isCreated());
 		mail = null;
 		for (int i = 0; i < 5 && (mail == null || !mail.to().equals(other)); i++) {

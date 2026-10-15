@@ -347,7 +347,7 @@ class OrderE2ETest {
 
 		place(body(key(), "12345", line(id, 1)).replace("Nguyễn Văn Khách", "A")).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.errors.phone").value("Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0"))
-			.andExpect(jsonPath("$.errors.customerName").value("Họ tên phải từ 2 đến 100 ký tự"));
+			.andExpect(jsonPath("$.errors.customerName").value("Họ tên không hợp lệ"));
 		place(body(key(), "0912345678", line(id, 1)).replace("\"wardCode\":" + BA_DINH, "\"wardCode\":99999999"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_ADDRESS"));

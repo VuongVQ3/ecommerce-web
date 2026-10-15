@@ -1,5 +1,6 @@
 package com.nutshop.order;
 
+import com.nutshop.user.PersonName;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.nutshop.user.VietnamesePhone;
 import jakarta.validation.Valid;
@@ -36,8 +37,7 @@ public final class OrderDtos {
 	public record PlaceOrderRequest(
 			@NotNull(message = "Giỏ hàng đang trống")
 			@Size(min = 1, max = 50, message = "Đơn hàng phải có từ 1 đến 50 sản phẩm") List<@Valid LineRequest> items,
-			@NotBlank(message = "Vui lòng nhập họ tên")
-			@Size(min = 2, max = 100, message = "Họ tên phải từ 2 đến 100 ký tự") String customerName,
+			@NotBlank(message = "Vui lòng nhập họ tên") @PersonName String customerName,
 			@NotBlank(message = "Vui lòng nhập số điện thoại") @VietnamesePhone String phone,
 			@Email(message = "Email không hợp lệ") @Size(max = 255, message = "Email quá dài") String email,
 			@NotNull(message = "Vui lòng chọn tỉnh/thành phố") Integer provinceCode,

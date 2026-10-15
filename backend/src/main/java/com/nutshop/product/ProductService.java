@@ -15,6 +15,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional(readOnly = true)
@@ -27,9 +28,11 @@ public class ProductService {
 	private final CartProperties cartProps;
 	private final ProductImageRepository images;
 	private final PricingService pricing;
+	private final ProductSlugHistory slugHistory;
 
 	public ProductService(ProductRepository products, CategoryRepository categories, CartProperties cartProps,
-			ProductImageRepository images, PricingService pricing) {
+			ProductImageRepository images, PricingService pricing, ProductSlugHistory slugHistory) {
+		this.slugHistory = slugHistory;
 		this.products = products;
 		this.categories = categories;
 		this.cartProps = cartProps;
@@ -66,11 +69,29 @@ public class ProductService {
 
 	/** Hidden products are not found on the storefront (orders and carts keep their own snapshot). */
 	public ProductDetail getBySlug(String slug) {
-		return products.findBySlug(slug)
+		Optional<Product> current = products.findBySlug(slug);
+		if (current.isPresent()) {
+			return current.filter(Product::isActive).map(this::detail).orElseThrow(ProductService::notFound);
+		}
+		// An old slug: same product, with redirectTo so the page can replace its URL
+		return activeByOldSlug(slug).map(p -> detail(p).redirectedFrom()).orElseThrow(ProductService::notFound);
+	}
+
+	/** The active product that used to have {@code slug} (and no longer does). */
+	public Optional<Product> activeByOldSlug(String slug) {
+		return slugHistory.productFor(slug)
+			.flatMap(products::findById)
 			.filter(Product::isActive)
-			.map(p -> ProductDetail.from(p, cartProps.maxQtyPerItem(),
-					images.findByProductIdOrderByPrimaryDescPositionAsc(p.getId()), pricing.priceOf(p)))
-			.orElseThrow(() -> new NotFoundException("Không tìm thấy sản phẩm"));
+			.filter(p -> !p.getSlug().equals(slug));
+	}
+
+	private ProductDetail detail(Product p) {
+		return ProductDetail.from(p, cartProps.maxQtyPerItem(), images.findByProductIdOrderByPrimaryDescPositionAsc(p.getId()),
+				pricing.priceOf(p));
+	}
+
+	private static NotFoundException notFound() {
+		return new NotFoundException("Không tìm thấy sản phẩm");
 	}
 
 	private static Sort toSort(String sort) {

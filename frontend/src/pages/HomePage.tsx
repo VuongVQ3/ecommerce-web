@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { sharedRequest } from '../lib/sharedRequest'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { CountUp, Marquee, ParallaxArea, Reveal, ScrollProgress, TiltCard } from '../components/landing/Motion'
 import NutritionChart from '../components/landing/NutritionChart'
@@ -164,9 +165,13 @@ function Steps() {
 }
 
 export default function HomePage() {
-  const categories = useAsync((signal) => api.categories(signal), [])
+  // Shared: StrictMode's double effect or a remount (session refresh) reuses the request in flight
+  const categories = useAsync(() => sharedRequest('categories', () => api.categories()), [])
   // One request feeds the hero count, ticker, nutrition chart and featured grid
-  const catalog = useAsync((signal) => api.products({ sort: 'protein_desc', size: 48 }, signal), [])
+  const catalog = useAsync(
+    () => sharedRequest('products|protein_desc|48', () => api.products({ sort: 'protein_desc', size: 48 })),
+    [],
+  )
   const products = catalog.data?.items ?? []
   const featured = products.slice(0, 8)
 

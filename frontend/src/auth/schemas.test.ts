@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PASSWORD_MISMATCH, registerSchema } from './schemas'
+import { checkoutSchema, isPersonName, NAME_ERROR, PASSWORD_MISMATCH, registerSchema } from './schemas'
 
 const valid = {
   fullName: 'Nguyễn Văn An',
@@ -63,5 +63,19 @@ describe('registerSchema', () => {
     expect(firstError({ email: '' }, 'email')).toBe('Vui lòng nhập email')
     expect(firstError({ email: 'khong-phai-email' }, 'email')).toBe('Email không hợp lệ')
     expect(firstError({ fullName: '   ' }, 'fullName')).toBe('Vui lòng nhập họ tên')
+  })
+})
+
+describe('person names (same rule as the backend @PersonName)', () => {
+  it('accepts real names and rejects digits, symbols and wrong lengths', () => {
+    for (const ok of ['Võ Quốc Vương', '  Lê  ', "Mary-Jane O'Neil Jr.", 'a'.repeat(60)]) expect(isPersonName(ok)).toBe(true)
+    for (const bad of ['2222', 'Nam 2', 'Hạt@', 'A', ' .- ', 'a'.repeat(61)]) expect(isPersonName(bad)).toBe(false)
+  })
+
+  it('shows "Họ tên không hợp lệ" at sign-up and checkout', () => {
+    expect(firstError({ fullName: '2222' }, 'fullName')).toBe(NAME_ERROR)
+    const checkout = checkoutSchema.safeParse({ customerName: '2222', phone: '0912345678', email: '', provinceCode: '1', wardCode: '4', addressLine: '1', note: '' })
+    expect(checkout.success).toBe(false)
+    expect(checkout.error?.issues[0].message).toBe(NAME_ERROR)
   })
 })

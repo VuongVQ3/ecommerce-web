@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
-import { claimAccountSchema, type ClaimAccountForm } from '../auth/schemas'
+import { claimAccountSchema, isPersonName, type ClaimAccountForm } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { Checkbox, FormError, PasswordChecklist, PasswordField, SubmitButton, TextField } from '../components/FormFields'
@@ -130,15 +130,18 @@ function ClaimAccountBox({ order, token }: { order: TrackedOrder; token: string 
   const checklistId = useId()
   const confirmId = useId()
 
+  // Orders placed before names were checked may carry one that is not a name: ask for it then
+  const needsName = !isPersonName(order.customerName)
   const { form, onSubmit, formError, pending } = useAuthForm<ClaimAccountForm>(
-    claimAccountSchema(!order.hasEmail),
-    { email: '', password: '', confirmPassword: '', marketingConsent: false },
+    claimAccountSchema(!order.hasEmail, needsName),
+    { email: '', fullName: needsName ? '' : order.customerName, password: '', confirmPassword: '', marketingConsent: false },
     async (values) => {
       const user = await api.claimAccount(order.code, token, {
         password: values.password,
         acceptTerms: true,
         marketingConsent: values.marketingConsent,
         email: order.hasEmail ? undefined : values.email,
+        fullName: needsName ? values.fullName : undefined,
       })
       removeRecentOrders([order.code])
       signedIn(user)
@@ -200,10 +203,12 @@ function ClaimAccountBox({ order, token }: { order: TrackedOrder; token: string 
       ) : (
         <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
           <dl className="grid gap-2 rounded-xl bg-white p-4 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-muted">Họ tên</dt>
-              <dd className="font-medium break-words text-stone-900">{order.customerName}</dd>
-            </div>
+            {!needsName && (
+              <div>
+                <dt className="text-muted">Họ tên</dt>
+                <dd className="font-medium break-words text-stone-900">{order.customerName}</dd>
+              </div>
+            )}
             {order.hasEmail && (
               <div>
                 <dt className="text-muted">Email</dt>
@@ -211,6 +216,9 @@ function ClaimAccountBox({ order, token }: { order: TrackedOrder; token: string 
               </div>
             )}
           </dl>
+          {needsName && (
+            <TextField label="Họ tên" autoComplete="name" error={errors.fullName?.message} {...form.register('fullName')} />
+          )}
           {!order.hasEmail && (
             <TextField
               label="Email"

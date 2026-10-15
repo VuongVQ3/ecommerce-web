@@ -1,5 +1,6 @@
 package com.nutshop.auth;
 
+import com.nutshop.user.PersonName;
 import com.nutshop.user.User;
 import com.nutshop.user.VietnamesePhone;
 import jakarta.validation.constraints.AssertTrue;
@@ -27,8 +28,7 @@ public final class AuthDtos {
 	 * @param website honeypot: hidden from humans, so any value means a bot
 	 */
 	public record RegisterRequest(
-			@NotBlank(message = "Vui lòng nhập họ tên")
-			@Size(max = 100, message = "Họ tên tối đa 100 ký tự") String fullName,
+			@NotBlank(message = "Vui lòng nhập họ tên") @PersonName String fullName,
 			@NotBlank(message = "Vui lòng nhập email")
 			@Email(message = "Email không hợp lệ")
 			@Size(max = 255, message = "Email quá dài") String email,

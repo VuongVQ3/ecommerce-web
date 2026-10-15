@@ -1,5 +1,7 @@
 package com.nutshop.product;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -85,7 +87,9 @@ public final class ProductDtos {
 	public record ProductDetail(Long id, String name, String slug, String description, String origin, Long price,
 			Long regularPrice, Integer discountPercent, Instant promotionEndsAt, Integer weightGrams, boolean active,
 			StockStatus stockStatus, int maxPurchasable, String imageUrl, List<ImageResponse> images,
-			Nutrition nutritionPer100g, CategoryResponse category) {
+			Nutrition nutritionPer100g, CategoryResponse category,
+			/** Set when the request used an old slug: the current one (the page should replace its URL). */
+			@JsonInclude(JsonInclude.Include.NON_NULL) String redirectTo) {
 
 		static ProductDetail from(Product p, int maxQtyPerItem, List<ProductImage> images, PricingService.Price price) {
 			return new ProductDetail(p.getId(), p.getName(), p.getSlug(), p.getDescription(), p.getOrigin(),
@@ -94,7 +98,13 @@ public final class ProductDtos {
 					p.getImageUrl(),
 					images.stream().map(i -> new ImageResponse(i.getUrl(), i.getWidth(), i.getHeight())).toList(),
 					new Nutrition(p.getCalories(), p.getProtein(), p.getFat(), p.getCarbs(), p.getFiber()),
-					CategoryResponse.from(p.getCategory()));
+					CategoryResponse.from(p.getCategory()), null);
+		}
+
+		ProductDetail redirectedFrom() {
+			return new ProductDetail(id, name, slug, description, origin, price, regularPrice, discountPercent,
+					promotionEndsAt, weightGrams, active, stockStatus, maxPurchasable, imageUrl, images, nutritionPer100g,
+					category, slug);
 		}
 	}
 }

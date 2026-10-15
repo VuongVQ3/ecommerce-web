@@ -49,6 +49,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -469,6 +470,34 @@ class AdminE2ETest {
 			.andExpect(jsonPath("$.active").value(false));
 		mvc.perform(get("/api/products?q=" + firstSlug)).andExpect(jsonPath("$.items[?(@.id == " + first + ")]").doesNotExist());
 		assertThat(audits("PRODUCT_HIDDEN", first)).isEqualTo(1);
+	}
+
+	@Test
+	void renamedProductsRedirectFromTheirOldSlug() throws Exception {
+		Cookie admin = as("ADMIN");
+		long id = createProduct(admin, "Hạt đổi tên", "hat-doi-ten-" + uploads.incrementAndGet());
+		String old = jdbc.queryForObject("SELECT slug FROM products WHERE id = ?", String.class, id);
+		mvc.perform(json(put("/api/admin/products/" + id), productJson("Hạt đổi tên", old + "-moi", 99_000)).cookie(admin))
+			.andExpect(status().isOk());
+
+		mvc.perform(get("/san-pham/" + old).queryParam("utm_source", "fb"))
+			.andExpect(status().isMovedPermanently())
+			.andExpect(header().string("Location", "/san-pham/" + old + "-moi?utm_source=fb"));
+		mvc.perform(get("/api/products/" + old))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.id").value(id))
+			.andExpect(jsonPath("$.redirectTo").value(old + "-moi"));
+		mvc.perform(get("/api/products/" + old + "-moi")).andExpect(jsonPath("$.redirectTo").doesNotExist());
+
+		// Another product cannot take the old address; the product itself can take it back
+		long other = createProduct(admin, "Hạt khác", null);
+		mvc.perform(json(put("/api/admin/products/" + other), productJson("Hạt khác", old, 99_000)).cookie(admin))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("SLUG_EXISTS"));
+		mvc.perform(json(put("/api/admin/products/" + id), productJson("Hạt đổi tên", old, 99_000)).cookie(admin))
+			.andExpect(status().isOk());
+		mvc.perform(get("/san-pham/" + old)).andExpect(status().isOk());
+		mvc.perform(get("/san-pham/" + old + "-moi")).andExpect(status().isMovedPermanently());
 	}
 
 	@Test

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { AddToCartControl, NutritionTable, ProductPrice, StockBadge } from '../components/ProductInfo'
 import ProductImage from '../components/ProductImage'
@@ -53,6 +53,15 @@ function Gallery({ product }: { product: ProductDetail }) {
 export default function ProductDetailPage() {
   const { slug = '' } = useParams()
   const { data: product, error, reload } = useAsync((signal) => api.product(slug, signal), [slug])
+  const navigate = useNavigate()
+  const location = useLocation()
+  // Old address of a renamed product: move to the current one without a history entry
+  const redirectTo = product?.redirectTo
+  useEffect(() => {
+    if (redirectTo && redirectTo !== slug) {
+      navigate({ pathname: `/san-pham/${redirectTo}`, search: location.search, hash: location.hash }, { replace: true })
+    }
+  }, [redirectTo, slug, navigate, location.search, location.hash])
   const current = product?.slug === slug ? product : null
   usePageMeta(
     current && `${current.name} ${formatWeight(current.weightGrams)} – ${formatPrice(current.price)} | ${BRAND}`,

@@ -84,11 +84,13 @@ public class AdminProductService {
 	private final AuditLog audit;
 	private final TransactionTemplate tx;
 	private final PromotionService promotions;
+	private final ProductSlugHistory slugHistory;
 
 	public AdminProductService(ProductRepository products, CategoryRepository categories,
 			ProductImageRepository images, ImageStorage storage, AuditLog audit, PlatformTransactionManager txManager,
-			PromotionService promotions) {
+			PromotionService promotions, ProductSlugHistory slugHistory) {
 		this.promotions = promotions;
+		this.slugHistory = slugHistory;
 		this.products = products;
 		this.categories = categories;
 		this.images = images;
@@ -141,7 +143,9 @@ public class AdminProductService {
 			promotions.checkNewRegularPrice(id);
 		}
 		AuditView before = AuditView.of(product);
+		String oldSlug = product.getSlug();
 		product.update(category(categoryId), slugFor(requestedSlug, details.name(), id), details);
+		slugHistory.changed(id, oldSlug, product.getSlug());
 		audit.entry("PRODUCT_UPDATED", "PRODUCT", id, product.getName()).by(actorId).changes(before, AuditView.of(product)).record();
 		return detail(product);
 	}
@@ -320,17 +324,23 @@ public class AdminProductService {
 			if (!Slugs.isValid(slug)) {
 				throw invalidSlug();
 			}
-			if (products.findBySlug(slug).filter(p -> !p.getId().equals(selfId)).isPresent()) {
+			if (slugTaken(slug, selfId)) {
 				throw new ApiException(HttpStatus.CONFLICT, "SLUG_EXISTS", "Đường dẫn (slug) đã được dùng cho sản phẩm khác");
 			}
 			return slug;
 		}
 		String base = Slugs.from(name).isEmpty() ? "san-pham" : Slugs.from(name);
 		String slug = base;
-		for (int n = 2; products.findBySlug(slug).filter(p -> !p.getId().equals(selfId)).isPresent(); n++) {
+		for (int n = 2; slugTaken(slug, selfId); n++) {
 			slug = base + "-" + n;
 		}
 		return slug;
+	}
+
+	/** In use by another product, or an old address of another product (it still redirects there). */
+	private boolean slugTaken(String slug, Long selfId) {
+		return products.findBySlug(slug).filter(p -> !p.getId().equals(selfId)).isPresent()
+				|| slugHistory.usedByOther(slug, selfId);
 	}
 
 	private String categorySlug(String requested, String name, Long selfId) {
