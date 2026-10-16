@@ -48,7 +48,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+        // --floating-contact-space: room above the floating contact button, so toasts never cover it
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-2 px-4 pb-[calc(max(1rem,env(safe-area-inset-bottom))+var(--floating-contact-space,0px))]"
       >
         {toasts.map((t) => (
           <div

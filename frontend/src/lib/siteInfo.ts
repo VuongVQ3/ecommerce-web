@@ -12,9 +12,28 @@ export interface Business {
   moitUrl?: string
 }
 
+/** Floating contact button links (ZALO_PHONE, MESSENGER_PAGE, BUSINESS_HOTLINE); null = not configured. */
+export interface Contact {
+  zaloUrl: string | null
+  messengerUrl: string | null
+  hotline: string | null
+}
+
+/** Footer icons (FACEBOOK_URL, SHOPEE_URL, ZALO_PHONE, TIKTOK_URL); null = not configured. */
+export interface SocialLinks {
+  facebookUrl: string | null
+  shopeeUrl: string | null
+  zaloUrl: string | null
+  tiktokUrl: string | null
+}
+
 export interface SiteInfo {
   siteUrl: string
   business: Business
+  /** Absent from servers older than the floating contact button */
+  contact?: Contact
+  /** Absent from servers older than the footer icons */
+  social?: SocialLinks
 }
 
 let cached: Promise<SiteInfo | null> | null = null

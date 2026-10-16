@@ -55,15 +55,20 @@ public class SiteController {
 		}
 	}
 
-	public record SiteInfo(String siteUrl, Map<String, String> business) {
+	/**
+	 * @param contact links for the floating contact button (null fields = not configured)
+	 * @param social footer icons (null fields = not configured)
+	 */
+	public record SiteInfo(String siteUrl, Map<String, String> business, SiteProperties.Contact contact,
+			SiteProperties.SocialLinks social) {
 	}
 
-	/** Business details for the footer and contact page (only the filled-in fields). */
+	/** Business details for the footer and contact page (only the filled-in fields), and the contact links. */
 	@GetMapping("/api/site")
 	public ResponseEntity<SiteInfo> info() {
 		return ResponseEntity.ok()
 			.cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePublic())
-			.body(new SiteInfo(site.url(), site.business().filled()));
+			.body(new SiteInfo(site.url(), site.business().filled(), site.business().contact(), site.socialLinks()));
 	}
 
 	@GetMapping("/robots.txt")

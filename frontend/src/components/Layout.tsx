@@ -8,6 +8,7 @@ import { LOGIN_PATH, REGISTER_PATH } from '../lib/redirect'
 import { FINE_POINTER, useMediaQuery } from '../lib/media'
 import { useRecentOrders } from '../lib/recentOrders'
 import { telHref, useSiteInfo } from '../lib/siteInfo'
+import FloatingContact from './FloatingContact'
 import { useFocusTrap } from '../lib/useFocusTrap'
 import { BRAND } from '../lib/usePageMeta'
 
@@ -492,6 +493,7 @@ export default function Layout() {
       </main>
       <CartDrawer />
       <Footer />
+      <FloatingContact />
     </div>
   )
 }

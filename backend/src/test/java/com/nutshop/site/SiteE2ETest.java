@@ -185,7 +185,9 @@ class SiteE2ETest {
 	void healthIsPublicAndChecksTheDatabase() throws Exception {
 		mvc.perform(get("/api/health")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
 		mvc.perform(head("/api/health")).andExpect(status().isOk());
-		mvc.perform(get("/api/site")).andExpect(status().isOk()).andExpect(jsonPath("$.business").isMap());
+		mvc.perform(get("/api/site")).andExpect(status().isOk()).andExpect(jsonPath("$.business").isMap())
+			.andExpect(jsonPath("$.contact").isMap())
+			.andExpect(jsonPath("$.social").isMap());
 	}
 
 	@Test

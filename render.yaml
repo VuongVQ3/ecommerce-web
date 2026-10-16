@@ -61,3 +61,15 @@ services:
         sync: false
       - key: BUSINESS_MOIT_URL
         sync: false
+      # Floating contact button: Zalo number and Facebook page username/id (empty = channel hidden)
+      - key: ZALO_PHONE
+        sync: false
+      - key: MESSENGER_PAGE
+        sync: false
+      # Footer icons: https links to the shop's Facebook, Shopee and TikTok pages
+      - key: FACEBOOK_URL
+        sync: false
+      - key: SHOPEE_URL
+        sync: false
+      - key: TIKTOK_URL
+        sync: false
