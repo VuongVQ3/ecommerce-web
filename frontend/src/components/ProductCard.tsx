@@ -44,7 +44,7 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
       className="group flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white transition-transform duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 motion-safe:hover:-translate-y-0.5"
     >
       <div className="relative">
-        <Link to={href} tabIndex={-1} aria-hidden className="block aspect-square w-full overflow-hidden">
+        <Link to={href} tabIndex={-1} aria-hidden data-fly-source className="block aspect-square w-full overflow-hidden">
           <ProductImage
             name={product.name}
             imageUrl={product.imageUrl}

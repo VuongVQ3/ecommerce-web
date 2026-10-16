@@ -127,7 +127,8 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
         </button>
 
         <div ref={scroller} className="min-h-0 overflow-y-auto overscroll-contain md:flex md:overflow-hidden">
-          <div className="bg-white md:flex md:w-1/2 md:shrink-0">
+          {/* data-fly-source: "Thêm vào giỏ hàng" flies this picture to the cart */}
+          <div data-fly-source className="bg-white md:flex md:w-1/2 md:shrink-0">
             {product ? (
               <ProductImage
                 name={product.name}

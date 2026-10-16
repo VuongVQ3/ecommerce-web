@@ -15,7 +15,8 @@ function Gallery({ product }: { product: ProductDetail }) {
   const [index, setIndex] = useState(0)
   const current = urls[Math.min(index, urls.length - 1)] ?? null
   return (
-    <div>
+    // data-fly-source: "Thêm vào giỏ hàng" flies the main photo (the first picture here) to the cart
+    <div data-fly-source>
       <ProductImage
         name={product.name}
         imageUrl={current}

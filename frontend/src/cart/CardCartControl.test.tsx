@@ -63,8 +63,9 @@ describe('CardCartControl', () => {
     expect(screen.getByTestId('badge').textContent).toBe('3')
     expect(plus.disabled).toBe(true)
     expect(plus.title).toBe('Tối đa 3 sản phẩm')
-    // Only the first add announces itself
-    expect(screen.getAllByText(/^Đã thêm Granola/)).toHaveLength(1)
+    // Phones: no "Đã thêm" toast; screen readers hear it once (first add only)
+    expect(screen.queryByText(/^Đã thêm Granola vào giỏ$/)).toBeNull()
+    await waitFor(() => expect(document.querySelector('[data-cart-announcer]')?.textContent).toBe('Đã thêm Granola vào giỏ hàng'))
   })
 
   it('removes at 0 and "Hoàn tác" restores the previous quantity', async () => {

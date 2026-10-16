@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import { useCartBadge } from '../cart/cartBadge'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { useCart } from '../cart/CartContext'
@@ -52,13 +53,17 @@ function CartButton() {
 /** Header cart icon with item count; opens the cart drawer (which returns focus here when closed). */
 function DrawerCartButton() {
   const { count, openDrawer } = useCart()
+  // Number shown in the badge: held back while a product flies here (cart/cartBadge.ts)
+  const { shown: badgeCount, iconRef: cartIconRef, badgeRef } = useCartBadge(count)
   const label = count > 0 ? `Giỏ hàng, ${count} sản phẩm` : 'Giỏ hàng trống'
   return (
     <button
+      ref={cartIconRef}
       type="button"
       onClick={openDrawer}
       aria-label={label}
       aria-haspopup="dialog"
+      data-cart-target
       className="relative flex size-10 items-center justify-center rounded-full text-stone-700 hover:bg-stone-100"
     >
       <svg aria-hidden viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -66,9 +71,12 @@ function DrawerCartButton() {
         <circle cx="10" cy="20" r="1.3" />
         <circle cx="17" cy="20" r="1.3" />
       </svg>
-      {count > 0 && (
-        <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 text-xs font-bold text-white tabular-nums">
-          {count > 99 ? '99+' : count}
+      {badgeCount > 0 && (
+        <span
+          ref={badgeRef}
+          className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 text-xs font-bold text-white tabular-nums"
+        >
+          {badgeCount > 99 ? '99+' : badgeCount}
         </span>
       )}
     </button>

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react'
+import { useCartBadge } from './cartBadge'
 import { Link } from 'react-router'
 import { PriceTag } from '../components/Price'
 import ProductImage from '../components/ProductImage'
@@ -64,6 +65,8 @@ function Line({ line, onRemove }: { line: CartLine; onRemove: () => void }) {
  */
 export default function QuickCart() {
   const { view, loading, count, removeItem, addItem } = useCart()
+  // Number shown in the badge: held back while a product flies here (cartBadge.ts)
+  const { shown: badgeCount, iconRef: cartIconRef, badgeRef } = useCartBadge(count)
   const toast = useToast()
   const [open, setOpen] = useState(false)
   const [hidden, setHidden] = useState<number[]>([]) // removed optimistically, waiting for the server
@@ -153,14 +156,19 @@ export default function QuickCart() {
       onBlur={onBlur}
     >
       <Link
+        ref={cartIconRef}
         to="/gio-hang"
         aria-label={label}
+        data-cart-target
         className="relative flex size-10 items-center justify-center rounded-full text-stone-700 hover:bg-stone-100"
       >
         <CartIcon />
-        {count > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 text-xs font-bold text-white tabular-nums">
-            {count > 99 ? '99+' : count}
+        {badgeCount > 0 && (
+          <span
+            ref={badgeRef}
+            className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 text-xs font-bold text-white tabular-nums"
+          >
+            {badgeCount > 99 ? '99+' : badgeCount}
           </span>
         )}
       </Link>

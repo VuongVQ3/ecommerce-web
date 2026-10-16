@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { popBadge } from './cartBadge'
 import { useToast } from '../components/Toast'
 import AddToCartButton from './AddToCartButton'
 import { useCart, type CartProductRef } from './CartContext'
@@ -25,6 +26,8 @@ export default function CardCartControl({ product }: { product: CartProductRef }
 
   const change = (next: number) => {
     const id = ++lastChange.current
+    // "+" does not fly; the badge just pops with its new number
+    if (next > n) popBadge()
     const previous = n
     setQuantity(product.id, next).then(
       ({ warning }) => {
