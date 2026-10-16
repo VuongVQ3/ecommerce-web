@@ -1,5 +1,5 @@
-import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
-import { Link, useLocation } from 'react-router'
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useLocation } from 'react-router'
 import { FACEBOOK_PATH, MESSENGER_PATH, SHOPEE_PATH, TIKTOK_PATH, ZALO_PATH } from '../lib/brandIcons'
 import { FINE_POINTER, useMediaQuery } from '../lib/media'
 import { telHref, useSiteInfo, type SiteInfo } from '../lib/siteInfo'
@@ -25,8 +25,7 @@ function PhoneIcon({ className }: { className: string }) {
 
 interface Item {
   key: string
-  /** null: not configured yet, the icon leads to /lien-he */
-  href: string | null
+  href: string
   label: string
   ariaLabel: string
   background: CSSProperties
@@ -37,29 +36,28 @@ interface Item {
   external: boolean
 }
 
-/**
- * Facebook, Shopee, Zalo and TikTok are always shown (until a link is configured they lead to /lien-he);
- * Messenger and the hotline only when configured.
- */
+/** Configured channels only, top to bottom: Facebook, Shopee, Zalo, TikTok, Messenger, hotline. */
 function itemsOf(site: SiteInfo | null): Item[] {
   const social = site?.social
   const contact = site?.contact
-  const network = (key: string, name: string, href: string | null | undefined, color: string, icon: ReactNode): Item => ({
-    key,
-    href: href ?? null,
-    label: href ? name : `${name} – đang cập nhật`,
-    ariaLabel: href ? `Hạt Lành trên ${name}` : `Hạt Lành trên ${name}: đang cập nhật, xem trang Liên hệ`,
-    background: { backgroundColor: color },
-    ring: color === '#000000' ? '#525252' : color,
-    icon,
-    external: Boolean(href),
-  })
-  const items: Item[] = [
-    network('facebook', 'Facebook', social?.facebookUrl, '#0866ff', <BrandIcon path={FACEBOOK_PATH} className="size-5" />),
-    network('shopee', 'Shopee', social?.shopeeUrl, '#ee4d2d', <BrandIcon path={SHOPEE_PATH} className="size-5" />),
-    network('zalo', 'Zalo', social?.zaloUrl ?? contact?.zaloUrl, '#0068ff', <BrandIcon path={ZALO_PATH} className="size-7" />),
-    network('tiktok', 'TikTok', social?.tiktokUrl, '#000000', <BrandIcon path={TIKTOK_PATH} className="size-5" />),
-  ]
+  const items: Item[] = []
+  const network = (key: string, name: string, href: string | null | undefined, color: string, icon: ReactNode) => {
+    if (!href) return
+    items.push({
+      key,
+      href,
+      label: name,
+      ariaLabel: `Hạt Lành trên ${name}`,
+      background: { backgroundColor: color },
+      ring: color === '#000000' ? '#525252' : color,
+      icon,
+      external: true,
+    })
+  }
+  network('facebook', 'Facebook', social?.facebookUrl, '#0866ff', <BrandIcon path={FACEBOOK_PATH} className="size-5" />)
+  network('shopee', 'Shopee', social?.shopeeUrl, '#ee4d2d', <BrandIcon path={SHOPEE_PATH} className="size-5" />)
+  network('zalo', 'Zalo', social?.zaloUrl ?? contact?.zaloUrl, '#0068ff', <BrandIcon path={ZALO_PATH} className="size-7" />)
+  network('tiktok', 'TikTok', social?.tiktokUrl, '#000000', <BrandIcon path={TIKTOK_PATH} className="size-5" />)
   if (contact?.messengerUrl) {
     items.push({
       key: 'messenger',
@@ -87,76 +85,153 @@ function itemsOf(site: SiteInfo | null): Item[] {
   return items
 }
 
+function ChatIcon({ className }: { className: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4A1.5 1.5 0 0 1 4 14.5z" strokeLinejoin="round" />
+      <path d="M8.5 8.5h7M8.5 11.5h4.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function CloseIcon({ className }: { className: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" className={className}>
+      <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 /**
- * Column of round contact icons fixed in the bottom right corner of every storefront page (it stays put while the
- * shopper navigates). Not in the back office. Sits under modals and drawers (z-30). Its height is published as
- * --floating-contact-space so the end of the page and the toasts keep clear of it. Motion: CSS in index.css (.fc-*).
+ * Contact icons fixed in the bottom right corner of every storefront page (they stay put while the shopper
+ * navigates); only configured channels, nothing at all when none is. Not in the back office. Sits under modals and
+ * drawers (z-30).
+ * - From 640px: a column of icons, always visible.
+ * - Phones: one 48px chat button; tapping it opens the channels in a column above it (Esc or a tap outside closes).
+ * The height that must stay clear is published as --floating-contact-space (end of the page, toasts). Motion: CSS in
+ * index.css (.fc-*).
  */
 export default function FloatingContact() {
   const site = useSiteInfo()
   const { pathname } = useLocation()
   const desktop = useMediaQuery(FINE_POINTER)
+  const wide = useMediaQuery('(min-width: 640px)')
+  const listId = useId()
+  const root = useRef<HTMLElement>(null)
+  const toggle = useRef<HTMLButtonElement>(null)
   const column = useRef<HTMLUListElement>(null)
-  const visible = !pathname.startsWith('/admin')
+  // Phones: open on the page where it was opened only (following a link closes it)
+  const [openOn, setOpenOn] = useState<string | null>(null)
+  const open = !wide && openOn === pathname
 
+  const items = itemsOf(site)
+  const visible = !pathname.startsWith('/admin') && items.length > 0
+
+  const close = useCallback((returnFocus: boolean) => {
+    setOpenOn(null)
+    if (returnFocus) toggle.current?.focus()
+  }, [])
+
+  // Room to keep clear: the whole column on wide screens, the button alone on phones
   useEffect(() => {
-    const el = column.current
+    const el = wide ? column.current : toggle.current
     if (!visible || !el) return
-    const root = document.documentElement
-    const publish = () => root.style.setProperty('--floating-contact-space', `${Math.ceil(el.getBoundingClientRect().height) + 24}px`)
+    const doc = document.documentElement
+    const publish = () => doc.style.setProperty('--floating-contact-space', `${Math.ceil(el.getBoundingClientRect().height) + 24}px`)
     publish()
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(publish) : null
     observer?.observe(el)
     return () => {
       observer?.disconnect()
-      root.style.removeProperty('--floating-contact-space')
+      doc.style.removeProperty('--floating-contact-space')
     }
-  }, [visible])
+  }, [visible, wide])
+
+  // Phones, list open: focus the first channel; Esc or a tap outside closes
+  useEffect(() => {
+    if (!open) return
+    column.current?.querySelector<HTMLElement>('a')?.focus()
+    const onPointer = (e: PointerEvent) => {
+      if (!root.current?.contains(e.target as Node)) close(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        close(true)
+      }
+    }
+    document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open, close])
 
   if (!visible) return null
 
   return (
-    <nav aria-label="Liên hệ và mạng xã hội" className="fc pointer-events-none fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30">
-      <ul ref={column} className="flex flex-col items-end gap-2 sm:gap-2.5">
-        {itemsOf(site).map((item, i) => {
-          const body = (
-            <>
+    <nav
+      ref={root}
+      aria-label="Liên hệ và mạng xã hội"
+      data-compact={wide ? undefined : ''}
+      data-open={open ? '' : undefined}
+      className="fc pointer-events-none fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 flex flex-col items-end gap-3"
+    >
+      <ul ref={column} id={listId} className="flex flex-col items-end gap-2 sm:gap-2.5" inert={!wide && !open}>
+        {items.map((item, i) => (
+          <li
+            key={item.key}
+            className="fc-item"
+            // Position among the shown icons: staggers the entrance, the idle hop, and (phones) opening/closing
+            style={
+              {
+                '--fc-i': i,
+                '--fc-ring': item.ring,
+                '--fc-open-delay': `${(items.length - 1 - i) * 50}ms`,
+                '--fc-close-delay': `${i * 30}ms`,
+              } as CSSProperties
+            }
+          >
+            <a
+              href={item.href}
+              aria-label={item.ariaLabel}
+              // Desktop: new tab; phones open the link directly so the app can take it
+              {...(item.external && desktop ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+              onClick={() => setOpenOn(null)}
+              className="fc-link pointer-events-auto relative flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+            >
               <span className="fc-label pointer-events-none absolute right-full mr-3 rounded-full bg-white px-3 py-1.5 text-sm font-semibold whitespace-nowrap text-stone-800 shadow-md">
                 {item.label}
               </span>
               <span className="fc-dot relative flex size-10 items-center justify-center rounded-full text-white shadow-md sm:size-11" style={item.background}>
                 {item.icon}
               </span>
-            </>
-          )
-          const className =
-            'fc-link pointer-events-auto relative flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700'
-          return (
-            <li
-              key={item.key}
-              className="fc-item"
-              // Position among the shown icons (hidden channels take no turn): staggers the entrance and the idle hop
-              style={{ '--fc-i': i, '--fc-ring': item.ring } as CSSProperties}
-            >
-              {item.href === null ? (
-                <Link to="/lien-he" aria-label={item.ariaLabel} className={className}>
-                  {body}
-                </Link>
-              ) : (
-                <a
-                  href={item.href}
-                  aria-label={item.ariaLabel}
-                  // Desktop: new tab; phones open the link directly so the app can take it
-                  {...(item.external && desktop ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                  className={className}
-                >
-                  {body}
-                </a>
-              )}
-            </li>
-          )
-        })}
+            </a>
+          </li>
+        ))}
       </ul>
+      {!wide && (
+        <button
+          ref={toggle}
+          type="button"
+          onClick={() => (open ? close(true) : setOpenOn(pathname))}
+          aria-label="Liên hệ Hạt Lành"
+          aria-expanded={open}
+          aria-controls={listId}
+          className="fc-link fc-toggle pointer-events-auto relative flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+          style={{ '--fc-i': 0, '--fc-ring': 'var(--color-brand-500)' } as CSSProperties}
+        >
+          <span className="fc-dot relative flex size-12 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg">
+            <span className="fc-icon fc-icon-chat absolute inset-0 flex items-center justify-center">
+              <ChatIcon className="size-6" />
+            </span>
+            <span className="fc-icon fc-icon-close absolute inset-0 flex items-center justify-center">
+              <CloseIcon className="size-6" />
+            </span>
+          </span>
+        </button>
+      )}
     </nav>
   )
 }

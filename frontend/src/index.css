@@ -154,7 +154,7 @@ footer::after { content: ''; display: block; height: var(--floating-contact-spac
  * from it (~0.7 s). The hop runs on the link, the ring on the button's ::after, and hover scales the button itself,
  * so no element has two transforms fighting. First round 2 s after load. Paused under the pointer/focus.
  */
-.fc { --fc-cycle: 3s; --fc-step: 0.6s; --fc-wait: 2s; }
+.fc { --fc-cycle: 3s; --fc-step: 0.3s; --fc-wait: 2s; }
 
 /* 3 s cycle: 0–17% ≈ 0.5 s of movement, then still */
 @keyframes fc-hop {
@@ -187,9 +187,37 @@ footer::after { content: ''; display: block; height: var(--floating-contact-spac
 .fc-link:hover, .fc-link:hover .fc-dot::after,
 .fc-link:focus-visible, .fc-link:focus-visible .fc-dot::after { animation-play-state: paused; }
 
+/*
+ * Phones (data-compact): one chat button; the channels open above it, bottom one first, and close faster. Idle
+ * motion only on the button; names always shown in the open list; the chat icon turns into ×.
+ */
+.fc[data-compact] .fc-item {
+  animation: none;
+  opacity: 0;
+  transform: translateY(8px);
+  visibility: hidden;
+  transition: opacity 120ms ease-in var(--fc-close-delay, 0ms), transform 120ms ease-in var(--fc-close-delay, 0ms),
+    visibility 0s linear calc(120ms + var(--fc-close-delay, 0ms));
+}
+.fc[data-compact][data-open] .fc-item {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  transition: opacity 180ms ease-out var(--fc-open-delay, 0ms), transform 180ms ease-out var(--fc-open-delay, 0ms), visibility 0s;
+}
+.fc[data-compact] .fc-item .fc-link, .fc[data-compact] .fc-item .fc-dot::after { animation: none; }
+.fc[data-compact] .fc-label { opacity: 1; transform: none; }
+.fc[data-open] .fc-toggle, .fc[data-open] .fc-toggle .fc-dot::after { animation-play-state: paused; }
+.fc-icon { transition: transform 200ms ease-out, opacity 200ms ease-out; }
+.fc-icon-close { opacity: 0; transform: rotate(-90deg); }
+.fc[data-open] .fc-icon-chat { opacity: 0; transform: rotate(90deg); }
+.fc[data-open] .fc-icon-close { opacity: 1; transform: none; }
+
 /* Reduced motion: fades only */
 @media (prefers-reduced-motion: reduce) {
   .fc-item, .fc-link { animation: none; }
+  .fc[data-compact] .fc-item, .fc[data-compact][data-open] .fc-item, .fc-icon, .fc[data-open] .fc-icon-chat,
+  .fc[data-open] .fc-icon-close { transform: none; }
   .fc-dot::after { animation: none; display: none; }
   .fc-dot, .fc-link:hover .fc-dot, .fc-link:active .fc-dot, .fc-link:hover:active .fc-dot, .fc-link:focus-visible .fc-dot,
   .fc-label, .fc-link:hover .fc-label, .fc-link:focus-visible .fc-label {
