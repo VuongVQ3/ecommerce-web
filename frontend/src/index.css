@@ -213,6 +213,21 @@ footer::after { content: ''; display: block; height: var(--floating-contact-spac
 .fc[data-open] .fc-icon-chat { opacity: 0; transform: rotate(90deg); }
 .fc[data-open] .fc-icon-close { opacity: 1; transform: none; }
 
+/* "Lên đầu trang" (components/BackToTop.tsx), in the same corner: slides 12px + fades; hidden ones take no clicks */
+.btt { opacity: 0; transform: translateY(12px); pointer-events: none; transition: opacity 200ms ease-out, transform 200ms ease-out; }
+.btt[data-shown] { opacity: 1; transform: none; pointer-events: auto; }
+.btt-dot { transform-origin: center; transition: transform 200ms ease-out; }
+.btt-arrow { transition: transform 200ms ease-out; }
+.btt-ring { transition: stroke-dashoffset 100ms linear; }
+.btt:active .btt-dot { transform: scale(0.95); transition-duration: 100ms; }
+.btt:focus-visible .fc-label { opacity: 1; transform: none; }
+@media (hover: hover) and (pointer: fine) {
+  .btt:hover .btt-dot { transform: scale(1.1); }
+  .btt:hover:active .btt-dot { transform: scale(0.95); }
+  .btt:hover .btt-arrow { transform: translateY(-2px); }
+  .btt:hover .fc-label { opacity: 1; transform: none; }
+}
+
 /* Reduced motion: fades only */
 @media (prefers-reduced-motion: reduce) {
   .fc-item, .fc-link { animation: none; }
@@ -223,4 +238,9 @@ footer::after { content: ''; display: block; height: var(--floating-contact-spac
   .fc-label, .fc-link:hover .fc-label, .fc-link:focus-visible .fc-label {
     transform: none;
   }
+  .btt, .btt-dot, .btt-arrow, .btt:hover .btt-dot, .btt:active .btt-dot, .btt:hover:active .btt-dot, .btt:hover .btt-arrow,
+  .btt:hover .fc-label, .btt:focus-visible .fc-label {
+    transform: none;
+  }
+  .btt-ring { transition: none; }
 }

@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router'
 import { FACEBOOK_PATH, MESSENGER_PATH, SHOPEE_PATH, TIKTOK_PATH, ZALO_PATH } from '../lib/brandIcons'
 import { FINE_POINTER, useMediaQuery } from '../lib/media'
 import { telHref, useSiteInfo, type SiteInfo } from '../lib/siteInfo'
+import BackToTop from './BackToTop'
 
 /** Messenger's official gradient (brand resources). */
 const MESSENGER_GRADIENT = 'radial-gradient(circle at 19% 99%, #0099ff 0%, #a033ff 61%, #ff5280 93%, #ff7061 100%)'
@@ -114,6 +115,8 @@ function CloseIcon({ className }: { className: string }) {
  * drawers (z-30).
  * - From 640px: a column of icons, always visible.
  * - Phones: one 48px chat button; tapping it opens the channels in a column above it (Esc or a tap outside closes).
+ * The "Lên đầu trang" button (BackToTop) shares the corner: under the column, on phones right above the chat button;
+ * it stays there even with no channel to show.
  * The height that must stay clear is published as --floating-contact-space (end of the page, toasts). Motion: CSS in
  * index.css (.fc-*).
  */
@@ -131,16 +134,17 @@ export default function FloatingContact() {
   const open = !wide && openOn === pathname
 
   const items = itemsOf(site)
-  const visible = !pathname.startsWith('/admin') && items.length > 0
+  const visible = !pathname.startsWith('/admin')
+  const hasItems = items.length > 0
 
   const close = useCallback((returnFocus: boolean) => {
     setOpenOn(null)
     if (returnFocus) toggle.current?.focus()
   }, [])
 
-  // Room to keep clear: the whole column on wide screens, the button alone on phones
+  // Room to keep clear: the whole column (with "Lên đầu trang") on wide screens, the chat button alone on phones
   useEffect(() => {
-    const el = wide ? column.current : toggle.current
+    const el = wide ? root.current : (toggle.current ?? root.current)
     if (!visible || !el) return
     const doc = document.documentElement
     const publish = () => doc.style.setProperty('--floating-contact-space', `${Math.ceil(el.getBoundingClientRect().height) + 24}px`)
@@ -151,7 +155,7 @@ export default function FloatingContact() {
       observer?.disconnect()
       doc.style.removeProperty('--floating-contact-space')
     }
-  }, [visible, wide])
+  }, [visible, wide, hasItems])
 
   // Phones, list open: focus the first channel; Esc or a tap outside closes
   useEffect(() => {
@@ -184,42 +188,45 @@ export default function FloatingContact() {
       data-open={open ? '' : undefined}
       className="fc pointer-events-none fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 flex flex-col items-end gap-3"
     >
-      <ul ref={column} id={listId} className="flex flex-col items-end gap-2 sm:gap-2.5" inert={!wide && !open}>
-        {items.map((item, i) => (
-          <li
-            key={item.key}
-            className="fc-item"
-            // Position among the shown icons: staggers the entrance, the idle hop, and (phones) opening/closing
-            style={
-              {
-                '--fc-i': i,
-                '--fc-ring': item.ring,
-                '--fc-open-delay': `${(items.length - 1 - i) * 50}ms`,
-                '--fc-close-delay': `${i * 30}ms`,
-              } as CSSProperties
-            }
-          >
-            <Link
-              to={item.href}
-              // Other sites and tel: are plain links; only /lien-he navigates inside the app
-              reloadDocument={item.href !== CONTACT_PAGE}
-              aria-label={item.ariaLabel}
-              // Desktop: new tab; phones open the link directly so the app can take it
-              {...(item.external && desktop ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-              onClick={() => setOpenOn(null)}
-              className="fc-link pointer-events-auto relative flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+      {hasItems && (
+        <ul ref={column} id={listId} className="flex flex-col items-end gap-2 sm:gap-2.5" inert={!wide && !open}>
+          {items.map((item, i) => (
+            <li
+              key={item.key}
+              className="fc-item"
+              // Position among the shown icons: staggers the entrance, the idle hop, and (phones) opening/closing
+              style={
+                {
+                  '--fc-i': i,
+                  '--fc-ring': item.ring,
+                  '--fc-open-delay': `${(items.length - 1 - i) * 50}ms`,
+                  '--fc-close-delay': `${i * 30}ms`,
+                } as CSSProperties
+              }
             >
-              <span className="fc-label pointer-events-none absolute right-full mr-3 rounded-full bg-white px-3 py-1.5 text-sm font-semibold whitespace-nowrap text-stone-800 shadow-md">
-                {item.label}
-              </span>
-              <span className="fc-dot relative flex size-10 items-center justify-center rounded-full text-white shadow-md sm:size-11" style={item.background}>
-                {item.icon}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-      {!wide && (
+              <Link
+                to={item.href}
+                // Other sites and tel: are plain links; only /lien-he navigates inside the app
+                reloadDocument={item.href !== CONTACT_PAGE}
+                aria-label={item.ariaLabel}
+                // Desktop: new tab; phones open the link directly so the app can take it
+                {...(item.external && desktop ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                onClick={() => setOpenOn(null)}
+                className="fc-link pointer-events-auto relative flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+              >
+                <span className="fc-label pointer-events-none absolute right-full mr-3 rounded-full bg-white px-3 py-1.5 text-sm font-semibold whitespace-nowrap text-stone-800 shadow-md">
+                  {item.label}
+                </span>
+                <span className="fc-dot relative flex size-10 items-center justify-center rounded-full text-white shadow-md sm:size-11" style={item.background}>
+                  {item.icon}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+      <BackToTop />
+      {!wide && hasItems && (
         <button
           ref={toggle}
           type="button"

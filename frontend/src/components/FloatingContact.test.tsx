@@ -101,8 +101,13 @@ describe('FloatingContact', () => {
     site.info = FULL
     renderAt('/thanh-toan')
     expect(screen.getAllByRole('link')).toHaveLength(6)
+    // "Lên đầu trang" shares the corner; hidden (aria-hidden, out of the Tab order) at the top of the page
+    const toTop = document.querySelector<HTMLButtonElement>('button[aria-label="Lên đầu trang"]')!
+    expect(toTop.getAttribute('aria-hidden')).toBe('true')
+    expect(toTop.tabIndex).toBe(-1)
     cleanup()
     renderAt('/admin/don-hang')
     expect(screen.queryAllByRole('link')).toHaveLength(0)
+    expect(document.querySelector('button[aria-label="Lên đầu trang"]')).toBeNull()
   })
 })

@@ -178,6 +178,7 @@ export default function QuickCart() {
         aria-expanded={open}
         aria-controls={panelId}
         aria-label="Xem nhanh giỏ hàng"
+        data-overlay={open ? '' : undefined}
         onClick={() => {
           window.clearTimeout(timer.current)
           setOpen((o) => !o)
