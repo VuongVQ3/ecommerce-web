@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { useLocation } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { FACEBOOK_PATH, MESSENGER_PATH, SHOPEE_PATH, TIKTOK_PATH, ZALO_PATH } from '../lib/brandIcons'
 import { FINE_POINTER, useMediaQuery } from '../lib/media'
 import { telHref, useSiteInfo, type SiteInfo } from '../lib/siteInfo'
@@ -23,8 +23,12 @@ function PhoneIcon({ className }: { className: string }) {
   )
 }
 
+/** Where Facebook/Shopee/Zalo/TikTok lead until their link is configured */
+const CONTACT_PAGE = '/lien-he'
+
 interface Item {
   key: string
+  /** External link, tel:, or CONTACT_PAGE */
   href: string
   label: string
   ariaLabel: string
@@ -36,22 +40,24 @@ interface Item {
   external: boolean
 }
 
-/** Configured channels only, top to bottom: Facebook, Shopee, Zalo, TikTok, Messenger, hotline. */
+/**
+ * Top to bottom: Facebook, Shopee, Zalo, TikTok (always shown; until their link is configured they lead to /lien-he,
+ * labelled "đang cập nhật"), then Messenger and the hotline when configured.
+ */
 function itemsOf(site: SiteInfo | null): Item[] {
   const social = site?.social
   const contact = site?.contact
   const items: Item[] = []
   const network = (key: string, name: string, href: string | null | undefined, color: string, icon: ReactNode) => {
-    if (!href) return
     items.push({
       key,
-      href,
-      label: name,
-      ariaLabel: `Hạt Lành trên ${name}`,
+      href: href || CONTACT_PAGE,
+      label: href ? name : `${name} – đang cập nhật`,
+      ariaLabel: href ? `Hạt Lành trên ${name}` : `Hạt Lành trên ${name}: đang cập nhật, xem trang Liên hệ`,
       background: { backgroundColor: color },
       ring: color === '#000000' ? '#525252' : color,
       icon,
-      external: true,
+      external: Boolean(href),
     })
   }
   network('facebook', 'Facebook', social?.facebookUrl, '#0866ff', <BrandIcon path={FACEBOOK_PATH} className="size-5" />)
@@ -104,7 +110,7 @@ function CloseIcon({ className }: { className: string }) {
 
 /**
  * Contact icons fixed in the bottom right corner of every storefront page (they stay put while the shopper
- * navigates); only configured channels, nothing at all when none is. Not in the back office. Sits under modals and
+ * navigates), always shown (see itemsOf). Not in the back office. Sits under modals and
  * drawers (z-30).
  * - From 640px: a column of icons, always visible.
  * - Phones: one 48px chat button; tapping it opens the channels in a column above it (Esc or a tap outside closes).
@@ -193,8 +199,10 @@ export default function FloatingContact() {
               } as CSSProperties
             }
           >
-            <a
-              href={item.href}
+            <Link
+              to={item.href}
+              // Other sites and tel: are plain links; only /lien-he navigates inside the app
+              reloadDocument={item.href !== CONTACT_PAGE}
               aria-label={item.ariaLabel}
               // Desktop: new tab; phones open the link directly so the app can take it
               {...(item.external && desktop ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
@@ -207,7 +215,7 @@ export default function FloatingContact() {
               <span className="fc-dot relative flex size-10 items-center justify-center rounded-full text-white shadow-md sm:size-11" style={item.background}>
                 {item.icon}
               </span>
-            </a>
+            </Link>
           </li>
         ))}
       </ul>

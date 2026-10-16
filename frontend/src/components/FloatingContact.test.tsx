@@ -57,20 +57,21 @@ describe('FloatingContact', () => {
     expect(screen.queryByRole('button', { name: 'Liên hệ Hạt Lành' })).toBeNull()
   })
 
-  it('hides unconfigured channels, and renders nothing when none is configured', () => {
+  it('always shows Facebook, Shopee, Zalo and TikTok; unconfigured ones lead to /lien-he', () => {
     site.info = { ...FULL, contact: { zaloUrl: null, messengerUrl: null, hotline: null }, social: { ...FULL.social!, zaloUrl: null, tiktokUrl: null } }
     renderAt('/')
-    expect(links().map((l) => l[0])).toEqual(['Hạt Lành trên Facebook', 'Hạt Lành trên Shopee'])
+    expect(links()).toEqual([
+      ['Hạt Lành trên Facebook', 'https://www.facebook.com/hatlanh'],
+      ['Hạt Lành trên Shopee', 'https://shopee.vn/hatlanh'],
+      ['Hạt Lành trên Zalo: đang cập nhật, xem trang Liên hệ', '/lien-he'],
+      ['Hạt Lành trên TikTok: đang cập nhật, xem trang Liên hệ', '/lien-he'],
+    ])
     cleanup()
 
-    site.info = { ...FULL, contact: { zaloUrl: null, messengerUrl: null, hotline: null }, social: { facebookUrl: null, shopeeUrl: null, zaloUrl: null, tiktokUrl: null } }
-    renderAt('/')
-    expect(screen.queryByRole('navigation')).toBeNull()
-    cleanup()
-
+    // Nothing configured, or /api/site unavailable: still the four icons
     site.info = null
     renderAt('/')
-    expect(screen.queryByRole('navigation')).toBeNull()
+    expect(links().map((l) => l[1])).toEqual(['/lien-he', '/lien-he', '/lien-he', '/lien-he'])
   })
 
   it('phones: one button opens the channels; Esc closes and gives focus back', () => {
