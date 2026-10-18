@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { usePrefersReducedMotion } from '../lib/motion'
 import { useOverlayOpen } from '../lib/overlay'
 
+/** Shown past this many screens of scrolling */
+const SHOW_AFTER = 1.5
+/** Phones: scroll movements smaller than this do not count as a change of direction */
+const JITTER = 10
 /** Pages longer than this many screens: jump to 2 screens from the top first, then glide the rest */
 const LONG_PAGE = 6
 const JUMP_TO = 2
@@ -57,12 +61,12 @@ function focusPageTop() {
 
 /**
  * "Lên đầu trang" in the floating corner (rendered by FloatingContact, at the bottom of the contact column; on
- * phones right above the chat button). Shown as soon as the page is scrolled at all (hidden at the very top) and
+ * phones right above the chat button). Shown past 1.5 screens (phones: and only while scrolling up);
  * hidden while a modal, drawer or popup is open (useOverlayOpen). A ring around it fills with how far down the page the reader is.
  * Scroll is read once per frame (passive listener + requestAnimationFrame); the ring is updated without re-rendering.
  * Motion: CSS in index.css (.btt*).
  */
-export default function BackToTop() {
+export default function BackToTop({ wide }: { wide: boolean }) {
   const reduced = usePrefersReducedMotion()
   const overlay = useOverlayOpen()
   const ring = useRef<SVGCircleElement>(null)
@@ -70,6 +74,8 @@ export default function BackToTop() {
 
   useEffect(() => {
     let frame = 0
+    let anchorY = window.scrollY
+    let up = false
     const update = () => {
       frame = 0
       const y = window.scrollY
@@ -77,8 +83,12 @@ export default function BackToTop() {
       const max = document.documentElement.scrollHeight - screen
       const progress = max > 0 ? Math.min(1, Math.max(0, y / max)) : 0
       ring.current?.setAttribute('stroke-dashoffset', String(CIRCUMFERENCE * (1 - progress)))
+      if (Math.abs(y - anchorY) >= JITTER) {
+        up = y < anchorY
+        anchorY = y
+      }
       // React skips the render when the value is unchanged
-      setPast(y > 0)
+      setPast(y > SHOW_AFTER * screen && (wide || up))
     }
     const onScroll = () => {
       if (!frame) frame = requestAnimationFrame(update)
@@ -91,7 +101,7 @@ export default function BackToTop() {
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onScroll)
     }
-  }, [])
+  }, [wide])
 
   const shown = past && !overlay
 

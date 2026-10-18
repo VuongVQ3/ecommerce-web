@@ -79,7 +79,10 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
         </button>
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2 p-4">
-        <p className="truncate text-xs font-medium tracking-wide text-brand-700 uppercase">{product.category.name}</p>
+        {/* Under 360px: up to two lines (same height on every card) instead of an ellipsis */}
+        <p className="truncate text-xs font-medium tracking-wide text-brand-700 uppercase max-[360px]:line-clamp-2 max-[360px]:min-h-8 max-[360px]:tracking-normal max-[360px]:whitespace-normal">
+          {product.category.name}
+        </p>
         <h3 className="min-h-[2.75rem] leading-snug font-semibold text-stone-900">
           <Link to={href} title={product.name} className="line-clamp-2 break-words hover:text-brand-700">
             {product.name}

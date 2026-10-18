@@ -59,7 +59,8 @@ body {
 
 .blob { animation: blob 18s ease-in-out infinite; }
 .floaty { animation: float 6s ease-in-out infinite; }
-.word-in { display: inline-block; opacity: 0; animation: word-in 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+/* No display here (unlayered CSS beats Tailwind's flex/inline-flex): elements that need inline-block say so */
+.word-in { opacity: 0; animation: word-in 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
 .gradient-pan { background-size: 200% 200%; animation: gradient-pan 10s ease infinite; }
 
 /* Scroll reveal */

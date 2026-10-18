@@ -54,7 +54,7 @@ function Hero({ productCount }: { productCount?: number }) {
           </p>
           <h1 className="mt-5 text-4xl leading-tight font-extrabold text-brand-900 sm:text-5xl md:text-6xl">
             {HEADLINE.map((word, i) => (
-              <span key={i} className="word-in mr-[0.25em]" style={{ animationDelay: `${150 + i * 70}ms` }}>
+              <span key={i} className="word-in mr-[0.25em] inline-block" style={{ animationDelay: `${150 + i * 70}ms` }}>
                 {word === 'sạch' ? (
                   <span className="gradient-pan bg-gradient-to-r from-brand-600 via-amber-500 to-brand-600 bg-clip-text text-transparent">
                     {word}
@@ -68,16 +68,17 @@ function Hero({ productCount }: { productCount?: number }) {
           <p className="word-in mt-5 max-w-md text-lg text-stone-600" style={{ animationDelay: '850ms' }}>
             Hạnh nhân, óc chó, macca, hạt chia và hơn thế nữa. Rang mộc, rõ nguồn gốc, minh bạch từng chỉ số dinh dưỡng.
           </p>
-          <div className="word-in mt-8 flex flex-wrap gap-3" style={{ animationDelay: '1000ms' }}>
+          {/* Under 400px: stacked, full width */}
+          <div className="word-in mt-8 flex flex-col gap-3 min-[400px]:flex-row min-[400px]:flex-wrap" style={{ animationDelay: '1000ms' }}>
             <Link
               to="/san-pham"
-              className="btn-shine rounded-full bg-brand-600 px-7 py-3.5 font-semibold text-white shadow-lg shadow-brand-600/25 transition hover:-translate-y-0.5 hover:bg-brand-700"
+              className="btn-shine inline-flex items-center justify-center rounded-full whitespace-nowrap bg-brand-600 px-7 py-3.5 font-semibold text-white shadow-lg shadow-brand-600/25 transition hover:-translate-y-0.5 hover:bg-brand-700"
             >
               Mua sắm ngay →
             </Link>
             <Link
               to="/san-pham?sort=calories_asc"
-              className="rounded-full border border-brand-200 bg-white/80 px-7 py-3.5 font-semibold text-brand-700 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white"
+              className="inline-flex items-center justify-center rounded-full whitespace-nowrap border border-brand-200 bg-white/80 px-7 py-3.5 font-semibold text-brand-700 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white"
             >
               Ít calo nhất
             </Link>
@@ -116,11 +117,12 @@ function Stats({ products, categories }: { products: number; categories: number 
   ]
   return (
     <section className="mx-auto max-w-6xl px-4">
-      <div className="grid grid-cols-2 gap-4 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm md:grid-cols-4 md:p-8">
+      {/* Phones: room on the right for the floating buttons in the corner */}
+      <div className="grid grid-cols-2 gap-4 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm max-sm:pr-14 md:grid-cols-4 md:p-8">
         {items.map((s, i) => (
           <Reveal key={s.label} delay={i * 100} className="text-center">
-            <CountUp value={s.value} suffix={s.suffix} className="block text-3xl font-extrabold text-brand-700 md:text-4xl" />
-            <p className="mt-1 text-sm text-muted">{s.label}</p>
+            <CountUp value={s.value} suffix={s.suffix} className="block text-[clamp(1.5rem,7vw,1.875rem)] font-extrabold whitespace-nowrap text-brand-700 md:text-4xl" />
+            <p className="mt-1 line-clamp-2 text-sm text-muted">{s.label}</p>
           </Reveal>
         ))}
       </div>

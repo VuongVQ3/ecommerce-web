@@ -25,6 +25,17 @@ interface Props {
   ariaLabel?: string
 }
 
+/** Shown on card buttons too narrow for "Thêm vào giỏ" */
+function CartIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="hidden size-4 shrink-0 @max-[6rem]:block">
+      <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="10" cy="20" r="1.3" />
+      <circle cx="17" cy="20" r="1.3" />
+    </svg>
+  )
+}
+
 /**
  * Discontinued: renders nothing. Sold out: disabled "Hết hàng". Otherwise adds (guarding against double clicks)
  * while the product picture flies to the header cart; the badge shows the new count when it lands. Then: desktop
@@ -43,7 +54,8 @@ export default function AddToCartButton({ product, quantity = 1, variant = 'card
   const base =
     variant === 'page'
       ? 'w-full rounded-full px-6 py-3 font-semibold sm:w-auto'
-      : 'h-10 w-full rounded-full px-4 text-sm font-semibold'
+      : // A size container: the label shortens to an icon + "Thêm" when the full one would not fit on one line
+        '@container h-10 w-full rounded-full px-4 text-sm font-semibold whitespace-nowrap'
 
   if (soldOut) {
     return (
@@ -101,7 +113,18 @@ export default function AddToCartButton({ product, quantity = 1, variant = 'card
       aria-label={ariaLabel}
       className={`${base} bg-brand-600 text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-wait disabled:opacity-70`}
     >
-      {pending ? 'Đang thêm...' : variant === 'page' ? 'Thêm vào giỏ hàng' : 'Thêm vào giỏ'}
+      {pending ? (
+        <span className="block truncate">Đang thêm...</span>
+      ) : variant === 'page' ? (
+        'Thêm vào giỏ hàng'
+      ) : (
+        <span className="flex items-center justify-center gap-1.5">
+          <CartIcon />
+          <span>
+            Thêm<span className="@max-[6rem]:hidden"> vào giỏ</span>
+          </span>
+        </span>
+      )}
     </button>
   )
 }
