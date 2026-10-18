@@ -24,6 +24,7 @@ import com.nutshop.user.PhoneNumbers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
@@ -97,14 +98,16 @@ public class OrderService {
 	private final TransactionTemplate tx;
 	private final Clock clock;
 	private final AuditLog audit;
+	private final ApplicationEventPublisher events;
 
 	public OrderService(OrderRepository orders, OrderStatusHistoryRepository history, ProductRepository products,
 			InventoryService inventory, CartService carts, CartProperties cartProps, AdminUnits adminUnits,
 			OrderEmails emails, OrderAccessTokens accessTokens, PricingService pricing, PhoneFlagService phoneFlags,
 			EmailSender emailSender,
 			@Qualifier("applicationTaskExecutor") TaskExecutor executor,
-			PlatformTransactionManager txManager, Clock clock, AuditLog audit) {
+			PlatformTransactionManager txManager, Clock clock, AuditLog audit, ApplicationEventPublisher events) {
 		this.audit = audit;
+		this.events = events;
 		this.orders = orders;
 		this.history = history;
 		this.products = products;
@@ -231,6 +234,8 @@ public class OrderService {
 		}
 
 		history.save(new OrderStatusHistory(orderId, null, OrderStatus.PENDING, userId, "Đặt hàng"));
+		// Shop alerts (Telegram) go out once this transaction commits
+		events.publishEvent(new OrderPlacedEvent(orderId));
 		if (userId != null) {
 			carts.clear(userId);
 		}
@@ -350,6 +355,7 @@ public class OrderService {
 			.changes(Map.of("status", status), Map.of("status", OrderStatus.CANCELLED.name()))
 			.reason(code.name(), note)
 			.record();
+		events.publishEvent(new OrderCancelledByCustomerEvent(order.getId()));
 	}
 
 	/**

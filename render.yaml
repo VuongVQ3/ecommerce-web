@@ -44,6 +44,11 @@ services:
         sync: false
       - key: CLOUDINARY_URL
         sync: false
+      # Telegram alerts to the shop (new order, customer cancelled); either one empty = off
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
       # Public base URL for canonical links, Open Graph and the sitemap (falls back to FRONTEND_URL).
       # Set it when moving to a custom domain, e.g. https://hatlanh.vn
       - key: SITE_URL
