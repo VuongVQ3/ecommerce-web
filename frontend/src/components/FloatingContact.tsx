@@ -225,7 +225,7 @@ export default function FloatingContact() {
           ))}
         </ul>
       )}
-      <BackToTop wide={wide} />
+      <BackToTop />
       {!wide && hasItems && (
         <button
           ref={toggle}
