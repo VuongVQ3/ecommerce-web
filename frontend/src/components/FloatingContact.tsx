@@ -117,8 +117,7 @@ function CloseIcon({ className }: { className: string }) {
  * - Phones: one 48px chat button; tapping it opens the channels in a column above it (Esc or a tap outside closes).
  * The "Lên đầu trang" button (BackToTop) shares the corner: under the column, on phones right above the chat button;
  * it stays there even with no channel to show.
- * The height that must stay clear is published as --floating-contact-space (end of the page, toasts). Motion: CSS in
- * index.css (.fc-*).
+ * Motion: CSS in index.css (.fc-*).
  */
 export default function FloatingContact() {
   const site = useSiteInfo()
@@ -141,21 +140,6 @@ export default function FloatingContact() {
     setOpenOn(null)
     if (returnFocus) toggle.current?.focus()
   }, [])
-
-  // Room to keep clear: the whole column (with "Lên đầu trang") on wide screens, the chat button alone on phones
-  useEffect(() => {
-    const el = wide ? root.current : (toggle.current ?? root.current)
-    if (!visible || !el) return
-    const doc = document.documentElement
-    const publish = () => doc.style.setProperty('--floating-contact-space', `${Math.ceil(el.getBoundingClientRect().height) + 24}px`)
-    publish()
-    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(publish) : null
-    observer?.observe(el)
-    return () => {
-      observer?.disconnect()
-      doc.style.removeProperty('--floating-contact-space')
-    }
-  }, [visible, wide, hasItems])
 
   // Phones, list open: focus the first channel; Esc or a tap outside closes
   useEffect(() => {
