@@ -25,6 +25,10 @@ import testsupport.CapturingEmailSender;
 import testsupport.RegisterJson;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -209,7 +213,8 @@ class AdminE2ETest {
 		mvc.perform(get("/api/admin/orders")).andExpect(status().isUnauthorized());
 		Cookie customer = as("CUSTOMER");
 		call(get("/api/admin/orders"), customer).andExpect(status().isForbidden());
-		call(get("/api/admin/dashboard"), customer).andExpect(status().isForbidden());
+		call(get("/api/admin/dashboard/now"), customer).andExpect(status().isForbidden());
+		call(get("/api/admin/dashboard/day"), customer).andExpect(status().isForbidden());
 		call(get("/api/admin/products"), customer).andExpect(status().isForbidden());
 	}
 
@@ -220,8 +225,10 @@ class AdminE2ETest {
 		long id = createProduct(admin, "Hạt quyền nhân viên", null);
 
 		call(get("/api/admin/orders"), staff).andExpect(status().isOk()).andExpect(jsonPath("$.pendingCount").isNumber());
-		call(get("/api/admin/dashboard"), staff).andExpect(status().isOk())
-			.andExpect(jsonPath("$.revenueByDay", hasSize(7)));
+		call(get("/api/admin/dashboard/now"), staff).andExpect(status().isOk())
+			.andExpect(jsonPath("$.pendingCount").isNumber());
+		call(get("/api/admin/dashboard/day"), staff).andExpect(status().isOk())
+			.andExpect(jsonPath("$.last7Days", hasSize(7)));
 		call(get("/api/admin/inventory"), staff).andExpect(status().isOk());
 		call(get("/api/admin/categories"), staff).andExpect(status().isOk());
 		importStock(staff, id, 5);
@@ -233,6 +240,86 @@ class AdminE2ETest {
 		mvc.perform(json(post("/api/admin/categories"), "{\"name\":\"Mới\"}").cookie(staff))
 			.andExpect(status().isForbidden());
 		assertThat(jdbc.queryForObject("SELECT price FROM products WHERE id = ?", Long.class, id)).isEqualTo(120_000);
+	}
+
+	// ---- dashboard ------------------------------------------------------------------------------------------
+
+	/** Moves an order (and its status history) back in time; the history row for toStatus gets its own time. */
+	private void backdate(String code, Instant createdAt, String toStatus, Instant changedAt) {
+		jdbc.update("UPDATE orders SET created_at = ? WHERE code = ?", java.sql.Timestamp.from(createdAt), code);
+		jdbc.update("""
+				UPDATE order_status_history SET created_at = CASE WHEN to_status = ? THEN ?::timestamptz ELSE ?::timestamptz END
+				WHERE order_id = (SELECT id FROM orders WHERE code = ?)""", toStatus,
+				java.sql.Timestamp.from(changedAt == null ? createdAt : changedAt), java.sql.Timestamp.from(createdAt),
+				code);
+	}
+
+	private long total(String code) {
+		return jdbc.queryForObject("SELECT total FROM orders WHERE code = ?", Long.class, code);
+	}
+
+	@Test
+	void dashboardDaysFollowVietnamTime() throws Exception {
+		Cookie admin = as("ADMIN");
+		long id = createProduct(admin, "Hạt tổng quan ngày", null);
+		importStock(admin, id, 20);
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+		LocalDate day = today.minusDays(100);
+		Instant lateEvening = day.atTime(16, 30).toInstant(ZoneOffset.UTC); // 23:30 that day in Vietnam
+		Instant nextMorning = day.plusDays(1).atTime(3, 0).toInstant(ZoneOffset.UTC); // 10:00 the next day
+
+		// Ordered at 23:30, delivered the next morning
+		String delivered = placeOrder(id, 2);
+		mvc.perform(json(post("/api/admin/orders/" + delivered + "/confirm"), "{\"contact\":\"CALLED\"}").cookie(admin))
+			.andExpect(status().isOk());
+		mvc.perform(json(post("/api/admin/orders/" + delivered + "/ship"), "{\"carrier\":\"GHN\",\"trackingNumber\":\"D1\"}")
+			.cookie(admin)).andExpect(status().isOk());
+		call(post("/api/admin/orders/" + delivered + "/complete"), admin).andExpect(status().isOk());
+		backdate(delivered, lateEvening, "COMPLETED", nextMorning);
+		// Ordered and cancelled the same morning
+		String cancelled = placeOrder(id, 1);
+		mvc.perform(json(post("/api/admin/orders/" + cancelled + "/cancel"), "{\"reasonCode\":\"OUT_OF_STOCK\",\"reason\":\"Hết\"}")
+			.cookie(admin)).andExpect(status().isOk());
+		backdate(cancelled, day.atTime(2, 0).toInstant(ZoneOffset.UTC), "CANCELLED", day.atTime(5, 0).toInstant(ZoneOffset.UTC));
+		mailbox.clear();
+
+		call(get("/api/admin/dashboard/day").param("date", day.toString()), admin).andExpect(status().isOk())
+			.andExpect(jsonPath("$.date").value(day.toString()))
+			.andExpect(jsonPath("$.ordersCreated").value(2))
+			// the cancelled order is not part of the value ordered
+			.andExpect(jsonPath("$.grossValue").value(total(delivered)))
+			// revenue goes to the day it was completed
+			.andExpect(jsonPath("$.revenue").value(0))
+			.andExpect(jsonPath("$.cancelled").value(1))
+			.andExpect(jsonPath("$.topCancelReason").value("Hết hàng"))
+			.andExpect(jsonPath("$.topProducts", hasSize(1)))
+			.andExpect(jsonPath("$.topProducts[0].quantity").value(2))
+			.andExpect(jsonPath("$.orders", hasSize(2)))
+			.andExpect(jsonPath("$.orders[0].code").value(delivered))
+			.andExpect(jsonPath("$.last7Days", hasSize(7)))
+			.andExpect(jsonPath("$.last7Days[6].date").value(day.toString()));
+		call(get("/api/admin/dashboard/day").param("date", day.plusDays(1).toString()), admin).andExpect(status().isOk())
+			.andExpect(jsonPath("$.ordersCreated").value(0))
+			.andExpect(jsonPath("$.revenue").value(total(delivered)))
+			.andExpect(jsonPath("$.previous.ordersCreated").value(2))
+			.andExpect(jsonPath("$.previous.cancelled").value(1))
+			.andExpect(jsonPath("$.orders", hasSize(0)))
+			.andExpect(jsonPath("$.last7Days[6].revenue").value(total(delivered)))
+			.andExpect(jsonPath("$.last7Days[6].orders").value(1));
+
+		call(get("/api/admin/dashboard/day").param("date", today.plusDays(1).toString()), admin)
+			.andExpect(status().isBadRequest());
+		call(get("/api/admin/dashboard/day").param("date", today.minusDays(366).toString()), admin)
+			.andExpect(status().isBadRequest());
+		call(get("/api/admin/dashboard/day").param("date", today.minusDays(365).toString()), admin)
+			.andExpect(status().isOk());
+
+		// Waiting more than 24 hours
+		String waiting = placeOrder(id, 1);
+		jdbc.update("UPDATE orders SET created_at = now() - interval '25 hours' WHERE code = ?", waiting);
+		call(get("/api/admin/dashboard/now"), admin).andExpect(status().isOk())
+			.andExpect(jsonPath("$.pendingOver24h").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+			.andExpect(jsonPath("$.lowStockCount").isNumber());
 	}
 
 	// ---- orders ---------------------------------------------------------------------------------------------

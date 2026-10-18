@@ -77,12 +77,33 @@ export interface StocktakeResult {
   difference: number
 }
 
-export interface Dashboard {
-  ordersToday: number
+/** Needs doing now, whatever day the dashboard shows */
+export interface DashboardNow {
   pendingCount: number
-  revenue7Days: number
-  revenueByDay: { date: string; revenue: number; orders: number }[]
+  pendingOver24h: number
+  lowStockCount: number
   lowStock: StockRow[]
+}
+
+/** One Vietnam day: orders created, their value (cancelled left out), revenue completed, orders cancelled */
+export interface DashboardDayTotals {
+  ordersCreated: number
+  grossValue: number
+  revenue: number
+  cancelled: number
+  /** Most common reason among the day's cancellations (label), null when none */
+  topCancelReason: string | null
+}
+
+export interface DashboardDay extends DashboardDayTotals {
+  /** yyyy-MM-dd */
+  date: string
+  previous: DashboardDayTotals
+  topProducts: { productId: number; name: string; quantity: number; amount: number }[]
+  /** Newest first, at most 20 */
+  orders: { code: string; createdAt: string; customerName: string; total: number; status: OrderStatus; statusLabel: string }[]
+  /** 7 days ending on date: revenue from orders completed that day */
+  last7Days: { date: string; revenue: number; orders: number }[]
 }
 
 export interface AdminProductRow {
@@ -157,7 +178,9 @@ const put = (body: unknown) => ({ method: 'PUT', body: JSON.stringify(body) })
 const order = (code: string) => `/api/admin/orders/${encodeURIComponent(code)}`
 
 export const adminApi = {
-  dashboard: (signal?: AbortSignal) => apiRequest<Dashboard>('/api/admin/dashboard', { signal }),
+  dashboardNow: (signal?: AbortSignal) => apiRequest<DashboardNow>('/api/admin/dashboard/now', { signal }),
+  dashboardDay: (date: string, signal?: AbortSignal) =>
+    apiRequest<DashboardDay>(`/api/admin/dashboard/day${query({ date })}`, { signal }),
 
   orders: (f: OrderFilters, signal?: AbortSignal) =>
     apiRequest<{ page: Page<AdminOrderRow>; pendingCount: number }>(

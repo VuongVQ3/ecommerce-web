@@ -141,7 +141,8 @@ export function DateField({ label, value, onChange, min, max, error, hideLabel =
   )
 }
 
-function Calendar({
+/** The calendar popup on its own (positioned under its parent, which must be relative). */
+export function Calendar({
   label,
   value,
   min,

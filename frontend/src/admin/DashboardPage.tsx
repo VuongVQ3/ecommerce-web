@@ -1,106 +1,430 @@
-import { Link } from 'react-router'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Link, Navigate, useSearchParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
-import { adminApi } from '../lib/adminApi'
+import { StatusBadge } from '../components/OrderDetails'
+import { adminApi, type DashboardDay, type DashboardDayTotals } from '../lib/adminApi'
 import { formatPrice } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
+import { Calendar } from './DateField'
+import { addDays, fromIso, isoToDisplay, vnTodayIso, WEEKDAY_NAMES, WEEKDAYS } from './dates'
 import { card, table } from './styles'
-import { EmptyState, PageHeader } from './ui'
+import { PageHeader } from './ui'
 
-const dayLabel = new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' })
+/** The day view goes back this far (the API refuses older days) */
+const MAX_DAYS_BACK = 365
+const DAY_ORDERS = 20
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 
-function Stat({ label, value, to, highlight = false }: { label: string; value: string; to?: string; highlight?: boolean }) {
-  const body = (
-    <>
+/** Days already loaded in this session: switching back shows them at once while they refresh. */
+const dayCache = new Map<string, DashboardDay>()
+
+const timeFormat = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' })
+const dayMonth = (iso: string) => isoToDisplay(iso).slice(0, 5)
+const weekday = (iso: string) => (fromIso(iso).getUTCDay() + 6) % 7
+const shortWeekday = (iso: string) => WEEKDAYS[weekday(iso)]
+/** "Thứ Bảy, 18/10/2026" */
+const longDay = (iso: string) => `${WEEKDAY_NAMES[weekday(iso)]}, ${isoToDisplay(iso)}`
+
+/** "Hôm nay", "Hôm qua", or the weekday and date. */
+function dayName(iso: string, today: string): string | null {
+  if (iso === today) return 'Hôm nay'
+  if (iso === addDays(today, -1)) return 'Hôm qua'
+  return null
+}
+
+function NowCard({ label, value, to, warn = false, hint }: { label: string; value: number; to: string; warn?: boolean; hint?: string }) {
+  return (
+    <Link
+      to={to}
+      className={`${card} block p-5 hover:border-brand-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${
+        warn ? 'border-amber-300 bg-amber-50' : ''
+      }`}
+    >
       <p className="text-sm text-stone-600">{label}</p>
-      <p className={`mt-1 text-2xl font-bold tabular-nums ${highlight ? 'text-amber-800' : 'text-stone-900'}`}>{value}</p>
-    </>
-  )
-  return to ? (
-    <Link to={to} className={`${card} block p-5 hover:border-brand-300`}>
-      {body}
+      <p className={`mt-1 text-2xl font-bold tabular-nums ${warn ? 'text-amber-800' : 'text-stone-900'}`}>{value}</p>
+      {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
     </Link>
-  ) : (
-    <div className={`${card} p-5`}>{body}</div>
   )
 }
 
-export default function DashboardPage() {
-  const { data, error, reload } = useAsync((signal) => adminApi.dashboard(signal), [])
-
-  if (error) return <ErrorMessage message={error.message} onRetry={reload} />
-  if (!data) return <Spinner />
-
-  const max = Math.max(1, ...data.revenueByDay.map((d) => d.revenue))
+/**
+ * "▲ 2 so với hôm qua (+50%)" / "▼ 150.000₫" / "Không đổi". Green when the change is good, red when bad (more
+ * cancellations is bad); no percentage when the day before was 0.
+ */
+function Change({ now, before, money = false, upIsBad = false, versus }: { now: number; before: number; money?: boolean; upIsBad?: boolean; versus: string }) {
+  const diff = now - before
+  if (diff === 0) return <p className="mt-1 text-xs text-stone-500">Không đổi {versus}</p>
+  const amount = money ? formatPrice(Math.abs(diff)) : String(Math.abs(diff))
+  const percent = before > 0 ? ` (${diff > 0 ? '+' : '−'}${Math.round((Math.abs(diff) / before) * 100)}%)` : ''
+  const good = diff > 0 !== upIsBad
   return (
-    <>
-      <PageHeader title="Tổng quan" />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stat label="Đơn hôm nay" value={String(data.ordersToday)} to="/admin/don-hang" />
-        <Stat
-          label="Đơn chờ xác nhận"
-          value={String(data.pendingCount)}
-          to="/admin/don-hang?status=PENDING"
-          highlight={data.pendingCount > 0}
-        />
-        <Stat label="Doanh thu 7 ngày (đã giao)" value={formatPrice(data.revenue7Days)} />
-      </div>
+    <p className={`mt-1 text-xs font-medium tabular-nums ${good ? 'text-brand-700' : 'text-red-700'}`}>
+      <span aria-hidden>{diff > 0 ? '▲' : '▼'}</span>
+      <span className="sr-only">{diff > 0 ? 'Tăng' : 'Giảm'}</span> {amount} {versus}
+      {percent}
+    </p>
+  )
+}
 
-      <section className={`${card} mt-6 p-5`} aria-labelledby="revenue-title">
-        <h2 id="revenue-title" className="font-semibold text-stone-900">
-          Doanh thu theo ngày
-        </h2>
-        <p className="text-sm text-muted">Chỉ tính đơn đã giao thành công, theo ngày hoàn tất.</p>
-        <ol className="mt-4 flex h-44 items-end gap-2" aria-label="Biểu đồ doanh thu 7 ngày">
-          {data.revenueByDay.map((d) => (
-            <li key={d.date} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-              <span className="sr-only">
-                {dayLabel.format(new Date(d.date))}: {formatPrice(d.revenue)}, {d.orders} đơn
-              </span>
-              <div
-                aria-hidden
-                title={`${formatPrice(d.revenue)} · ${d.orders} đơn`}
-                className="w-full max-w-12 rounded-t-lg bg-brand-500"
-                style={{ height: `${Math.max(2, (d.revenue / max) * 100)}%` }}
-              />
-              <span aria-hidden className="text-xs whitespace-nowrap text-stone-600">
-                {dayLabel.format(new Date(d.date)).replace(/,.*/, '')}
-              </span>
+function DayStat({ label, children, change, extra }: { label: string; children: string; change: ReactNode; extra?: string | null }) {
+  return (
+    <div className={`${card} min-w-0 p-4 sm:p-5`}>
+      <p className="text-sm text-stone-600">{label}</p>
+      <p className="mt-1 truncate text-xl font-bold text-stone-900 tabular-nums sm:text-2xl">{children}</p>
+      {change}
+      {extra && <p className="mt-1 truncate text-xs text-muted">{extra}</p>}
+    </div>
+  )
+}
+
+function DayStats({ day, versus }: { day: DashboardDayTotals & { previous: DashboardDayTotals }; versus: string }) {
+  const p = day.previous
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <DayStat label="Đơn mới" change={<Change now={day.ordersCreated} before={p.ordersCreated} versus={versus} />}>
+        {String(day.ordersCreated)}
+      </DayStat>
+      <DayStat label="Giá trị đơn đặt" change={<Change now={day.grossValue} before={p.grossValue} money versus={versus} />}>
+        {formatPrice(day.grossValue)}
+      </DayStat>
+      <DayStat
+        label="Đơn huỷ"
+        change={<Change now={day.cancelled} before={p.cancelled} upIsBad versus={versus} />}
+        extra={day.topCancelReason && `Lý do nhiều nhất: ${day.topCancelReason}`}
+      >
+        {String(day.cancelled)}
+      </DayStat>
+      <DayStat label="Doanh thu (đã giao)" change={<Change now={day.revenue} before={p.revenue} money versus={versus} />}>
+        {formatPrice(day.revenue)}
+      </DayStat>
+    </div>
+  )
+}
+
+function ChevronIcon({ dir }: { dir: 'prev' | 'next' }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" className="size-4">
+      <path d={dir === 'prev' ? 'M12.5 4.5 7 10l5.5 5.5' : 'M7.5 4.5 13 10l-5.5 5.5'} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+const roundBtn =
+  'flex size-10 shrink-0 items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white'
+const quickBtn = (active: boolean) =>
+  `shrink-0 rounded-full px-3 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${
+    active ? 'bg-stone-900 text-white' : 'border border-stone-300 bg-white text-stone-700 hover:bg-stone-50'
+  }`
+
+/** ‹ "Hôm nay · Thứ Bảy, 18/10/2026" › + Hôm nay / Hôm qua + calendar. Phones: one row, short label, no "Hôm qua". */
+function DayPicker({ date, today, min, onChange }: { date: string; today: string; min: string; onChange: (iso: string) => void }) {
+  const [calendarOpen, setCalendarOpen] = useState(false)
+  const wrapper = useRef<HTMLDivElement>(null)
+  const calendarButton = useRef<HTMLButtonElement>(null)
+  const yesterday = addDays(today, -1)
+  const name = dayName(date, today)
+
+  useEffect(() => {
+    if (!calendarOpen) return
+    const onPointer = (e: PointerEvent) => {
+      if (!wrapper.current?.contains(e.target as Node)) setCalendarOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointer)
+    return () => document.removeEventListener('pointerdown', onPointer)
+  }, [calendarOpen])
+
+  return (
+    <div ref={wrapper} className="relative flex items-center gap-2">
+      <button type="button" onClick={() => onChange(addDays(date, -1))} disabled={date <= min} aria-label="Ngày trước" className={roundBtn}>
+        <ChevronIcon dir="prev" />
+      </button>
+      <p aria-live="polite" className="min-w-0 text-center text-sm font-semibold whitespace-nowrap text-stone-900 tabular-nums sm:min-w-64 sm:text-base">
+        <span className="sm:hidden">{name ?? `${shortWeekday(date)}, ${dayMonth(date)}`}</span>
+        <span className="max-sm:hidden">
+          {name && `${name} · `}
+          {longDay(date)}
+        </span>
+      </p>
+      <button type="button" onClick={() => onChange(addDays(date, 1))} disabled={date >= today} aria-label="Ngày sau" className={roundBtn}>
+        <ChevronIcon dir="next" />
+      </button>
+      <button type="button" onClick={() => onChange(today)} aria-pressed={date === today} className={`${quickBtn(date === today)} ml-auto sm:ml-2`}>
+        Hôm nay
+      </button>
+      <button type="button" onClick={() => onChange(yesterday)} aria-pressed={date === yesterday} className={`${quickBtn(date === yesterday)} max-sm:hidden`}>
+        Hôm qua
+      </button>
+      <button
+        ref={calendarButton}
+        type="button"
+        onClick={() => setCalendarOpen((o) => !o)}
+        aria-label="Chọn ngày từ lịch"
+        aria-expanded={calendarOpen}
+        aria-haspopup="dialog"
+        className={roundBtn}
+      >
+        <svg aria-hidden="true" viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <rect x="3" y="4.5" width="14" height="12" rx="2" />
+          <path d="M3 8.5h14M7 3v3M13 3v3" strokeLinecap="round" />
+        </svg>
+      </button>
+      {calendarOpen && (
+        <div className="absolute top-full left-0 z-40">
+          <Calendar
+            label="ngày"
+            value={date}
+            min={min}
+            max={today}
+            onPick={(iso) => {
+              setCalendarOpen(false)
+              onChange(iso)
+              calendarButton.current?.focus()
+            }}
+            onClose={() => {
+              setCalendarOpen(false)
+              calendarButton.current?.focus()
+            }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 7 columns ending on the selected day (drawn darker); each column is a button that selects its day. */
+function RevenueChart({ days, selected, min, onSelect }: { days: DashboardDay['last7Days']; selected: string; min: string; onSelect: (iso: string) => void }) {
+  const max = Math.max(1, ...days.map((d) => d.revenue))
+  const total = days.reduce((sum, d) => sum + d.revenue, 0)
+  const orders = days.reduce((sum, d) => sum + d.orders, 0)
+  // Narrow screens scroll the chart: keep the selected day (the last column) in view
+  const scroller = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (scroller.current) scroller.current.scrollLeft = scroller.current.scrollWidth
+  }, [selected])
+  return (
+    <section className={`${card} p-5`} aria-labelledby="revenue-title">
+      <h2 id="revenue-title" className="font-semibold text-stone-900">
+        Doanh thu theo ngày
+      </h2>
+      <p className="text-sm text-muted">Chỉ tính đơn đã giao thành công, theo ngày hoàn tất.</p>
+      <p className="mt-2 text-sm text-stone-700 tabular-nums">
+        7 ngày đến {dayMonth(selected)}: <strong className="text-stone-900">{formatPrice(total)}</strong> · {orders} đơn
+      </p>
+      <div ref={scroller} className="-mx-1 mt-3 overflow-x-auto px-1 pb-1">
+        <ol className="flex h-44 min-w-[22rem] items-end gap-2" aria-label="Biểu đồ doanh thu 7 ngày">
+          {days.map((d) => {
+            const active = d.date === selected
+            return (
+              <li key={d.date} className="flex h-full flex-1">
+                <button
+                  type="button"
+                  onClick={() => onSelect(d.date)}
+                  disabled={d.date < min}
+                  aria-pressed={active}
+                  aria-label={`Xem ngày ${dayMonth(d.date)}: ${formatPrice(d.revenue)}, ${d.orders} đơn`}
+                  title={`${formatPrice(d.revenue)} · ${d.orders} đơn`}
+                  className="group flex h-full w-full flex-col items-center justify-end gap-1 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed"
+                >
+                  <span
+                    aria-hidden
+                    className={`w-full max-w-12 rounded-t-lg transition-colors ${active ? 'bg-brand-700' : 'bg-brand-500/45 group-hover:bg-brand-500'}`}
+                    style={{ height: `${Math.max(2, (d.revenue / max) * 100)}%` }}
+                  />
+                  <span aria-hidden className={`text-xs whitespace-nowrap tabular-nums ${active ? 'font-bold text-stone-900' : 'text-stone-600'}`}>
+                    {shortWeekday(d.date)} {dayMonth(d.date)}
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ol>
+      </div>
+    </section>
+  )
+}
+
+const NO_ORDERS = 'Không có đơn nào trong ngày này'
+
+function TopProducts({ items }: { items: DashboardDay['topProducts'] }) {
+  return (
+    <section className={`${card} p-5`} aria-labelledby="top-title">
+      <h2 id="top-title" className="font-semibold text-stone-900">
+        Bán chạy trong ngày
+      </h2>
+      {items.length === 0 ? (
+        <p className="mt-3 text-sm text-muted">{NO_ORDERS}</p>
+      ) : (
+        <ol className="mt-3 divide-y divide-stone-100">
+          {items.map((p, i) => (
+            <li key={p.productId} className="flex items-baseline gap-3 py-2 text-sm">
+              <span className="w-4 shrink-0 text-muted tabular-nums">{i + 1}</span>
+              <span className="min-w-0 flex-1 truncate text-stone-900">{p.name}</span>
+              <span className="shrink-0 text-stone-600 tabular-nums">×{p.quantity}</span>
+              <span className="w-24 shrink-0 text-right font-semibold text-stone-900 tabular-nums">{formatPrice(p.amount)}</span>
             </li>
           ))}
         </ol>
+      )}
+    </section>
+  )
+}
+
+function DayOrders({ day }: { day: DashboardDay }) {
+  return (
+    <section aria-labelledby="day-orders-title">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 id="day-orders-title" className="font-semibold text-stone-900">
+          Đơn của ngày
+        </h2>
+        {day.ordersCreated > 0 && (
+          <Link to={`/admin/don-hang?from=${day.date}&to=${day.date}`} className="text-sm font-semibold text-brand-700 hover:underline">
+            Xem tất cả{day.ordersCreated > DAY_ORDERS ? ` (${day.ordersCreated})` : ''} →
+          </Link>
+        )}
+      </div>
+      {day.orders.length === 0 ? (
+        <p className={`${card} px-5 py-8 text-center text-sm text-muted`}>{NO_ORDERS}</p>
+      ) : (
+        <div className={table.wrap}>
+          <table className={table.table}>
+            <thead>
+              <tr>
+                <th className={table.th}>Mã đơn</th>
+                <th className={table.th}>Giờ</th>
+                <th className={table.th}>Khách</th>
+                <th className={`${table.th} text-right`}>Tổng tiền</th>
+                <th className={table.th}>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              {day.orders.map((o) => (
+                <tr key={o.code}>
+                  <td className={table.td}>
+                    <Link to={`/admin/don-hang/${o.code}`} className="font-semibold text-brand-700 hover:underline">
+                      {o.code}
+                    </Link>
+                  </td>
+                  <td className={`${table.td} tabular-nums`}>{timeFormat.format(new Date(o.createdAt))}</td>
+                  <td className={table.td}>{o.customerName}</td>
+                  <td className={`${table.td} text-right tabular-nums`}>{formatPrice(o.total)}</td>
+                  <td className={table.td}>
+                    <StatusBadge status={o.status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
+/**
+ * Back-office home. "Cần xử lý ngay" (pending orders, low stock) does not depend on the day; "Tổng quan ngày" shows
+ * one Vietnam day, kept in the URL (?ngay=yyyy-MM-dd, none for today). ← / → inside it move a day.
+ */
+export default function DashboardPage() {
+  const [params, setParams] = useSearchParams()
+  const today = vnTodayIso()
+  const min = addDays(today, -MAX_DAYS_BACK)
+  const raw = params.get('ngay')
+  const valid =
+    raw === null || (ISO_DAY.test(raw) && !Number.isNaN(fromIso(raw).getTime()) && addDays(raw, 0) === raw && raw >= min && raw < today)
+  const date = valid && raw ? raw : today
+
+  const now = useAsync((signal) => adminApi.dashboardNow(signal), [])
+  const day = useAsync(
+    async (signal) => {
+      const value = await adminApi.dashboardDay(date, signal)
+      dayCache.set(date, value)
+      return value
+    },
+    [date],
+  )
+  // While a new day loads: that day from the cache, else the previous day's numbers (dimmed)
+  const shown = dayCache.get(date) ?? day.data
+
+  const select = (iso: string) => {
+    if (iso < min || iso > today) return
+    const next = new URLSearchParams(params)
+    if (iso === today) next.delete('ngay')
+    else next.set('ngay', iso)
+    setParams(next, { preventScrollReset: true })
+  }
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return
+    if ((e.target as HTMLElement).closest('input, textarea, select, [role="dialog"]')) return
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault()
+      select(addDays(date, e.key === 'ArrowLeft' ? -1 : 1))
+    }
+  }
+
+  if (!valid || raw === today) {
+    const next = new URLSearchParams(params)
+    next.delete('ngay')
+    return <Navigate to={{ search: next.size ? `?${next}` : '' }} replace />
+  }
+
+  const versus = date === today ? 'so với hôm qua' : 'so với ngày trước'
+  return (
+    <>
+      <PageHeader title="Tổng quan" />
+
+      <section aria-labelledby="now-title">
+        <h2 id="now-title" className="mb-3 font-semibold text-stone-900">
+          Cần xử lý ngay
+        </h2>
+        {now.error && !now.data ? (
+          <ErrorMessage message={now.error.message} onRetry={now.reload} />
+        ) : !now.data ? (
+          <Spinner />
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+            <NowCard label="Đơn chờ xác nhận" value={now.data.pendingCount} to="/admin/don-hang?status=PENDING" />
+            <NowCard
+              label="Đơn chờ quá 24 giờ"
+              value={now.data.pendingOver24h}
+              to="/admin/don-hang?status=PENDING"
+              warn={now.data.pendingOver24h > 0}
+              hint={now.data.pendingOver24h > 0 ? 'Cần gọi xác nhận sớm' : undefined}
+            />
+            <NowCard
+              label="Sản phẩm sắp hết hàng"
+              value={now.data.lowStockCount}
+              to="/admin/kho?low=1"
+              warn={now.data.lowStockCount > 0}
+              hint={now.data.lowStock.length > 0 ? now.data.lowStock.slice(0, 3).map((p) => p.name).join(', ') : undefined}
+            />
+          </div>
+        )}
       </section>
 
-      <section className="mt-6" aria-labelledby="low-title">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 id="low-title" className="font-semibold text-stone-900">
-            Sản phẩm sắp hết hàng
+      {/* Arrow keys anywhere in here (outside text fields and the calendar) move a day */}
+      <section aria-labelledby="day-title" onKeyDown={onKeyDown} className="mt-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 id="day-title" className="font-semibold text-stone-900">
+            Tổng quan ngày
           </h2>
-          <Link to="/admin/kho?low=1" className="text-sm font-semibold text-brand-700 hover:underline">
-            Xem tồn kho →
-          </Link>
+          <div className="w-full sm:w-auto">
+            <DayPicker date={date} today={today} min={min} onChange={select} />
+          </div>
         </div>
-        {data.lowStock.length === 0 ? (
-          <EmptyState title="Không có sản phẩm nào dưới ngưỡng tồn kho." />
+
+        {day.error && !shown ? (
+          <ErrorMessage message={day.error.message} onRetry={day.reload} />
+        ) : !shown ? (
+          <Spinner />
         ) : (
-          <div className={table.wrap}>
-            <table className={table.table}>
-              <thead>
-                <tr>
-                  <th className={table.th}>Sản phẩm</th>
-                  <th className={`${table.th} text-right`}>Có thể bán</th>
-                  <th className={`${table.th} text-right`}>Ngưỡng</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.lowStock.map((p) => (
-                  <tr key={p.id} className="bg-amber-50/60">
-                    <td className={table.td}>{p.name}</td>
-                    <td className={`${table.td} text-right font-semibold text-amber-900 tabular-nums`}>{p.available}</td>
-                    <td className={`${table.td} text-right tabular-nums`}>{p.lowStockThreshold}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div aria-busy={day.loading} className={`space-y-6 transition-opacity ${day.loading && !dayCache.has(date) ? 'opacity-60' : ''}`}>
+            <DayStats day={shown} versus={versus} />
+            <RevenueChart days={shown.last7Days} selected={date} min={min} onSelect={select} />
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+              <TopProducts items={shown.topProducts} />
+              <DayOrders day={shown} />
+            </div>
           </div>
         )}
       </section>

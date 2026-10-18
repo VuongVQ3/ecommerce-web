@@ -18,8 +18,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
 
 	long countByStatus(OrderStatus status);
 
-	long countByCreatedAtGreaterThanEqual(java.time.Instant from);
-
 	@EntityGraph(attributePaths = "items")
 	Optional<Order> findByIdempotencyKey(String idempotencyKey);
 

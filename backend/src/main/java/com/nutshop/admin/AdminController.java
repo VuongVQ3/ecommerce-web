@@ -48,9 +48,17 @@ public class AdminController {
 		this.dashboard = dashboard;
 	}
 
-	@GetMapping("/dashboard")
-	public DashboardService.Dashboard dashboard() {
-		return dashboard.get();
+	/** Needs doing now (pending orders, low stock), whatever day the dashboard shows. */
+	@GetMapping("/dashboard/now")
+	public DashboardService.Now dashboardNow() {
+		return dashboard.now();
+	}
+
+	/** One day in Vietnam time (default today); 400 for the future or more than 365 days back. */
+	@GetMapping("/dashboard/day")
+	public DashboardService.Day dashboardDay(
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+		return dashboard.day(date != null ? date : dashboard.today());
 	}
 
 	// ---- orders -----------------------------------------------------------------------------------------------
