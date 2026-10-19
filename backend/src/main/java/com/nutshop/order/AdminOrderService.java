@@ -5,6 +5,7 @@ import com.nutshop.common.ApiException;
 import com.nutshop.common.PageResponse;
 import com.nutshop.order.OrderDtos.OrderResponse;
 import com.nutshop.user.PhoneNumbers;
+import com.nutshop.user.Role;
 import com.nutshop.user.User;
 import com.nutshop.user.UserRepository;
 import jakarta.persistence.criteria.Predicate;
@@ -74,8 +75,16 @@ public class AdminOrderService {
 	/**
 	 * @param allowedActions what the current status allows, so the UI only shows valid buttons
 	 */
-	public record AdminOrderDetail(OrderResponse order, boolean guest, String carrier, String trackingNumber,
-			List<NoteResponse> notes, List<Action> allowedActions, CancelReason cancelReasonCode) {
+	/**
+	 * @param account who placed it when signed in (null for a guest order, or when that account was deleted): staff
+	 *     and admin accounts stand out in the back office (test orders, orders placed by mistake)
+	 */
+	public record AdminOrderDetail(OrderResponse order, boolean guest, Account account, String carrier,
+			String trackingNumber, List<NoteResponse> notes, List<Action> allowedActions, CancelReason cancelReasonCode) {
+	}
+
+	/** The account an order belongs to. */
+	public record Account(UUID id, String fullName, String email, Role role) {
 	}
 
 	private record AuditView(String status, String carrier, String trackingNumber) {
@@ -163,8 +172,12 @@ public class AdminOrderService {
 			.stream()
 			.filter(a -> order.getStatus().canTransitionTo(a.target))
 			.toList();
-		return new AdminOrderDetail(orderService.toResponse(order), order.getUserId() == null, order.getCarrier(),
-				order.getTrackingNumber(),
+		Account account = order.getUserId() == null ? null
+				: users.findById(order.getUserId())
+					.map(u -> new Account(u.getId(), u.getFullName(), u.getEmail(), u.getRole()))
+					.orElse(null);
+		return new AdminOrderDetail(orderService.toResponse(order), order.getUserId() == null, account,
+				order.getCarrier(), order.getTrackingNumber(),
 				orderNotes.stream()
 					.map(n -> new NoteResponse(n.getBody(), n.getCreatedAt(), names.getOrDefault(n.getAuthorId(), "—")))
 					.toList(),

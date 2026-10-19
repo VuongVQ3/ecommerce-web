@@ -26,6 +26,8 @@ export interface AdminOrderNote {
 export interface AdminOrderDetail {
   order: Order
   guest: boolean
+  /** Who placed it while signed in; null for a guest order (or a deleted account) */
+  account: { id: string; fullName: string; email: string; role: Role } | null
   carrier: string | null
   trackingNumber: string | null
   notes: AdminOrderNote[]

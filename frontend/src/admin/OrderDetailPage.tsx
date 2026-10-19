@@ -309,7 +309,32 @@ function CustomerBlock({
       </h2>
       <p className="mt-2 font-medium break-words text-stone-900">{order.customerName}</p>
       <p className="text-lg font-semibold tracking-wide text-stone-900 tabular-nums">{order.phone}</p>
-      <p className="text-muted">{detail.guest ? 'Khách vãng lai (không đăng nhập)' : 'Khách có tài khoản'}</p>
+      {detail.guest ? (
+        <p className="text-muted">Khách vãng lai (không đăng nhập)</p>
+      ) : detail.account ? (
+        <div className="mt-1 space-y-1">
+          <p className="break-words text-stone-700">
+            Tài khoản:{' '}
+            {/* User pages are ADMIN only */}
+            {role === 'ADMIN' ? (
+              <Link to={`/admin/nguoi-dung/${detail.account.id}`} className="font-medium text-brand-700 hover:underline">
+                {detail.account.fullName} ({detail.account.email})
+              </Link>
+            ) : (
+              <span className="font-medium text-stone-900">
+                {detail.account.fullName} ({detail.account.email})
+              </span>
+            )}
+          </p>
+          {detail.account.role !== 'CUSTOMER' && (
+            <p className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
+              ⚠️ Đặt bằng tài khoản nhân viên
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="text-muted">Khách có tài khoản (tài khoản đã bị xoá)</p>
+      )}
 
       <div className="mt-3 flex gap-2">
         <a href={`tel:${order.phone}`} className={contactBtn}>
