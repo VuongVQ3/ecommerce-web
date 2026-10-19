@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { claimAccountSchema, isPersonName, type ClaimAccountForm } from '../auth/schemas'
@@ -6,6 +6,7 @@ import { useAuthForm } from '../auth/useAuthForm'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { Checkbox, FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton, TextField } from '../components/FormFields'
 import CancelOrderDialog from '../components/CancelOrderDialog'
+import CopyButton from '../components/CopyButton'
 import Modal from '../components/Modal'
 import { PriceTag } from '../components/Price'
 import { StatusBadge } from '../components/OrderDetails'
@@ -31,48 +32,6 @@ const STEPS: { status: OrderStatus; label: string }[] = (['PENDING', 'CONFIRMED'
 )
 
 const dismissKey = (code: string) => `hatlanh_claim_dismissed_${code}`
-
-/** Copies with the Clipboard API inside the click; if that is unavailable, shows the text selected for manual copy. */
-export function CopyButton({ text, label, copiedLabel = 'Đã sao chép' }: { text: string; label: string; copiedLabel?: string }) {
-  const [state, setState] = useState<'idle' | 'copied' | 'manual'>('idle')
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setState('copied')
-      window.setTimeout(() => setState('idle'), 2000)
-    } catch {
-      setState('manual')
-      window.setTimeout(() => inputRef.current?.select(), 0)
-    }
-  }
-
-  return (
-    <span className="inline-flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        onClick={copy}
-        className="rounded-full border border-stone-300 bg-white px-3.5 py-1.5 text-sm font-semibold text-stone-800 hover:bg-stone-50"
-      >
-        {state === 'copied' ? `✓ ${copiedLabel}` : label}
-      </button>
-      {state === 'manual' && (
-        <input
-          ref={inputRef}
-          readOnly
-          value={text}
-          aria-label="Nhấn giữ hoặc Ctrl+C để sao chép"
-          onFocus={(e) => e.currentTarget.select()}
-          className="w-full min-w-0 rounded-lg border border-stone-300 bg-stone-50 px-2 py-1 text-sm sm:w-80"
-        />
-      )}
-      <span className="sr-only" aria-live="polite">
-        {state === 'copied' ? copiedLabel : ''}
-      </span>
-    </span>
-  )
-}
 
 function Progress({ order }: { order: TrackedOrder }) {
   if (order.status === 'CANCELLED') {
