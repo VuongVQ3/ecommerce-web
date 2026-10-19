@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { acceptInviteSchema, changePasswordSchema, type ChangePasswordForm } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
-import { FormError, PasswordChecklist, PasswordField, SubmitButton } from '../components/FormFields'
+import { FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton } from '../components/FormFields'
 import { useToast } from '../components/Toast'
 import { api } from '../lib/api'
 import { LOGIN_PATH, safeNextPath } from '../lib/redirect'
@@ -47,6 +47,7 @@ export function ChangePasswordPage() {
         </p>
       )}
       <form onSubmit={onSubmit} noValidate className="mt-5 space-y-4">
+        <RequiredLegend />
         <PasswordField
           label="Mật khẩu hiện tại"
           autoComplete="current-password"
@@ -57,6 +58,7 @@ export function ChangePasswordPage() {
         <div>
           <PasswordField
             label="Mật khẩu mới"
+            requiredMark
             autoComplete="new-password"
             error={errors.newPassword?.message}
             describedBy="change-password-rules"
@@ -68,6 +70,7 @@ export function ChangePasswordPage() {
         </div>
         <PasswordField
           label="Nhập lại mật khẩu mới"
+          requiredMark
           autoComplete="new-password"
           visible={visible}
           onVisibleChange={setVisible}
@@ -120,6 +123,7 @@ export function AcceptInvitePage() {
         <div>
           <PasswordField
             label="Mật khẩu"
+            requiredMark
             autoComplete="new-password"
             error={form.formState.errors.newPassword?.message}
             describedBy="invite-password-rules"
@@ -131,6 +135,7 @@ export function AcceptInvitePage() {
         </div>
         <PasswordField
           label="Nhập lại mật khẩu"
+          requiredMark
           autoComplete="new-password"
           visible={visible}
           onVisibleChange={setVisible}

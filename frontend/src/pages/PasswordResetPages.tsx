@@ -44,6 +44,7 @@ export function ForgotPasswordPage() {
         <FormError message={formError} />
         <TextField
           label="Email"
+          requiredMark
           type="email"
           inputMode="email"
           autoComplete="email"
@@ -110,6 +111,7 @@ export function ResetPasswordPage() {
         )}
         <PasswordField
           label="Mật khẩu mới"
+          requiredMark
           autoComplete="new-password"
           hint="Tối thiểu 8 ký tự, có cả chữ và số."
           error={form.formState.errors.newPassword?.message}

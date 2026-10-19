@@ -68,4 +68,16 @@ describe('CancelOrderDialog', () => {
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(submitButton().disabled).toBe(false)
   })
+
+  it('marks the note as required only for "Lý do khác"', () => {
+    render(<CancelOrderDialog code="HL1" onClose={vi.fn()} onSubmit={vi.fn()} />)
+    const note = () => screen.getByLabelText('Ghi chú thêm')
+    expect(note().hasAttribute('aria-required')).toBe(false)
+    expect(note().hasAttribute('required')).toBe(false)
+    fireEvent.click(screen.getByLabelText('Không muốn mua nữa'))
+    expect(note().hasAttribute('aria-required')).toBe(false)
+    fireEvent.click(screen.getByLabelText('Lý do khác'))
+    expect(note().getAttribute('aria-required')).toBe('true')
+    expect(screen.getByRole('radiogroup', { name: 'Lý do huỷ' }).getAttribute('aria-required')).toBe('true')
+  })
 })

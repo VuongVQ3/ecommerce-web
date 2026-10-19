@@ -5,7 +5,7 @@ import { checkoutSchema } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
 import { useCart } from '../cart/CartContext'
 import { Spinner } from '../components/Feedback'
-import { FormError, SelectField, SubmitButton, TextField } from '../components/FormFields'
+import { FormError, RequiredLegend, SelectField, SubmitButton, TextField } from '../components/FormFields'
 import { PriceTag } from '../components/Price'
 import ProductImage from '../components/ProductImage'
 import { useProvinces } from '../lib/adminUnits'
@@ -195,14 +195,16 @@ function CheckoutForm({ view }: { view: CartView }) {
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-5">
+      <RequiredLegend />
       <section className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6" aria-labelledby="checkout-contact">
         <h2 id="checkout-contact" className="font-bold text-stone-900">
           Thông tin người nhận
         </h2>
-        <TextField label="Họ và tên" autoComplete="name" error={errors.customerName?.message} {...form.register('customerName')} />
+        <TextField label="Họ và tên" requiredMark autoComplete="name" error={errors.customerName?.message} {...form.register('customerName')} />
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
             label="Số điện thoại"
+            requiredMark
             type="tel"
             inputMode="tel"
             autoComplete="tel"
@@ -230,6 +232,7 @@ function CheckoutForm({ view }: { view: CartView }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField
             label="Tỉnh/Thành phố"
+            requiredMark
             placeholder={provinces ? 'Chọn tỉnh/thành phố' : 'Đang tải...'}
             disabled={!provinces}
             autoComplete="address-level1"
@@ -242,6 +245,7 @@ function CheckoutForm({ view }: { view: CartView }) {
           />
           <SelectField
             label="Phường/Xã"
+            requiredMark
             placeholder={provinceCode ? 'Chọn phường/xã' : 'Chọn tỉnh/thành phố trước'}
             disabled={!provinceCode}
             autoComplete="address-level2"
@@ -252,6 +256,7 @@ function CheckoutForm({ view }: { view: CartView }) {
         </div>
         <TextField
           label="Địa chỉ chi tiết"
+          requiredMark
           autoComplete="street-address"
           placeholder="Số nhà, tên đường, toà nhà..."
           error={errors.addressLine?.message}

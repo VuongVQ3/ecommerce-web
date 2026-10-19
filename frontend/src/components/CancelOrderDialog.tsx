@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import type { CustomerCancelInput } from '../lib/api'
 import { CANCEL_REASON_LABEL, CUSTOMER_CANCEL_REASONS, type CustomerCancelReasonCode } from '../lib/orderStatus'
 import { telHref, useSiteInfo } from '../lib/siteInfo'
+import { RequiredMark } from './FormFields'
 import Modal from './Modal'
 
 const MAX_NOTE = 300
@@ -60,8 +61,11 @@ export default function CancelOrderDialog({
     >
       <p className="text-sm text-stone-600">Thao tác này không hoàn tác được.</p>
       <fieldset>
-        <legend className="text-sm font-medium text-stone-800">Lý do huỷ</legend>
-        <div className="mt-2 space-y-2">
+        <legend className="text-sm font-medium text-stone-800">
+          Lý do huỷ
+          <RequiredMark />
+        </legend>
+        <div role="radiogroup" aria-label="Lý do huỷ" aria-required="true" className="mt-2 space-y-2">
           {CUSTOMER_CANCEL_REASONS.map((value) => (
             <label key={value} className="flex cursor-pointer items-center gap-3 text-sm text-stone-800">
               <input
@@ -87,9 +91,11 @@ export default function CancelOrderDialog({
       )}
       <div>
         <div className="flex items-baseline justify-between gap-2">
-          <label htmlFor={noteId} className="text-sm font-medium text-stone-700">
-            Ghi chú thêm{noteRequired ? ' (bắt buộc)' : ''}
-          </label>
+          <p className="text-sm font-medium text-stone-700">
+            <label htmlFor={noteId}>Ghi chú thêm</label>
+            {/* Required only for "Lý do khác" */}
+            {noteRequired && <RequiredMark />}
+          </p>
           <span className={`text-xs tabular-nums ${note.length > MAX_NOTE ? 'text-danger' : 'text-muted'}`} aria-live="polite">
             {`${note.length}/${MAX_NOTE}`}
           </span>
@@ -100,7 +106,7 @@ export default function CancelOrderDialog({
           maxLength={MAX_NOTE}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          required={noteRequired}
+          aria-required={noteRequired || undefined}
           aria-invalid={noteRequired && trimmed.length === 0 && note.length > 0 ? true : undefined}
           className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-base outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
         />

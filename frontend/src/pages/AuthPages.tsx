@@ -93,6 +93,7 @@ export function LoginPage() {
         <FormError message={formError} />
         <TextField
           label="Email"
+          requiredMark
           type="email"
           inputMode="email"
           autoComplete="email"
@@ -102,6 +103,7 @@ export function LoginPage() {
         <div>
           <PasswordField
             label="Mật khẩu"
+            requiredMark
             autoComplete="current-password"
             error={errors.password?.message}
             {...form.register('password')}

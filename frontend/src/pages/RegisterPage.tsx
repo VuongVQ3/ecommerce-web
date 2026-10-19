@@ -7,7 +7,7 @@ import Turnstile, { type TurnstileHandle } from '../auth/Turnstile'
 import { useAuthForm } from '../auth/useAuthForm'
 import { useNextPath } from '../auth/useNextPath'
 import { Spinner } from '../components/Feedback'
-import { Checkbox, FormError, PasswordChecklist, PasswordField, SubmitButton, TextField } from '../components/FormFields'
+import { Checkbox, FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton, TextField } from '../components/FormFields'
 import { suggestEmail } from '../lib/emailSuggestion'
 import { normalizePhone } from '../lib/phone'
 import { FORGOT_PASSWORD_PATH, LOGIN_PATH, withNext } from '../lib/redirect'
@@ -106,10 +106,12 @@ export function RegisterPage() {
       }
     >
       <form onSubmit={onSubmit} className="relative mt-6 space-y-4" noValidate>
-        <TextField label="Họ và tên" autoComplete="name" error={errors.fullName?.message} {...form.register('fullName')} />
+        <RequiredLegend />
+        <TextField label="Họ và tên" requiredMark autoComplete="name" error={errors.fullName?.message} {...form.register('fullName')} />
 
         <TextField
           label="Email"
+          requiredMark
           type="email"
           inputMode="email"
           autoComplete="email"
@@ -157,6 +159,7 @@ export function RegisterPage() {
         <div>
           <PasswordField
             label="Mật khẩu"
+            requiredMark
             autoComplete="new-password"
             error={errors.password?.message}
             describedBy={checklistId}
@@ -171,6 +174,7 @@ export function RegisterPage() {
         <TextField
           id={confirmId}
           label="Nhập lại mật khẩu"
+          requiredMark
           type={passwordsVisible ? 'text' : 'password'}
           autoComplete="new-password"
           error={errors.confirmPassword?.message}

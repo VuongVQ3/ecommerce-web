@@ -230,4 +230,16 @@ describe('CheckoutPage', () => {
     renderCheckout()
     expect(screen.queryByText(/Đơn sẽ được lưu vào tài khoản/)).toBeNull()
   })
+
+  it('marks the five required fields, not email and note, and explains the *', () => {
+    renderCheckout()
+    for (const label of ['Họ và tên', 'Số điện thoại', 'Địa chỉ chi tiết']) {
+      expect(input(label).getAttribute('aria-required')).toBe('true')
+    }
+    expect(select('Tỉnh/Thành phố').getAttribute('aria-required')).toBe('true')
+    expect(select('Phường/Xã').getAttribute('aria-required')).toBe('true')
+    expect(input('Email (không bắt buộc)').hasAttribute('aria-required')).toBe(false)
+    expect(screen.getByLabelText('Ghi chú (không bắt buộc)').hasAttribute('aria-required')).toBe(false)
+    expect(screen.getByText(/là thông tin bắt buộc/)).toBeTruthy()
+  })
 })

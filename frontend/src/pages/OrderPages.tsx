@@ -218,8 +218,8 @@ export function OrderLookupPage() {
       </div>
       <p className="mt-6 text-stone-600">Nhập mã đơn (ví dụ HL261013ABCD) và số điện thoại đã dùng khi đặt hàng.</p>
       <form onSubmit={onSubmit} noValidate className="mt-6 grid gap-4 rounded-2xl border border-stone-200 bg-white p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
-        <TextField label="Mã đơn hàng" autoCapitalize="characters" autoComplete="off" error={errors.code?.message} {...form.register('code')} />
-        <TextField label="Số điện thoại" type="tel" inputMode="tel" autoComplete="tel" error={errors.phone?.message} {...form.register('phone')} />
+        <TextField label="Mã đơn hàng" requiredMark autoCapitalize="characters" autoComplete="off" error={errors.code?.message} {...form.register('code')} />
+        <TextField label="Số điện thoại" requiredMark type="tel" inputMode="tel" autoComplete="tel" error={errors.phone?.message} {...form.register('phone')} />
         <div className="sm:pt-6">
           <SubmitButton pending={pending} pendingLabel="Đang tìm...">
             Tra cứu

@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { claimAccountSchema, isPersonName, type ClaimAccountForm } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
 import { ErrorMessage, Spinner } from '../components/Feedback'
-import { Checkbox, FormError, PasswordChecklist, PasswordField, SubmitButton, TextField } from '../components/FormFields'
+import { Checkbox, FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton, TextField } from '../components/FormFields'
 import CancelOrderDialog from '../components/CancelOrderDialog'
 import Modal from '../components/Modal'
 import { PriceTag } from '../components/Price'
@@ -203,6 +203,7 @@ function ClaimAccountBox({ order, token }: { order: TrackedOrder; token: string 
         </div>
       ) : (
         <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
+          <RequiredLegend />
           <dl className="grid gap-2 rounded-xl bg-white p-4 text-sm sm:grid-cols-2">
             {!needsName && (
               <div>
@@ -218,11 +219,12 @@ function ClaimAccountBox({ order, token }: { order: TrackedOrder; token: string 
             )}
           </dl>
           {needsName && (
-            <TextField label="Họ tên" autoComplete="name" error={errors.fullName?.message} {...form.register('fullName')} />
+            <TextField label="Họ tên" requiredMark autoComplete="name" error={errors.fullName?.message} {...form.register('fullName')} />
           )}
           {!order.hasEmail && (
             <TextField
               label="Email"
+              requiredMark
               type="email"
               autoComplete="email"
               inputMode="email"
@@ -234,6 +236,7 @@ function ClaimAccountBox({ order, token }: { order: TrackedOrder; token: string 
           <div>
             <PasswordField
               label="Mật khẩu"
+              requiredMark
               autoComplete="new-password"
               error={errors.password?.message}
               describedBy={checklistId}
@@ -247,6 +250,7 @@ function ClaimAccountBox({ order, token }: { order: TrackedOrder; token: string 
           <TextField
             id={confirmId}
             label="Nhập lại mật khẩu"
+            requiredMark
             type={passwordsVisible ? 'text' : 'password'}
             autoComplete="new-password"
             error={errors.confirmPassword?.message}
