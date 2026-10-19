@@ -85,6 +85,9 @@ class BackendApplicationTests {
 				(Object) SAMPLE_SLUGS.toArray(String[]::new))).isZero();
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE slug = ANY (?)", Integer.class,
 				(Object) SAMPLE_SLUGS.toArray(String[]::new))).isEqualTo(13);
+		// V18: the samples go to the end of the admin list
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE sort_order = 1000 AND slug = ANY (?)",
+				Integer.class, (Object) SAMPLE_SLUGS.toArray(String[]::new))).isEqualTo(13);
 
 		assertThat(jdbc.queryForList("SELECT slug || '=' || name FROM categories WHERE id <= 5 ORDER BY id", String.class))
 			.containsExactly("hat-dinh-duong=Hạt dinh dưỡng", "hat-sieu-thuc-pham=Hạt siêu thực phẩm",

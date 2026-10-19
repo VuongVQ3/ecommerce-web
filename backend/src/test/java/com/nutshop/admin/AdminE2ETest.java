@@ -287,6 +287,31 @@ class AdminE2ETest {
 			.andExpect(jsonPath("$.code").value("PRICE_REQUIRED"));
 	}
 
+	/** The storefront follows sort_order by default (not the name, not the id); the admin can change it. */
+	@Test
+	void storefrontOrderFollowsTheSortOrderSetInTheBackOffice() throws Exception {
+		Cookie admin = as("ADMIN");
+		String tag = "Thứ tự " + UUID.randomUUID().toString().substring(0, 8);
+		long b = createProduct(admin, tag + " B", null);
+		long a = createProduct(admin, tag + " A", null);
+		// Created later = after the others
+		assertThat(jdbc.queryForObject("SELECT sort_order FROM products WHERE id = ?", Integer.class, a))
+			.isGreaterThan(jdbc.queryForObject("SELECT sort_order FROM products WHERE id = ?", Integer.class, b));
+		mvc.perform(get("/api/products").param("q", tag))
+			.andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.contains((int) b, (int) a)));
+		mvc.perform(get("/api/products").param("q", tag).param("sort", "default"))
+			.andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.contains((int) b, (int) a)));
+
+		String withOrder = productJson(tag + " A", null, 120_000).replace("\"lowStockThreshold\":10", "\"lowStockThreshold\":10,\"sortOrder\":0");
+		mvc.perform(json(put("/api/admin/products/" + a), withOrder).cookie(admin))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.sortOrder").value(0));
+		mvc.perform(get("/api/products").param("q", tag))
+			.andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.contains((int) a, (int) b)));
+		call(get("/api/admin/products").param("q", tag), admin)
+			.andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.contains((int) a, (int) b)));
+	}
+
 	/** The list loads with products that have no price, no stock and no nutrition (the V17 drafts), on every tab. */
 	@Test
 	void productListWorksWithUnpricedProductsWithoutNutrition() throws Exception {
