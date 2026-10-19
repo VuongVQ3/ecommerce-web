@@ -13,7 +13,7 @@ import { slugify } from '../lib/slug'
 import { useAsync } from '../lib/useAsync'
 import NotFoundPage from '../pages/NotFoundPage'
 import MoneyInput from './MoneyInput'
-import { EMPTY_PRODUCT, isBigPriceChange, priceChangePercent, productSchema, toForm, toInput, type ProductForm } from './productSchema'
+import { EMPTY_PRODUCT, isBigPriceChange, priceChangePercent, productSchemaFor, toForm, toInput, type ProductForm } from './productSchema'
 import { VisibilityDialog } from './ProductsPage'
 import { btn, card, input } from './styles'
 import { Dialog, PageHeader, UnsavedChangesGuard } from './ui'
@@ -192,15 +192,18 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
   const [priceConflict, setPriceConflict] = useState<string | null>(null)
   const priceLockedUntil = current?.priceLockedUntil ?? null
 
+  // A product on sale must keep a price; a hidden one may have none yet (it cannot be shown until it has one)
+  const onSale = current?.active ?? false
   const { form, onSubmit, formError, pending } = useAuthForm<ProductForm>(
-    productSchema,
+    productSchemaFor(product?.active ?? false),
     product ? toForm(product) : EMPTY_PRODUCT,
     async (values) => {
       const input = toInput(values)
       setPriceConflict(null)
       if (current) {
-        if (isBigPriceChange(current.price, input.price)) {
-          const ok = await new Promise<boolean>((answer) => setPriceAsk({ oldPrice: current.price, newPrice: input.price, answer }))
+        const newPrice = input.price
+        if (newPrice !== null && isBigPriceChange(current.price, newPrice)) {
+          const ok = await new Promise<boolean>((answer) => setPriceAsk({ oldPrice: current.price, newPrice, answer }))
           setPriceAsk(null)
           if (!ok) {
             requestAnimationFrame(() => document.getElementById('price')?.focus())
@@ -244,9 +247,8 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
 
   const nameField = register('name')
   const slugField = register('slug')
-  const num = (name: keyof ProductForm, label: string, hint?: string) => (
-    // Every number of the product is required
-    <TextField label={label} requiredMark inputMode="decimal" hint={hint} error={errors[name]?.message} {...register(name)} />
+  const num = (name: keyof ProductForm, label: string, hint?: string, required = true) => (
+    <TextField label={label} requiredMark={required} inputMode="decimal" hint={hint} error={errors[name]?.message} {...register(name)} />
   )
 
   return (
@@ -324,7 +326,8 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
                 <label htmlFor="price" className="text-sm font-medium text-stone-700">
                   Giá bán (₫)
                 </label>
-                <RequiredMark />
+                {/* Required to show the product; a hidden one may wait for its price */}
+                {onSale && <RequiredMark />}
                 {priceConflict && (
                   <p id="price-conflict" tabIndex={-1} role="alert" className="mt-1 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">
                     {priceConflict}
@@ -339,15 +342,17 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
                   onBlur={field.onBlur}
                   disabled={priceLockedUntil != null}
                   aria-invalid={fieldState.error ? true : undefined}
-                  aria-required="true"
+                  aria-required={onSale || undefined}
                   aria-describedby="price-help"
                   className={`${input} mt-1`}
                 />
                 <div id="price-help" className="mt-1 space-y-0.5 text-sm">
                   {fieldState.error ? (
                     <p className="text-danger">{fieldState.error.message}</p>
+                  ) : priceValue != null ? (
+                    <p className="text-muted tabular-nums">= {formatPrice(priceValue)}</p>
                   ) : (
-                    priceValue != null && <p className="text-muted tabular-nums">= {formatPrice(priceValue)}</p>
+                    <p className="text-muted">Chưa có giá: sản phẩm ở trạng thái ẩn cho tới khi nhập giá.</p>
                   )}
                   {!fieldState.error && priceValue != null && priceValue % 1000 !== 0 && (
                     <p className="text-amber-800">Giá không chẵn nghìn, kiểm tra lại nhé.</p>
@@ -366,9 +371,10 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
           />
           {num('weightGrams', 'Khối lượng (g)')}
         </div>
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-3">
           <TextField label="Xuất xứ" error={errors.origin?.message} {...register('origin')} />
           {num('lowStockThreshold', 'Ngưỡng cảnh báo tồn kho', 'Cảnh báo khi số có thể bán ≤ ngưỡng này')}
+          {num('sortOrder', 'Thứ tự hiển thị', 'Số nhỏ hiện trước trên cửa hàng; để trống = xếp sau cùng', false)}
         </div>
         <div>
           <label htmlFor="description" className="text-sm font-medium text-stone-700">
@@ -386,13 +392,14 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
           {errors.description && <p className="mt-1 text-sm text-danger">{errors.description.message}</p>}
         </div>
         <fieldset>
-          <legend className="text-sm font-semibold text-stone-900">Dinh dưỡng trên 100g</legend>
+          <legend className="text-sm font-semibold text-stone-900">Dinh dưỡng trên 100g (không bắt buộc)</legend>
+          <p className="mt-1 text-sm text-muted">Nhập đủ cả 5 chỉ số, hoặc để trống hết nếu chưa có (cửa hàng sẽ không hiện bảng dinh dưỡng).</p>
           <div className="mt-2 grid grid-cols-2 gap-4 md:grid-cols-5">
-            {num('calories', 'Năng lượng (kcal)')}
-            {num('protein', 'Protein (g)')}
-            {num('fat', 'Chất béo (g)')}
-            {num('carbs', 'Carb (g)')}
-            {num('fiber', 'Chất xơ (g)')}
+            {num('calories', 'Năng lượng (kcal)', undefined, false)}
+            {num('protein', 'Protein (g)', undefined, false)}
+            {num('fat', 'Chất béo (g)', undefined, false)}
+            {num('carbs', 'Carb (g)', undefined, false)}
+            {num('fiber', 'Chất xơ (g)', undefined, false)}
           </div>
         </fieldset>
         <FormError message={formError} />

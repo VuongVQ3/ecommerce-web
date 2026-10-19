@@ -115,6 +115,8 @@ export interface AdminProductRow {
   name: string
   slug: string
   categoryName: string
+  categorySlug: string
+  /** 0 = no price yet ("Chưa có giá"); such a product cannot be shown */
   price: number
   active: boolean
   onHand: number
@@ -123,6 +125,7 @@ export interface AdminProductRow {
   lowStockThreshold: number
   lowStock: boolean
   imageUrl: string | null
+  sortOrder: number
 }
 
 export interface AdminImage {
@@ -140,19 +143,26 @@ export interface ProductInput {
   categoryId: number
   description: string
   origin: string
-  price: number
+  /** null = no price yet (only for a hidden product) */
+  price: number | null
   weightGrams: number
-  calories: number
-  protein: number
-  fat: number
-  carbs: number
-  fiber: number
+  /** Nutrition per 100g: all five, or all null */
+  calories: number | null
+  protein: number | null
+  fat: number | null
+  carbs: number | null
+  fiber: number | null
   lowStockThreshold: number
+  /** Storefront order; null = after the others (create) / unchanged (update) */
+  sortOrder: number | null
 }
 
-export interface AdminProduct extends Omit<ProductInput, 'origin'> {
+export interface AdminProduct extends Omit<ProductInput, 'origin' | 'price' | 'sortOrder'> {
   id: number
   origin: string | null
+  /** 0 = no price yet */
+  price: number
+  sortOrder: number
   active: boolean
   onHand: number
   reserved: number
@@ -223,8 +233,9 @@ export const adminApi = {
   movements: (productId: number, page: number, signal?: AbortSignal) =>
     apiRequest<Page<MovementRow>>(`/api/admin/inventory/${productId}/movements${query({ page })}`, { signal }),
 
-  products: (q: string, active: '' | 'true' | 'false', page: number, signal?: AbortSignal) =>
-    apiRequest<Page<AdminProductRow>>(`/api/admin/products${query({ q, active, page })}`, { signal }),
+  /** notReady: only products that cannot be sold yet (no price, or no stock) */
+  products: (q: string, active: '' | 'true' | 'false', page: number, signal?: AbortSignal, notReady = false) =>
+    apiRequest<Page<AdminProductRow>>(`/api/admin/products${query({ q, active, notReady, page })}`, { signal }),
   product: (id: number, signal?: AbortSignal) => apiRequest<AdminProduct>(`/api/admin/products/${id}`, { signal }),
   createProduct: (input: ProductInput) => apiRequest<AdminProduct>('/api/admin/products', post(input)),
   updateProduct: (id: number, input: ProductInput) => apiRequest<AdminProduct>(`/api/admin/products/${id}`, put(input)),

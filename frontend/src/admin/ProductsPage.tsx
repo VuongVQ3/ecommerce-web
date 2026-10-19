@@ -4,16 +4,21 @@ import { ErrorMessage, Spinner } from '../components/Feedback'
 import { useToast } from '../components/Toast'
 import { adminApi, type AdminProductRow } from '../lib/adminApi'
 import { formatPrice } from '../lib/format'
+import { categoryEmoji } from '../lib/categoryStyle'
 import { cloudinaryUrl } from '../lib/images'
 import { useAsync } from '../lib/useAsync'
 import { btn, input, table } from './styles'
 import { ActionMenu, Dialog, EmptyState, PageHeader, Pagination } from './ui'
 
+/** notReady: cannot be sold yet (no price, or no stock): what the owner still has to fill in */
 const FILTERS = [
   { value: '', label: 'Tất cả' },
   { value: 'true', label: 'Đang bán' },
   { value: 'false', label: 'Đang ẩn' },
+  { value: 'notReady', label: 'Chưa sẵn sàng' },
 ] as const
+
+type Filter = (typeof FILTERS)[number]['value']
 
 /** Hide/show confirmation. Hiding keeps the product (orders refer to it) but removes it from the storefront. */
 export function VisibilityDialog({
@@ -60,13 +65,22 @@ export function VisibilityDialog({
   )
 }
 
-function Thumb({ url }: { url: string | null }) {
+function Thumb({ url, categorySlug }: { url: string | null; categorySlug: string }) {
   return url ? (
     <img src={cloudinaryUrl(url, 96)} alt="" width={48} height={48} loading="lazy" className="size-12 shrink-0 rounded-lg object-cover" />
   ) : (
     <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-xl">
-      🌰
+      {categoryEmoji(categorySlug)}
     </span>
+  )
+}
+
+/** The price, or "Chưa có giá" for a product still being prepared (price 0) */
+function PriceCell({ price }: { price: number }) {
+  return price > 0 ? (
+    <>{formatPrice(price)}</>
+  ) : (
+    <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-amber-900">Chưa có giá</span>
   )
 }
 
@@ -81,15 +95,16 @@ function ActiveBadge({ active }: { active: boolean }) {
 export default function ProductsPage() {
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
-  const active = (params.get('active') ?? '') as '' | 'true' | 'false'
+  const filter = (params.get('active') ?? '') as Filter
+  const active = filter === 'notReady' ? '' : filter
   const page = Number(params.get('page') ?? 0)
   const [search, setSearch] = useState(q)
   const [toggle, setToggle] = useState<AdminProductRow | null>(null)
   const toast = useToast()
   const navigate = useNavigate()
   const { data, error, loading, reload } = useAsync(
-    (signal) => adminApi.products(q, active, page, signal),
-    [q, active, page],
+    (signal) => adminApi.products(q, active, page, signal, filter === 'notReady'),
+    [q, active, filter, page],
   )
 
   const update = (changes: Record<string, string>) => {
@@ -134,10 +149,10 @@ export default function ProductsPage() {
             <button
               key={f.value}
               type="button"
-              aria-pressed={active === f.value}
+              aria-pressed={filter === f.value}
               onClick={() => update({ active: f.value })}
               className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium whitespace-nowrap ${
-                active === f.value ? 'bg-stone-900 text-white' : 'border border-stone-300 bg-white text-stone-700'
+                filter === f.value ? 'bg-stone-900 text-white' : 'border border-stone-300 bg-white text-stone-700'
               }`}
             >
               {f.label}
@@ -161,14 +176,16 @@ export default function ProductsPage() {
           <ul className="space-y-3 md:hidden">
             {data.items.map((p) => (
               <li key={p.id} className={`flex items-start gap-3 rounded-2xl border border-stone-200 p-3 ${p.active ? 'bg-white' : 'bg-stone-50'}`}>
-                <Thumb url={p.imageUrl} />
+                <Thumb url={p.imageUrl} categorySlug={p.categorySlug} />
                 <div className="min-w-0 flex-1 text-sm">
                   <Link to={`/admin/san-pham/${p.id}`} className="font-medium break-words text-stone-900 hover:text-brand-700 hover:underline">
                     {p.name}
                   </Link>
                   <p className="text-xs text-muted">{p.categoryName}</p>
                   <p className="mt-1 tabular-nums">
-                    <span className="font-semibold">{formatPrice(p.price)}</span>
+                    <span className="font-semibold">
+                      <PriceCell price={p.price} />
+                    </span>
                     <span className={`text-muted ${p.lowStock ? 'font-semibold text-amber-900' : ''}`}> · còn {p.available}</span>
                   </p>
                   <div className="mt-1.5">
@@ -203,7 +220,7 @@ export default function ProductsPage() {
                   <tr key={p.id} className={p.active ? undefined : 'bg-stone-50 text-stone-500'}>
                     <td className={table.td}>
                       <div className="flex items-center gap-3">
-                        <Thumb url={p.imageUrl} />
+                        <Thumb url={p.imageUrl} categorySlug={p.categorySlug} />
                         <div className="min-w-0">
                           <Link to={`/admin/san-pham/${p.id}`} className="font-medium text-stone-900 hover:text-brand-700 hover:underline">
                             {p.name}
@@ -212,7 +229,9 @@ export default function ProductsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className={`${table.td} text-right tabular-nums`}>{formatPrice(p.price)}</td>
+                    <td className={`${table.td} text-right tabular-nums`}>
+                      <PriceCell price={p.price} />
+                    </td>
                     <td className={`${table.td} text-right tabular-nums ${p.lowStock ? 'font-semibold text-amber-900' : ''}`}>
                       {p.available}
                     </td>
