@@ -11,7 +11,9 @@ import { useInView } from '../lib/motion'
 import { MIN_PRODUCTS_WITH_NUTRITION, withNutrition } from '../lib/nutrition'
 import { useAsync } from '../lib/useAsync'
 
-const HEADLINE = ['Hạt', 'dinh', 'dưỡng', 'sạch', 'cho', 'vóc', 'dáng', 'khỏe', 'đẹp']
+const HEADLINE = ['Hạt', 'dinh', 'dưỡng', '&', 'đặc', 'sản', 'chọn', 'lọc']
+/** Drawn with the moving gradient */
+const HIGHLIGHT = new Set(['đặc', 'sản'])
 
 /** Decorative nuts floating around the hero bowl; each layer moves with the pointer at its own depth. */
 const FLOATERS = [
@@ -52,12 +54,13 @@ function Hero({ productCount }: { productCount?: number }) {
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand-500 opacity-60 motion-reduce:hidden" />
               <span className="relative inline-flex size-2 rounded-full bg-brand-500" />
             </span>
-            Ăn kiêng lành mạnh mỗi ngày
+            Hạt ngon chọn lọc mỗi ngày
           </p>
-          <h1 className="mt-5 text-4xl leading-tight font-extrabold text-brand-900 sm:text-5xl md:text-6xl">
+          <h1 aria-label={HEADLINE.join(' ')} className="mt-5 text-4xl leading-tight font-extrabold text-brand-900 sm:text-5xl md:text-6xl">
             {HEADLINE.map((word, i) => (
-              <span key={i} className="word-in mr-[0.25em] inline-block" style={{ animationDelay: `${150 + i * 70}ms` }}>
-                {word === 'sạch' ? (
+              // Words are separate boxes (no spaces in the text): the heading's aria-label gives the sentence
+              <span key={i} aria-hidden className="word-in mr-[0.25em] inline-block" style={{ animationDelay: `${150 + i * 70}ms` }}>
+                {HIGHLIGHT.has(word) ? (
                   <span className="gradient-pan bg-gradient-to-r from-brand-600 via-amber-500 to-brand-600 bg-clip-text text-transparent">
                     {word}
                   </span>
@@ -88,7 +91,7 @@ function Hero({ productCount }: { productCount?: number }) {
           </div>
           {productCount !== undefined && (
             <p className="word-in mt-6 text-sm text-muted" style={{ animationDelay: '1150ms' }}>
-              {productCount} loại hạt và ngũ cốc · Miễn phí giao hàng cho đơn từ 500.000₫
+              {productCount} sản phẩm · Miễn phí giao hàng cho đơn từ 500.000₫
             </p>
           )}
         </div>
@@ -223,7 +226,7 @@ export default function HomePage() {
         <section className="mx-auto grid max-w-6xl gap-10 overflow-x-clip px-4 pt-20 md:grid-cols-2 md:items-center">
           <div>
             <SectionTitle eyebrow="Dinh dưỡng" title="So sánh nhanh từng loại hạt">
-              Số liệu lấy từ chính các sản phẩm đang bán. Chọn protein để tăng cơ, hoặc năng lượng thấp để giữ dáng.
+              Số liệu trên 100g, lấy từ chính các sản phẩm đang bán.
             </SectionTitle>
             <Steps />
           </div>
@@ -239,7 +242,7 @@ export default function HomePage() {
 
       {categories.data && (
         <section className="mx-auto max-w-6xl px-4 pt-20">
-          <SectionTitle eyebrow="Danh mục" title="Tìm đúng loại hạt bạn cần" />
+          <SectionTitle eyebrow="Danh mục" title="Chọn theo nhóm sản phẩm" />
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {categories.data.map((c, i) => (
               <Reveal key={c.id} delay={i * 120}>
@@ -301,7 +304,7 @@ export default function HomePage() {
             <span aria-hidden className="floaty absolute right-8 -bottom-6 text-7xl opacity-30 [animation-delay:-3s]">
               🥜
             </span>
-            <h2 className="relative text-3xl font-extrabold md:text-4xl">Bắt đầu thói quen ăn hạt hôm nay</h2>
+            <h2 className="relative text-3xl font-extrabold md:text-4xl">Đặt hàng ngay hôm nay</h2>
             <p className="relative mx-auto mt-3 max-w-xl text-brand-50">
               Miễn phí giao hàng cho đơn từ 500.000₫. Đóng gói 500 g, giao tận nơi.
             </p>
