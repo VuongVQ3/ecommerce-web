@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EMPTY_PRODUCT, productSchema, toInput } from './productSchema'
+import { EMPTY_PRODUCT, NUTRITION_INCOMPLETE, PRICE_REQUIRED, productSchema, productSchemaFor, toInput } from './productSchema'
 
 const valid = {
   ...EMPTY_PRODUCT,
@@ -33,5 +33,31 @@ describe('productSchema', () => {
     const fields = result.error!.issues.map((i) => i.path[0])
     expect(fields).toEqual(expect.arrayContaining(['slug', 'price', 'description', 'categoryId']))
     expect(productSchema.safeParse({ ...valid, protein: '120' }).success).toBe(false)
+  })
+
+  it('lets a hidden product wait for its price and nutrition, but not with half a nutrition table', () => {
+    const draft = { ...EMPTY_PRODUCT, name: 'Mật ong hoa cà phê', categoryId: '5', description: 'Mật ong.' }
+    expect(EMPTY_PRODUCT.weightGrams).toBe('500')
+    const parsed = productSchema.parse(draft)
+    const input = toInput(parsed)
+    expect(input.price).toBeNull()
+    expect([input.calories, input.protein, input.fat, input.carbs, input.fiber]).toEqual([null, null, null, null, null])
+    expect(input.weightGrams).toBe(500)
+    expect(input.sortOrder).toBeNull()
+
+    const half = productSchema.safeParse({ ...draft, protein: '20' })
+    expect(half.success).toBe(false)
+    expect(new Set(half.error!.issues.map((i) => i.message))).toEqual(new Set([NUTRITION_INCOMPLETE]))
+    expect(half.error!.issues.map((i) => i.path[0])).toEqual(['calories', 'fat', 'carbs', 'fiber'])
+  })
+
+  it('a product on sale must keep a price', () => {
+    const draft = { ...EMPTY_PRODUCT, name: 'Hạt điều', categoryId: '1', description: 'Giòn' }
+    const result = productSchemaFor(true).safeParse(draft)
+    expect(result.success).toBe(false)
+    expect(result.error!.issues).toEqual([expect.objectContaining({ path: ['price'], message: PRICE_REQUIRED })])
+    expect(productSchemaFor(true).safeParse({ ...draft, price: '185.000' }).success).toBe(true)
+    // A price that is there must still be valid
+    expect(productSchema.safeParse({ ...draft, price: '500' }).success).toBe(false)
   })
 })

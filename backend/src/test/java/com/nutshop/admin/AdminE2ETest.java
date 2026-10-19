@@ -242,6 +242,51 @@ class AdminE2ETest {
 		assertThat(jdbc.queryForObject("SELECT price FROM products WHERE id = ?", Long.class, id)).isEqualTo(120_000);
 	}
 
+	/** Real-catalogue rules: no showing without a price, nutrition all or nothing, "Chưa sẵn sàng" list. */
+	@Test
+	void aProductWithoutAPriceStaysHiddenUntilPriced() throws Exception {
+		Cookie admin = as("ADMIN");
+		String draft = """
+				{"name":"Mật ong thử","categoryId":1,"description":"Mô tả","weightGrams":500,"lowStockThreshold":5}""";
+		String created = mvc.perform(json(post("/api/admin/products"), draft).cookie(admin))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.price").value(0))
+			.andExpect(jsonPath("$.active").value(false))
+			.andExpect(jsonPath("$.calories").isEmpty())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		long id = Long.parseLong(created.replaceAll("(?s).*?\"id\":(\\d+).*", "$1"));
+		createdProducts.add(id);
+		String slug = created.replaceAll("(?s).*?\"slug\":\"([^\"]+)\".*", "$1");
+
+		mvc.perform(json(patch("/api/admin/products/" + id + "/active"), "{\"active\":true}").cookie(admin))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("PRICE_REQUIRED"))
+			.andExpect(jsonPath("$.detail").value("Nhập giá bán trước khi hiện sản phẩm"));
+		call(get("/api/admin/products").param("notReady", "true").param("size", "100"), admin)
+			.andExpect(jsonPath("$.items[*].id", hasItem((int) id)));
+
+		// Half a nutrition table is refused; all five or none
+		mvc.perform(json(put("/api/admin/products/" + id),
+				draft.replace("\"weightGrams\"", "\"price\":150000,\"protein\":20,\"weightGrams\"")).cookie(admin))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("NUTRITION_INCOMPLETE"));
+		mvc.perform(json(put("/api/admin/products/" + id), draft.replace("\"weightGrams\"", "\"price\":150000,\"weightGrams\""))
+			.cookie(admin)).andExpect(status().isOk()).andExpect(jsonPath("$.price").value(150000));
+
+		mvc.perform(json(patch("/api/admin/products/" + id + "/active"), "{\"active\":true}").cookie(admin))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.active").value(true));
+		mvc.perform(get("/api/products/" + slug))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.nutritionPer100g").isEmpty());
+		// Once on sale its price cannot be removed
+		mvc.perform(json(put("/api/admin/products/" + id), draft).cookie(admin))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("PRICE_REQUIRED"));
+	}
+
 	/** An order placed while signed in shows whose account it went to; a staff account stands out. */
 	@Test
 	void orderDetailShowsTheAccountThatPlacedIt() throws Exception {

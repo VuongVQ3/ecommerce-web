@@ -55,4 +55,11 @@ describe('ProductCard', () => {
     expect(within(struck).getByText('Giá gốc').className).toContain('sr-only')
     expect(screen.getByText('-30%')).toBeTruthy()
   })
+
+  it('shows no nutrition chips while the figures are not known', () => {
+    renderCard({ ...base, name: 'Mật ong hoa cà phê', calories: null, protein: null })
+    expect(screen.queryByText(/kcal/)).toBeNull()
+    expect(screen.queryByText(/protein|đạm/)).toBeNull()
+    expect(screen.getByText('/ 500g')).toBeTruthy()
+  })
 })

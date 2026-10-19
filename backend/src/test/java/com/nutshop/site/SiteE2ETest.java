@@ -51,15 +51,35 @@ class SiteE2ETest {
 				RETURNING id""", Long.class, name, slug);
 	}
 
+	/** On sale in "Hạt dinh dưỡng" (the V2 sample products are hidden since V17); delete it afterwards. */
+	private long productOnSale(String name, String slug) {
+		return jdbc.queryForObject("""
+				INSERT INTO products (category_id, name, slug, description, price, weight_grams, on_hand, reserved, active)
+				VALUES ((SELECT id FROM categories WHERE slug = 'hat-dinh-duong'), ?, ?, 'Mắc ca nguyên vỏ.', 189000, 500,
+				        10, 0, true)
+				RETURNING id""", Long.class, name, slug);
+	}
+
 	@Test
 	void productPageHasMetaOpenGraphAndJsonLdWithoutJavaScript() throws Exception {
-		mvc.perform(get("/san-pham/hanh-nhan-rang-moc"))
+		String slug = "mac-ca-" + UUID.randomUUID();
+		long id = productOnSale("Mắc ca thử", slug);
+		try {
+			checkProductPage(slug);
+		}
+		finally {
+			jdbc.update("DELETE FROM products WHERE id = ?", id);
+		}
+	}
+
+	private void checkProductPage(String slug) throws Exception {
+		mvc.perform(get("/san-pham/" + slug))
 			.andExpect(status().isOk())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
 			.andExpect(header().string("Cache-Control", "no-cache"));
-		String page = html("/san-pham/hanh-nhan-rang-moc");
-		assertThat(page).contains("<title>Hạnh nhân rang mộc 500g – 189.000₫ | Hạt Lành</title>")
-			.contains("<link rel=\"canonical\" href=\"http://localhost:8080/san-pham/hanh-nhan-rang-moc\" />")
+		String page = html("/san-pham/" + slug);
+		assertThat(page).contains("<title>Mắc ca thử 500g – 189.000₫ | Hạt Lành</title>")
+			.contains("<link rel=\"canonical\" href=\"http://localhost:8080/san-pham/" + slug + "\" />")
 			.contains("<meta property=\"og:type\" content=\"product\" />")
 			.contains("<meta property=\"og:image\" content=\"http://localhost:8080/og-default.png\" />")
 			.contains("<meta name=\"twitter:card\" content=\"summary_large_image\" />")
@@ -118,7 +138,12 @@ class SiteE2ETest {
 		assertThat(html("/danh-muc/hat-dinh-duong")).contains("<title>Hạt dinh dưỡng | Hạt Lành</title>")
 			.contains("href=\"http://localhost:8080/danh-muc/hat-dinh-duong\"");
 		mvc.perform(get("/danh-muc/khong-co")).andExpect(status().isNotFound());
-		assertThat(html("/")).contains("<title>Hạt Lành – Hạt dinh dưỡng cho người ăn kiêng</title>");
+		// Renamed in V17: the old address moves permanently, query kept
+		mvc.perform(get("/danh-muc/hat-mix-granola?sort=price_asc"))
+			.andExpect(status().isMovedPermanently())
+			.andExpect(header().string("Location", "/danh-muc/hat-mix-ngu-coc?sort=price_asc"));
+		assertThat(html("/danh-muc/hat-mix-ngu-coc")).contains("<title>Hạt mix &amp; ngũ cốc | Hạt Lành</title>");
+		assertThat(html("/")).contains("<title>Hạt Lành – Hạt dinh dưỡng &amp; đặc sản chọn lọc</title>");
 		assertThat(html("/chinh-sach-doi-tra")).contains("<title>Chính sách đổi trả | Hạt Lành</title>");
 		assertThat(html("/lien-he")).contains("<title>Liên hệ | Hạt Lành</title>");
 		assertThat(html("/gio-hang")).contains("noindex");
@@ -163,6 +188,8 @@ class SiteE2ETest {
 
 		String slug = "an-" + UUID.randomUUID();
 		long id = hiddenProduct("Ẩn khỏi sitemap", slug);
+		String onSale = "ban-" + UUID.randomUUID();
+		long saleId = productOnSale("Mắc ca thử", onSale);
 		siteController.clearSitemapCache();
 		try {
 			mvc.perform(get("/sitemap.xml"))
@@ -170,14 +197,17 @@ class SiteE2ETest {
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_XML))
 				.andExpect(header().string("Cache-Control", "max-age=3600, public"))
 				.andExpect(content().string(startsWith("<?xml")))
-				.andExpect(content().string(containsString("<loc>http://localhost:8080/san-pham/hanh-nhan-rang-moc</loc><lastmod>")))
+				.andExpect(content().string(containsString("<loc>http://localhost:8080/san-pham/" + onSale + "</loc><lastmod>")))
 				.andExpect(content().string(containsString("<loc>http://localhost:8080/danh-muc/hat-dinh-duong</loc>")))
+				// Categories with nothing on sale are left out
+				.andExpect(content().string(not(containsString("/danh-muc/banh-thanh-hat<"))))
+				.andExpect(content().string(not(containsString("/danh-muc/hat-sieu-thuc-pham<"))))
 				.andExpect(content().string(containsString("<loc>http://localhost:8080/chinh-sach-doi-tra</loc>")))
 				.andExpect(content().string(not(containsString(slug))))
 				.andExpect(content().string(not(containsString("/gio-hang"))));
 		}
 		finally {
-			jdbc.update("DELETE FROM products WHERE id = ?", id);
+			jdbc.update("DELETE FROM products WHERE id IN (?, ?)", id, saleId);
 		}
 	}
 
@@ -203,6 +233,8 @@ class SiteE2ETest {
 	/** Every route of the React app (frontend/src/main.tsx) must be served by PageController, not 404. */
 	@Test
 	void everyFrontendRouteIsServed() throws Exception {
+		String slug = "route-" + UUID.randomUUID();
+		long id = productOnSale("Mắc ca thử", slug);
 		String routes = Files.readString(Path.of("../frontend/src/main.tsx"));
 		Matcher m = Pattern.compile("path: '([^']+)'").matcher(routes);
 		List<String> paths = new ArrayList<>();
@@ -216,14 +248,19 @@ class SiteE2ETest {
 				path = (routes.indexOf("path: '" + path + "'") > routes.indexOf("path: '/tai-khoan'")
 						? "/tai-khoan/" : "/admin/") + path;
 			}
-			paths.add(path.replace(":slug", path.startsWith("/danh-muc") ? "hat-dinh-duong" : "hanh-nhan-rang-moc")
+			paths.add(path.replace(":slug", path.startsWith("/danh-muc") ? "hat-dinh-duong" : slug)
 				.replace(":code", "HL2610130000")
 				.replace(":id", "1"));
 		}
 		assertThat(paths).contains("/", "/san-pham", "/danh-muc/hat-dinh-duong", "/lien-he", "/admin/don-hang");
-		for (String path : paths) {
-			int status = mvc.perform(get(path)).andReturn().getResponse().getStatus();
-			assertThat(status).as(path).isEqualTo(200);
+		try {
+			for (String path : paths) {
+				int status = mvc.perform(get(path)).andReturn().getResponse().getStatus();
+				assertThat(status).as(path).isEqualTo(200);
+			}
+		}
+		finally {
+			jdbc.update("DELETE FROM products WHERE id = ?", id);
 		}
 	}
 }
