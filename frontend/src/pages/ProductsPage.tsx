@@ -5,19 +5,38 @@ import ProductCard from '../components/ProductCard'
 import QuickViewHost from '../components/QuickView'
 import { api, type Category, type Page, type ProductSummary } from '../lib/api'
 import { usePrefersReducedMotion } from '../lib/motion'
+import { MIN_PRODUCTS_WITH_NUTRITION, withNutrition } from '../lib/nutrition'
+import { sharedRequest } from '../lib/sharedRequest'
 import { useAsync } from '../lib/useAsync'
 import { BRAND, usePageMeta } from '../lib/usePageMeta'
 import NotFoundPage from './NotFoundPage'
 
 const PAGE_SIZE = 12
 
+/** Mặc định = the shop's own order (sort_order) */
 const SORT_OPTIONS = [
   { value: '', label: 'Mặc định' },
   { value: 'price_asc', label: 'Giá thấp → cao' },
   { value: 'price_desc', label: 'Giá cao → thấp' },
-  { value: 'calories_asc', label: 'Ít calo nhất' },
-  { value: 'protein_desc', label: 'Nhiều protein nhất' },
+  { value: 'calories_asc', label: 'Ít calo nhất', nutrition: true },
+  { value: 'protein_desc', label: 'Nhiều protein nhất', nutrition: true },
 ]
+
+/**
+ * The nutrition sorts are offered once at least 3 products on sale have their figures: products without figures
+ * come last in the protein order, so the first 3 of that order tell.
+ */
+function useSortOptions() {
+  const probe = useAsync(
+    () =>
+      sharedRequest(`products|protein_desc|${MIN_PRODUCTS_WITH_NUTRITION}`, () =>
+        api.products({ sort: 'protein_desc', size: MIN_PRODUCTS_WITH_NUTRITION }),
+      ),
+    [],
+  )
+  const comparable = withNutrition(probe.data?.items ?? []).length >= MIN_PRODUCTS_WITH_NUTRITION
+  return SORT_OPTIONS.filter((o) => !o.nutrition || comparable)
+}
 
 /** Sticks right under the measured header (Layout sets --header-h), below the iOS notch if any. */
 const STICKY_TOP = 'calc(var(--header-h, 0px) + env(safe-area-inset-top, 0px))'
@@ -41,7 +60,17 @@ function useCached<T>(key: string, load: (signal: AbortSignal) => Promise<T>) {
 }
 
 /** Mobile sort picker: a bottom sheet on the native <dialog> (focus trapped, Esc closes). */
-function SortSheet({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
+function SortSheet({
+  value,
+  options,
+  onChange,
+  onClose,
+}: {
+  value: string
+  options: typeof SORT_OPTIONS
+  onChange: (v: string) => void
+  onClose: () => void
+}) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const dialog = ref.current
@@ -73,7 +102,7 @@ function SortSheet({ value, onChange, onClose }: { value: string; onChange: (v: 
           </button>
         </div>
         <ul className="mt-2">
-          {SORT_OPTIONS.map((o) => (
+          {options.map((o) => (
             <li key={o.value}>
               <label className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-3 text-base text-stone-800 hover:bg-stone-50">
                 <input
@@ -257,6 +286,7 @@ export default function ProductsPage() {
   const page = pageValid && rawPage !== null ? Number(rawPage) : 1
   const reducedMotion = usePrefersReducedMotion()
   const [sortOpen, setSortOpen] = useState(false)
+  const offeredSorts = useSortOptions()
   const listRef = useRef<HTMLElement>(null)
   const barRef = useRef<HTMLDivElement>(null)
   const chipsRef = useRef<HTMLUListElement>(null)
@@ -406,6 +436,8 @@ export default function ProductsPage() {
     </Link>
   )
   const sortLabel = SORT_OPTIONS.find((o) => o.value === sort)?.label ?? 'Mặc định'
+  // A link with ?sort=protein_desc still works; the option is listed while it is the current one
+  const sortOptions = SORT_OPTIONS.filter((o) => offeredSorts.includes(o) || o.value === sort)
 
   return (
     <div className="mx-auto max-w-6xl px-4 pt-8 pb-10 lg:pt-10">
@@ -428,7 +460,7 @@ export default function ProductsPage() {
             onChange={(e) => update({ sort: e.target.value })}
             className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-stone-800 outline-none focus:border-brand-500"
           >
-            {SORT_OPTIONS.map((o) => (
+            {sortOptions.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
@@ -536,6 +568,7 @@ export default function ProductsPage() {
       {sortOpen && (
         <SortSheet
           value={sort}
+          options={sortOptions}
           onClose={() => setSortOpen(false)}
           onChange={(value) => {
             setSortOpen(false)

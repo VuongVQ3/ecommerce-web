@@ -90,19 +90,22 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
         </h3>
         {/*
           Phones: chips never truncate; they wrap to a second line when they do not fit, and the row always reserves
-          two lines so cards in a row keep the same height. Wider screens: one line as before.
+          two lines so cards in a row keep the same height. Wider screens: one line as before. No row at all while
+          the product's nutrition facts are not known.
         */}
-        <div className="flex min-w-0 flex-wrap content-start gap-1 text-xs whitespace-nowrap max-sm:min-h-[2.75rem] sm:flex-nowrap sm:gap-1.5 sm:overflow-hidden">
-          {/* "đạm" on phones so the two chips usually fit side by side */}
-          <span
-            title={`${product.protein}g protein / 100g`}
-            className="shrink-0 rounded-full bg-brand-50 px-1.5 py-0.5 text-brand-700 sm:min-w-0 sm:shrink sm:truncate sm:px-2"
-          >
-            {product.protein}g <span className="sm:hidden">đạm</span>
-            <span className="max-sm:hidden">protein</span>
-          </span>
-          <span className="shrink-0 rounded-full bg-nut-light px-1.5 py-0.5 text-nut sm:min-w-0 sm:truncate sm:px-2">{product.calories} kcal</span>
-        </div>
+        {product.protein != null && product.calories != null && (
+          <div className="flex min-w-0 flex-wrap content-start gap-1 text-xs whitespace-nowrap max-sm:min-h-[2.75rem] sm:flex-nowrap sm:gap-1.5 sm:overflow-hidden">
+            {/* "đạm" on phones so the two chips usually fit side by side */}
+            <span
+              title={`${product.protein}g protein / 100g`}
+              className="shrink-0 rounded-full bg-brand-50 px-1.5 py-0.5 text-brand-700 sm:min-w-0 sm:shrink sm:truncate sm:px-2"
+            >
+              {product.protein}g <span className="sm:hidden">đạm</span>
+              <span className="max-sm:hidden">protein</span>
+            </span>
+            <span className="shrink-0 rounded-full bg-nut-light px-1.5 py-0.5 text-nut sm:min-w-0 sm:truncate sm:px-2">{product.calories} kcal</span>
+          </div>
+        )}
         <div className="mt-auto flex flex-wrap items-baseline justify-between gap-x-2 pt-2">
           <PriceTag price={product.price} regularPrice={product.regularPrice} />
           <span className="text-sm text-muted">/ {formatWeight(product.weightGrams)}</span>

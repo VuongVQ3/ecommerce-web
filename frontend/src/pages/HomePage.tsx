@@ -6,7 +6,9 @@ import NutritionChart from '../components/landing/NutritionChart'
 import ProductCard from '../components/ProductCard'
 import QuickViewHost from '../components/QuickView'
 import { api } from '../lib/api'
+import { categoryEmoji } from '../lib/categoryStyle'
 import { useInView } from '../lib/motion'
+import { MIN_PRODUCTS_WITH_NUTRITION, withNutrition } from '../lib/nutrition'
 import { useAsync } from '../lib/useAsync'
 
 const HEADLINE = ['Hạt', 'dinh', 'dưỡng', 'sạch', 'cho', 'vóc', 'dáng', 'khỏe', 'đẹp']
@@ -21,16 +23,16 @@ const FLOATERS = [
 ]
 
 const BENEFITS = [
-  { icon: '🌿', title: 'Rang mộc, không dầu', text: 'Giữ trọn vị bùi tự nhiên và dưỡng chất của từng loại hạt.' },
-  { icon: '📊', title: 'Minh bạch dinh dưỡng', text: 'Calo, protein, chất béo, carb, chất xơ cho mỗi 100g.' },
-  { icon: '🚚', title: 'Giao hàng toàn quốc', text: 'Đóng gói hút chân không, luôn giòn thơm khi đến tay bạn.' },
+  { icon: '🔎', title: 'Chọn lọc kỹ', text: 'Hạt đều, chắc, không sâu mọt.' },
+  { icon: '📦', title: 'Đóng gói 500 g', text: 'Gói kín, giữ hạt giòn thơm khi đến tay bạn.' },
+  { icon: '🚚', title: 'Giao hàng toàn quốc', text: 'Giao tận nơi, thanh toán khi nhận hàng.' },
   { icon: '↩️', title: 'Đổi trả trong 7 ngày', text: 'Không ưng ý? Liên hệ để được đổi trả nhanh chóng.' },
 ]
 
 const STEPS = [
   { icon: '🥄', title: 'Một nắm mỗi ngày', text: 'Khoảng 30g hạt là đủ cho bữa phụ, vừa no lâu vừa không dư calo.' },
-  { icon: '🥣', title: 'Kết hợp bữa sáng', text: 'Rắc hạt chia, hạnh nhân vào sữa chua, yến mạch hoặc sinh tố.' },
-  { icon: '🏃', title: 'Nạp năng lượng khi tập', text: 'Hạt giàu protein như bí xanh, dẻ cười giúp phục hồi sau buổi tập.' },
+  { icon: '🥣', title: 'Kết hợp bữa sáng', text: 'Rắc hạnh nhân, mắc ca vào sữa chua, yến mạch.' },
+  { icon: '🥛', title: 'Sữa hạt tại nhà', text: 'Hạt điều vỡ, mắc ca vỡ hợp nấu sữa hạt tại nhà.' },
 ]
 
 function Hero({ productCount }: { productCount?: number }) {
@@ -66,7 +68,8 @@ function Hero({ productCount }: { productCount?: number }) {
             ))}
           </h1>
           <p className="word-in mt-5 max-w-md text-lg text-stone-600" style={{ animationDelay: '850ms' }}>
-            Hạnh nhân, óc chó, macca, hạt chia và hơn thế nữa. Rang mộc, rõ nguồn gốc, minh bạch từng chỉ số dinh dưỡng.
+            Mắc ca, hạt điều, hạnh nhân, óc chó cùng các món bánh, trái cây sấy và mật ong. Chọn lọc kỹ, đóng gói 500 g tiện
+            dùng.
           </p>
           {/* Under 400px: stacked, full width */}
           <div className="word-in mt-8 flex flex-col gap-3 min-[400px]:flex-row min-[400px]:flex-wrap" style={{ animationDelay: '1000ms' }}>
@@ -77,10 +80,10 @@ function Hero({ productCount }: { productCount?: number }) {
               Mua sắm ngay →
             </Link>
             <Link
-              to="/san-pham?sort=calories_asc"
+              to="/danh-muc/hat-dinh-duong"
               className="inline-flex items-center justify-center rounded-full whitespace-nowrap border border-brand-200 bg-white/80 px-7 py-3.5 font-semibold text-brand-700 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white"
             >
-              Ít calo nhất
+              Xem hạt dinh dưỡng
             </Link>
           </div>
           {productCount !== undefined && (
@@ -110,7 +113,7 @@ function Hero({ productCount }: { productCount?: number }) {
 
 function Stats({ products, categories }: { products: number; categories: number }) {
   const items = [
-    { value: products, suffix: '+', label: 'loại hạt & ngũ cốc' },
+    { value: products, suffix: '', label: 'sản phẩm' },
     { value: categories, suffix: '', label: 'nhóm sản phẩm' },
     { value: 500, suffix: 'K', label: 'đơn từ mức này được miễn phí ship' },
     { value: 7, suffix: ' ngày', label: 'đổi trả dễ dàng' },
@@ -169,13 +172,12 @@ function Steps() {
 export default function HomePage() {
   // Shared: StrictMode's double effect or a remount (session refresh) reuses the request in flight
   const categories = useAsync(() => sharedRequest('categories', () => api.categories()), [])
-  // One request feeds the hero count, ticker, nutrition chart and featured grid
-  const catalog = useAsync(
-    () => sharedRequest('products|protein_desc|48', () => api.products({ sort: 'protein_desc', size: 48 })),
-    [],
-  )
+  // One request feeds the hero count, ticker, nutrition chart and featured grid; the shop's own order (sort_order)
+  const catalog = useAsync(() => sharedRequest('products|default|48', () => api.products({ size: 48 })), [])
   const products = catalog.data?.items ?? []
   const featured = products.slice(0, 8)
+  // The comparison only makes sense once enough products have their nutrition facts
+  const comparable = withNutrition(products).length >= MIN_PRODUCTS_WITH_NUTRITION
 
   return (
     <>
@@ -187,19 +189,19 @@ export default function HomePage() {
           items={
             products.length > 0
               ? products.slice(0, 10).map((p) => p.name)
-              : ['Hạnh nhân', 'Óc chó', 'Macca', 'Hạt chia', 'Hạt điều', 'Granola']
+              : ['Mắc ca', 'Hạt điều', 'Hạnh nhân', 'Óc chó', 'Bánh thuyền', 'Mật ong']
           }
         />
       </div>
 
-      {catalog.data && categories.data && (
+      {catalog.data && categories.data && catalog.data.totalItems > 0 && (
         <div className="mt-14">
           <Stats products={catalog.data.totalItems} categories={categories.data.length} />
         </div>
       )}
 
       <section className="mx-auto max-w-6xl px-4 pt-20">
-        <SectionTitle eyebrow="Vì sao chọn Hạt Lành" title="Ngon, sạch và minh bạch" />
+        <SectionTitle eyebrow="Vì sao chọn Hạt Lành" title="Chọn lọc kỹ, giao tận nơi" />
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {BENEFITS.map((b, i) => (
             <Reveal key={b.title} delay={i * 110} from="scale">
@@ -215,29 +217,30 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* overflow-x-clip: the chart slides in from the right and must not widen the page while it does */}
-      <section className="mx-auto grid max-w-6xl gap-10 overflow-x-clip px-4 pt-20 md:grid-cols-2 md:items-center">
-        <div>
-          <SectionTitle eyebrow="Dinh dưỡng" title="So sánh nhanh từng loại hạt">
-            Số liệu lấy từ chính các sản phẩm đang bán. Chọn protein để tăng cơ, hoặc năng lượng thấp để giữ dáng.
-          </SectionTitle>
-          <Steps />
-        </div>
-        <Reveal from="right">
-          {catalog.error ? (
-            <ErrorMessage message={catalog.error.message} onRetry={catalog.reload} />
-          ) : products.length > 0 ? (
-            <NutritionChart products={products} />
-          ) : (
-            <Spinner />
-          )}
-        </Reveal>
-      </section>
+      {/* overflow-x-clip: the chart slides in from the right and must not widen the page while it does. Only with at
+          least 3 products whose nutrition facts are known (the tips go with it). */}
+      {comparable && (
+        <section className="mx-auto grid max-w-6xl gap-10 overflow-x-clip px-4 pt-20 md:grid-cols-2 md:items-center">
+          <div>
+            <SectionTitle eyebrow="Dinh dưỡng" title="So sánh nhanh từng loại hạt">
+              Số liệu lấy từ chính các sản phẩm đang bán. Chọn protein để tăng cơ, hoặc năng lượng thấp để giữ dáng.
+            </SectionTitle>
+            <Steps />
+          </div>
+          <Reveal from="right">
+            {catalog.error ? (
+              <ErrorMessage message={catalog.error.message} onRetry={catalog.reload} />
+            ) : (
+              <NutritionChart products={products} />
+            )}
+          </Reveal>
+        </section>
+      )}
 
       {categories.data && (
         <section className="mx-auto max-w-6xl px-4 pt-20">
           <SectionTitle eyebrow="Danh mục" title="Tìm đúng loại hạt bạn cần" />
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {categories.data.map((c, i) => (
               <Reveal key={c.id} delay={i * 120}>
                 <Link
@@ -248,7 +251,7 @@ export default function HomePage() {
                     aria-hidden
                     className="absolute -right-6 -bottom-8 text-8xl opacity-20 transition duration-500 group-hover:scale-125 group-hover:-rotate-12 group-hover:opacity-40"
                   >
-                    {['🌰', '🌱', '🥣'][i % 3]}
+                    {categoryEmoji(c.slug)}
                   </span>
                   <span className="relative">{c.name}</span>
                   <span aria-hidden className="relative ml-2 inline-block transition group-hover:translate-x-1.5">
@@ -263,7 +266,7 @@ export default function HomePage() {
 
       <section className="mx-auto max-w-6xl px-4 pt-20">
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <SectionTitle eyebrow="Bán chạy" title="Giàu protein nhất" />
+          <SectionTitle eyebrow="Gợi ý" title="Sản phẩm nổi bật" />
           <Link to="/san-pham" className="text-sm font-semibold text-brand-700 hover:underline">
             Xem tất cả →
           </Link>
@@ -273,6 +276,10 @@ export default function HomePage() {
             <ErrorMessage message={catalog.error.message} onRetry={catalog.reload} />
           ) : !catalog.data ? (
             <Spinner />
+          ) : featured.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-stone-300 bg-white px-6 py-12 text-center text-stone-600">
+              Sản phẩm đang được cập nhật. Mời bạn quay lại sau ít phút.
+            </p>
           ) : (
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
               {featured.map((p, i) => (
@@ -296,7 +303,7 @@ export default function HomePage() {
             </span>
             <h2 className="relative text-3xl font-extrabold md:text-4xl">Bắt đầu thói quen ăn hạt hôm nay</h2>
             <p className="relative mx-auto mt-3 max-w-xl text-brand-50">
-              Miễn phí giao hàng cho đơn từ 500.000₫. Rang mộc, đóng gói hút chân không, giao tận nơi.
+              Miễn phí giao hàng cho đơn từ 500.000₫. Đóng gói 500 g, giao tận nơi.
             </p>
             <Link
               to="/san-pham"

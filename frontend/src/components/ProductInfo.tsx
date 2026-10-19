@@ -76,16 +76,17 @@ const perServing = (key: keyof Nutrition, per100: number) => {
   return key === 'calories' ? Math.round(value) : Math.round(value * 10) / 10
 }
 
-/** Per 100g; with `serving` also per 30g (a handful). */
+/** Per 100g; with `serving` also per 30g (a handful). Nothing at all while the figures are not known (null). */
 export function NutritionTable({
   nutrition,
   serving = false,
   className = 'mt-10',
 }: {
-  nutrition: Nutrition
+  nutrition: Nutrition | null
   serving?: boolean
   className?: string
 }) {
+  if (!nutrition) return null
   return (
     <section className={`${className} rounded-2xl border border-stone-200 bg-white p-5`}>
       <h2 className="font-bold text-stone-900">Giá trị dinh dưỡng</h2>

@@ -24,8 +24,9 @@ export interface ProductSummary extends Pricing {
   slug: string
   weightGrams: number
   imageUrl: string | null
-  calories: number
-  protein: number
+  /** Per 100g; null until the product's nutrition facts are known */
+  calories: number | null
+  protein: number | null
   /** Public stock: an exact count only when very low (≤ 5). */
   stockStatus: StockStatus
   /** How many one shopper can put in the cart now (exact when ≤ 5 left, otherwise the per-item cap). */
@@ -69,7 +70,8 @@ export interface ProductDetail extends Pricing {
   imageUrl: string | null
   /** Primary first. Empty when the product only has the legacy imageUrl (or none). */
   images: ProductImageInfo[]
-  nutritionPer100g: Nutrition
+  /** null until the five figures are known: no nutrition table then */
+  nutritionPer100g: Nutrition | null
   category: Category
   /** Present when the URL used an old slug: the current one (replace the URL with it). */
   redirectTo?: string

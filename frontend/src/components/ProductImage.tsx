@@ -1,11 +1,6 @@
 import { useState } from 'react'
+import { categoryStyle } from '../lib/categoryStyle'
 import { cloudinaryUrl } from '../lib/images'
-
-const CATEGORY_STYLE: Record<string, { emoji: string; tint: string }> = {
-  'hat-dinh-duong': { emoji: '🌰', tint: 'from-nut-light to-amber-100' },
-  'hat-sieu-thuc-pham': { emoji: '🌱', tint: 'from-brand-100 to-lime-50' },
-  'hat-mix-granola': { emoji: '🥣', tint: 'from-orange-50 to-amber-100' },
-}
 
 interface Props {
   name: string
@@ -33,7 +28,7 @@ export default function ProductImage({ name, imageUrl, categorySlug, size = 400,
       />
     )
   }
-  const style = CATEGORY_STYLE[categorySlug] ?? { emoji: '🥜', tint: 'from-stone-100 to-stone-200' }
+  const style = categoryStyle(categorySlug)
   return (
     <div
       role="img"

@@ -2,22 +2,28 @@ import { useId, useState } from 'react'
 import { Link } from 'react-router'
 import type { ProductSummary } from '../../lib/api'
 import { useInView } from '../../lib/motion'
+import { MIN_PRODUCTS_WITH_NUTRITION, withNutrition } from '../../lib/nutrition'
 
 const METRICS = {
-  protein: { label: 'Protein', unit: 'g', note: 'Nhiều protein nhất', pick: (p: ProductSummary) => p.protein, desc: true },
-  calories: { label: 'Năng lượng', unit: 'kcal', note: 'Ít calo nhất', pick: (p: ProductSummary) => p.calories, desc: false },
+  protein: { label: 'Protein', unit: 'g', note: 'Nhiều protein nhất', pick: (p: ProductSummary) => p.protein ?? 0, desc: true },
+  calories: { label: 'Năng lượng', unit: 'kcal', note: 'Ít calo nhất', pick: (p: ProductSummary) => p.calories ?? 0, desc: false },
 } as const
 
 type Metric = keyof typeof METRICS
 
-/** Animated horizontal bars from real catalogue data (per 100g); bars grow when scrolled into view. */
-export default function NutritionChart({ products }: { products: ProductSummary[] }) {
+/**
+ * Animated horizontal bars from real catalogue data (per 100g); bars grow when scrolled into view. Only products with
+ * known figures count; with fewer than 3 nothing is rendered.
+ */
+export default function NutritionChart({ products: all }: { products: ProductSummary[] }) {
+  const products = withNutrition(all)
   const [metric, setMetric] = useState<Metric>('protein')
   const [ref, visible] = useInView<HTMLDivElement>()
   const panelId = useId()
   const m = METRICS[metric]
   const rows = [...products].sort((a, b) => (m.desc ? m.pick(b) - m.pick(a) : m.pick(a) - m.pick(b))).slice(0, 6)
   const max = Math.max(...products.map(m.pick), 1)
+  if (products.length < MIN_PRODUCTS_WITH_NUTRITION) return null
 
   return (
     <div ref={ref} className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-8">

@@ -33,7 +33,7 @@ function SearchBox({ className = '', autoFocus = false }: { className?: string; 
         onChange={(e) => setQ(e.target.value)}
         autoFocus={autoFocus}
         enterKeyHint="search"
-        placeholder="Tìm hạnh nhân, hạt chia..."
+        placeholder="Tìm mắc ca, hạt điều, hạnh nhân…"
         aria-label="Tìm sản phẩm"
         className="w-full rounded-full border border-stone-200 bg-white px-4 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
       />
@@ -325,7 +325,7 @@ function Footer() {
           <p className="text-base font-bold text-brand-800">
             <span aria-hidden="true">🌰 </span>Hạt Lành
           </p>
-          <p className="mt-2">Hạt dinh dưỡng cho người ăn kiêng, eat clean và tập luyện.</p>
+          <p className="mt-2">Hạt dinh dưỡng, bánh hạt và đặc sản chọn lọc.</p>
         </div>
         <div>
           <p className="font-semibold text-stone-900">Mua sắm</p>
@@ -394,7 +394,7 @@ function Footer() {
 
 /** Titles of pages that do not set their own (products, categories, policies and 404 do). Same as the server's. */
 const ROUTE_TITLES: [RegExp, string][] = [
-  [/^\/$/, `${BRAND} – Hạt dinh dưỡng cho người ăn kiêng`],
+  [/^\/$/, `${BRAND} – Hạt dinh dưỡng & đặc sản chọn lọc`],
   [/^\/dang-nhap$/, `Đăng nhập | ${BRAND}`],
   [/^\/dang-ky$/, `Đăng ký | ${BRAND}`],
   [/^\/quen-mat-khau$/, `Quên mật khẩu | ${BRAND}`],
