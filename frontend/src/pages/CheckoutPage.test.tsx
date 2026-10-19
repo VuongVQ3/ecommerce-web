@@ -8,7 +8,10 @@ import { api, ApiError, type CartView, type Order, type User } from '../lib/api'
 import CheckoutPage from './CheckoutPage'
 
 const auth = vi.hoisted(() => ({ current: { user: null as User | null, loading: false } }))
-vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth.current }))
+// refresh(): what /me answers now (by default, the same as the context)
+const refresh = vi.hoisted(() => vi.fn<() => Promise<User | null>>())
+const logout = vi.hoisted(() => vi.fn())
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ ...auth.current, refresh, logout }) }))
 const resetAfterOrder = vi.hoisted(() => vi.fn())
 
 const view: CartView = {
@@ -80,9 +83,13 @@ async function fillValidForm() {
   change(input('Địa chỉ chi tiết'), '12 Phố Test')
 }
 
+const ADMIN: User = { id: 'a1', email: 'admin@example.com', fullName: 'Quản Trị', phone: null, role: 'ADMIN', emailVerified: true, passwordChangeRequired: false }
+
 beforeEach(() => {
   auth.current = { user: null, loading: false }
   resetAfterOrder.mockReset()
+  refresh.mockReset().mockImplementation(async () => auth.current.user)
+  logout.mockReset()
 })
 
 afterEach(() => {
@@ -181,5 +188,46 @@ describe('CheckoutPage', () => {
     expect((input('Họ và tên') as HTMLInputElement).value).toBe('Trần An')
     expect((input('Số điện thoại') as HTMLInputElement).value).toBe('0987654321')
     expect((input('Email (không bắt buộc)') as HTMLInputElement).value).toBe('an@example.com')
+  })
+
+  it('checks the session again when the page opens', () => {
+    renderCheckout()
+    expect(refresh).toHaveBeenCalled()
+  })
+
+  it('opens the order in the account when the server saved it there, even if this tab thought it was a guest', async () => {
+    // Signed in from another tab: the cookie is valid, this tab still has user = null
+    refresh.mockResolvedValue(ADMIN)
+    vi.spyOn(api, 'placeOrder').mockResolvedValue({ code: 'HL2610196CGX', total: 288_000 } as Order)
+    renderCheckout()
+    await fillValidForm()
+    fireEvent.click(screen.getByRole('button', { name: /Đặt hàng/ }))
+
+    const where = JSON.parse((await screen.findByTestId('where')).textContent!)
+    expect(where).toEqual({ path: '/tai-khoan/don-hang/HL2610196CGX', state: { justPlaced: true } })
+  })
+
+  it('falls back to the lookup page (never the login page) when no session is found after all', async () => {
+    refresh.mockResolvedValue(null)
+    vi.spyOn(api, 'placeOrder').mockResolvedValue({ code: 'HL2610196CGX', total: 288_000 } as Order)
+    renderCheckout()
+    await fillValidForm()
+    fireEvent.click(screen.getByRole('button', { name: /Đặt hàng/ }))
+
+    const where = JSON.parse((await screen.findByTestId('where')).textContent!)
+    expect(where).toEqual({ path: '/tra-cuu-don-hang?code=HL2610196CGX', state: { placedCode: 'HL2610196CGX' } })
+  })
+
+  it('says which account the order will be saved to, with a way out', () => {
+    auth.current = { user: ADMIN, loading: false }
+    renderCheckout()
+    expect(screen.getByText(/Đơn sẽ được lưu vào tài khoản/).textContent).toContain('Quản Trị (admin@example.com)')
+    fireEvent.click(screen.getByRole('button', { name: 'Không phải bạn? Đăng xuất' }))
+    expect(logout).toHaveBeenCalled()
+  })
+
+  it('shows no account line to a guest', () => {
+    renderCheckout()
+    expect(screen.queryByText(/Đơn sẽ được lưu vào tài khoản/)).toBeNull()
   })
 })

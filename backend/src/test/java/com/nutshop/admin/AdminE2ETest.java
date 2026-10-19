@@ -242,6 +242,36 @@ class AdminE2ETest {
 		assertThat(jdbc.queryForObject("SELECT price FROM products WHERE id = ?", Long.class, id)).isEqualTo(120_000);
 	}
 
+	/** An order placed while signed in shows whose account it went to; a staff account stands out. */
+	@Test
+	void orderDetailShowsTheAccountThatPlacedIt() throws Exception {
+		Cookie admin = as("ADMIN");
+		Cookie staff = as("STAFF");
+		long id = createProduct(admin, "Hạt đặt bằng tài khoản", null);
+		importStock(admin, id, 5);
+		String body = """
+				{"idempotencyKey":"admin-%s","customerName":"Khách Test","phone":"0912345678",
+				 "provinceCode":1,"wardCode":4,"addressLine":"1 Phố Test","items":[{"productId":%d,"quantity":1}]}"""
+			.formatted(UUID.randomUUID(), id);
+		orderCreateRateLimiter.reset();
+		String code = mvc.perform(json(post("/api/orders"), body).cookie(staff))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.accessToken").doesNotExist())
+			.andReturn()
+			.getResponse()
+			.getContentAsString()
+			.replaceAll("(?s).*?\"code\":\"([A-Z0-9]+)\".*", "$1");
+		String staffId = jdbc.queryForObject("SELECT user_id::text FROM orders WHERE code = ?", String.class, code);
+		assertThat(staffId).isNotNull();
+
+		call(get("/api/admin/orders/" + code), admin).andExpect(status().isOk())
+			.andExpect(jsonPath("$.guest").value(false))
+			.andExpect(jsonPath("$.account.id").value(staffId))
+			.andExpect(jsonPath("$.account.fullName").value("Nhân Viên STAFF"))
+			.andExpect(jsonPath("$.account.email", org.hamcrest.Matchers.startsWith("staff-")))
+			.andExpect(jsonPath("$.account.role").value("STAFF"));
+	}
+
 	// ---- dashboard ------------------------------------------------------------------------------------------
 
 	/** Moves an order (and its status history) back in time; the history row for toStatus gets its own time. */
@@ -333,7 +363,8 @@ class AdminE2ETest {
 
 		call(get("/api/admin/orders/" + code), admin).andExpect(status().isOk())
 			.andExpect(jsonPath("$.allowedActions", hasItem("CONFIRM")))
-			.andExpect(jsonPath("$.guest").value(true));
+			.andExpect(jsonPath("$.guest").value(true))
+			.andExpect(jsonPath("$.account").doesNotExist());
 		// PENDING -> COMPLETED is not allowed
 		call(post("/api/admin/orders/" + code + "/complete"), admin).andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"));

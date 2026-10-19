@@ -16,13 +16,13 @@ function Where() {
   return <p data-testid="where">{location.pathname + location.search}</p>
 }
 
-function renderLookup() {
+function renderLookup(state?: unknown) {
   const router = createMemoryRouter(
     [
       { path: '/tra-cuu-don-hang', element: <OrderLookupPage /> },
       { path: '*', element: <Where /> },
     ],
-    { initialEntries: ['/tra-cuu-don-hang'] },
+    { initialEntries: [{ pathname: '/tra-cuu-don-hang', search: state ? `?code=${CODE}` : '', state }] },
   )
   render(<RouterProvider router={router} />)
 }
@@ -73,5 +73,12 @@ describe('OrderLookupPage', () => {
     expect(screen.getByRole('link', { name: 'Đăng nhập' }).getAttribute('href')).toBe(
       `/dang-nhap?next=${encodeURIComponent(`/tai-khoan/don-hang/${CODE}`)}`,
     )
+  })
+
+  it('confirms an order just placed when checkout sends the buyer here', () => {
+    renderLookup({ placedCode: CODE })
+    expect(screen.getByRole('status').textContent).toContain('Đặt hàng thành công!')
+    expect(screen.getByRole('status').textContent).toContain(CODE)
+    expect((screen.getByLabelText('Mã đơn hàng') as HTMLInputElement).value).toBe(CODE)
   })
 })
