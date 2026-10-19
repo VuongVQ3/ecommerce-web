@@ -16,7 +16,8 @@ import java.util.UUID;
 /**
  * Opaque refresh tokens with rotation and reuse detection. Each refresh revokes the presented token and issues a
  * new one; presenting an already-revoked token means it was stolen or replayed, so every session of that user is
- * revoked.
+ * revoked. Except within app.jwt.refresh-reuse-grace (30 s) of its rotation: that is two tabs of one browser
+ * refreshing with the same cookie at once, refused without touching the other sessions.
  */
 @Service
 public class RefreshTokenService {
@@ -54,6 +55,10 @@ public class RefreshTokenService {
 		Instant now = clock.instant();
 		User user = current.getUser();
 
+		if (current.isRevoked() && current.getReplacedById() != null
+				&& now.isBefore(current.getRevokedAt().plus(props.refreshReuseGrace()))) {
+			throw new RecentlyRotatedException(INVALID_SESSION);
+		}
 		if (current.isRevoked()) {
 			int revoked = tokens.revokeAllActive(user.getId(), now);
 			log.warn("Refresh token reuse detected for user {}; revoked {} active token(s)", user.getId(), revoked);

@@ -373,16 +373,36 @@ async function send(path: string, init: RequestInit): Promise<Response> {
   }
 }
 
+/** Web Locks name shared by every tab of the site: one refresh at a time across tabs */
+const REFRESH_LOCK = 'hatlanh-auth-refresh'
+
+function withRefreshLock<T>(task: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks
+  return typeof locks?.request === 'function' ? locks.request(REFRESH_LOCK, task) : task()
+}
+
+/** True when the cookies the browser holds now are a valid session (perhaps renewed by another tab). */
+async function sessionIsValid(): Promise<boolean> {
+  try {
+    return (await send('/api/auth/me', { method: 'GET' })).ok
+  } catch {
+    return false
+  }
+}
+
 /**
- * Concurrent 401s share one refresh call. The backend rotates refresh tokens and treats a second use of the same
- * token as theft, so two parallel refreshes would sign the user out everywhere.
+ * Renews the access token. The backend rotates refresh tokens, so every tab of the browser must not present the
+ * same one at once: concurrent 401s of this tab share one call, and tabs take turns through a Web Lock. Inside the
+ * lock /me is asked first: when another tab has just refreshed, its new cookies already work and no refresh is
+ * sent. Losing a race anyway (no Web Locks) is checked the same way after a refused refresh. Exported for tests.
  */
-function refreshSession(): Promise<boolean> {
-  refreshInFlight ??= send('/api/auth/refresh', { method: 'POST' })
-    .then(
-      (res) => res.ok,
-      () => false,
-    )
+export function refreshSession(): Promise<boolean> {
+  refreshInFlight ??= withRefreshLock(async () => {
+    if (await sessionIsValid()) return true
+    const res = await send('/api/auth/refresh', { method: 'POST' })
+    return res.ok || (await sessionIsValid())
+  })
+    .catch(() => false)
     .finally(() => {
       refreshInFlight = null
     })

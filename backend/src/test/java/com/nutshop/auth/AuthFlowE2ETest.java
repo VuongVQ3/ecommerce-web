@@ -33,6 +33,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(RolesProbeController.class)
 class AuthFlowE2ETest {
 
+	@Autowired
+	org.springframework.jdbc.core.JdbcTemplate jdbc;
+
 	private static final String PASSWORD = "matkhau123";
 	private static final String WRONG_CREDENTIALS = "Email hoặc mật khẩu không đúng";
 
@@ -155,7 +158,16 @@ class AuthFlowE2ETest {
 
 		Cookie deviceANext = cookie(refresh(deviceA).andExpect(status().isOk()).andReturn(), AuthCookies.REFRESH_COOKIE);
 
-		// An attacker replays the old token: rejected, cookies cleared...
+		// Seconds later the same old token again: another tab of that browser racing. Refused, but the cookies are
+		// left alone and no session is revoked
+		MvcResult race = refresh(deviceA).andExpect(status().isUnauthorized()).andReturn();
+		assertThat(race.getResponse().getCookie(AuthCookies.REFRESH_COOKIE)).isNull();
+		deviceANext = cookie(refresh(deviceANext).andExpect(status().isOk()).andReturn(), AuthCookies.REFRESH_COOKIE);
+		deviceB = cookie(refresh(deviceB).andExpect(status().isOk()).andReturn(), AuthCookies.REFRESH_COOKIE);
+
+		// Past the 30 s grace period: an attacker replaying the old token is rejected, cookies cleared...
+		jdbc.update("UPDATE refresh_tokens SET revoked_at = revoked_at - interval '31 seconds' WHERE token_hash = ?",
+				RefreshTokenService.hash(deviceA.getValue()));
 		MvcResult replay = refresh(deviceA).andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.detail").value(RefreshTokenService.INVALID_SESSION))
 			.andReturn();

@@ -42,11 +42,12 @@ describe('apiRequest', () => {
   it('refreshes once on 401 and retries the original request', async () => {
     fetchMock
       .mockResolvedValueOnce(json(401))
+      .mockResolvedValueOnce(json(401)) // /me: no other tab renewed the session
       .mockResolvedValueOnce(json(200, user)) // refresh
       .mockResolvedValueOnce(json(200, { ok: true })) // retry
 
     await expect(apiRequest('/api/orders')).resolves.toEqual({ ok: true })
-    expect(calls()).toEqual(['/api/orders', '/api/auth/refresh', '/api/orders'])
+    expect(calls()).toEqual(['/api/orders', '/api/auth/me', '/api/auth/refresh', '/api/orders'])
     expect(expired).not.toHaveBeenCalled()
   })
 
@@ -79,10 +80,11 @@ describe('apiRequest', () => {
   })
 
   it('does not redirect for the silent session check on page load', async () => {
-    fetchMock.mockResolvedValueOnce(json(401)).mockResolvedValueOnce(json(401))
+    fetchMock.mockResolvedValue(json(401))
 
     await expect(api.me()).rejects.toBeInstanceOf(ApiError)
-    expect(calls()).toEqual(['/api/auth/me', '/api/auth/refresh'])
+    // /me, the check inside the lock, the refresh, the check after the refused refresh
+    expect(calls()).toEqual(['/api/auth/me', '/api/auth/me', '/api/auth/refresh', '/api/auth/me'])
     expect(expired).not.toHaveBeenCalled()
   })
 
@@ -131,5 +133,47 @@ describe('apiRequest', () => {
 
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
     await expect(api.logout()).resolves.toBeUndefined()
+  })
+})
+
+describe('refreshSession across tabs', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.resetModules()
+  })
+
+  it('two tabs needing a refresh at once send a single POST /api/auth/refresh', async () => {
+    // One browser: shared cookies (valid once a refresh succeeded) and a shared Web Lock
+    let session = false
+    const fetchMock = vi.fn<typeof fetch>(async (url) => {
+      if (String(url) === '/api/auth/refresh') {
+        await new Promise((r) => setTimeout(r, 10))
+        session = true
+        return json(200, user)
+      }
+      return json(session ? 200 : 401, user)
+    })
+    let queue = Promise.resolve()
+    const locks = {
+      request: (_name: string, task: () => Promise<unknown>) => {
+        const run = queue.then(task)
+        queue = run.then(
+          () => undefined,
+          () => undefined,
+        )
+        return run
+      },
+    }
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('navigator', { ...navigator, locks })
+
+    // Two tabs = two separate copies of the module (no shared in-memory state)
+    const tabA = await import('./api')
+    vi.resetModules()
+    const tabB = await import('./api')
+    expect(tabA.refreshSession).not.toBe(tabB.refreshSession)
+
+    await expect(Promise.all([tabA.refreshSession(), tabB.refreshSession()])).resolves.toEqual([true, true])
+    expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/auth/refresh')).toHaveLength(1)
   })
 })

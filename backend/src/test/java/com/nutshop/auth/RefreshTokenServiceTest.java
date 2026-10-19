@@ -39,7 +39,7 @@ class RefreshTokenServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		var props = new JwtProperties("x".repeat(32), Duration.ofMinutes(15), Duration.ofDays(7));
+		var props = new JwtProperties("x".repeat(32), Duration.ofMinutes(15), Duration.ofDays(7), Duration.ofSeconds(30));
 		service = new RefreshTokenService(tokens, props, Clock.fixed(NOW, ZoneOffset.UTC));
 		user = new User("an@example.com", "hash", "An", null, NOW);
 		ReflectionTestUtils.setField(user, "id", UUID.randomUUID());
@@ -93,6 +93,30 @@ class RefreshTokenServiceTest {
 
 		verify(tokens).revokeAllActive(user.getId(), NOW);
 		verify(tokens, never()).save(any());
+	}
+
+	@Test
+	void reusingATokenRotatedSecondsAgoIsRefusedWithoutSigningOutEverywhere() {
+		RefreshToken old = stored("old", NOW.plus(Duration.ofDays(1)));
+		old.revoke(NOW.minusSeconds(29));
+		old.replaceWith(UUID.randomUUID());
+
+		assertThatThrownBy(() -> service.rotate("old", CLIENT)).isInstanceOf(RecentlyRotatedException.class);
+
+		verify(tokens, never()).revokeAllActive(any(), any());
+		verify(tokens, never()).save(any());
+	}
+
+	@Test
+	void reusingARotatedTokenAfterTheGracePeriodRevokesEverything() {
+		RefreshToken old = stored("old", NOW.plus(Duration.ofDays(1)));
+		old.revoke(NOW.minusSeconds(31));
+		old.replaceWith(UUID.randomUUID());
+
+		assertThatThrownBy(() -> service.rotate("old", CLIENT)).isInstanceOf(UnauthorizedException.class)
+			.isNotInstanceOf(RecentlyRotatedException.class);
+
+		verify(tokens).revokeAllActive(user.getId(), NOW);
 	}
 
 	@Test

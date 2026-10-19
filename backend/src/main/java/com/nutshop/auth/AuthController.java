@@ -86,7 +86,10 @@ public class AuthController {
 		return complete(authService.loginWithGoogle(req.credential(), ClientInfo.from(request)), response);
 	}
 
-	/** Rotates the refresh token. Any failure clears both cookies so the client starts over cleanly. */
+	/**
+	 * Rotates the refresh token. Any failure clears both cookies so the client starts over cleanly, except a token
+	 * rotated moments ago by another tab: the browser already has the new cookies, which must survive.
+	 */
 	@PostMapping("/refresh")
 	public ResponseEntity<?> refresh(@CookieValue(name = AuthCookies.REFRESH_COOKIE, required = false) String token,
 			HttpServletRequest request, HttpServletResponse response) {
@@ -97,7 +100,9 @@ public class AuthController {
 			return ResponseEntity.ok(complete(authService.refresh(token, ClientInfo.from(request)), response));
 		}
 		catch (UnauthorizedException ex) {
-			cookies.clear(response);
+			if (!(ex instanceof RecentlyRotatedException)) {
+				cookies.clear(response);
+			}
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 				.body(ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage()));
 		}
