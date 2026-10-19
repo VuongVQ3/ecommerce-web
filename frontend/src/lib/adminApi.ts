@@ -28,6 +28,8 @@ export interface AdminOrderDetail {
   guest: boolean
   /** Who placed it while signed in; null for a guest order (or a deleted account) */
   account: { id: string; fullName: string; email: string; role: Role } | null
+  /** True only when the backend says the owning account no longer exists (missing = unknown, e.g. older API) */
+  accountDeleted?: boolean
   carrier: string | null
   trackingNumber: string | null
   notes: AdminOrderNote[]

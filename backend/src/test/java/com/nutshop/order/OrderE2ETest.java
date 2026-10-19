@@ -339,9 +339,9 @@ class OrderE2ETest {
 		String badPhone = lookup(code, "12345").andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
 		assertThat(wrongPhone).isEqualTo(wrongCode.replace("HL000000AAAA", code)).isEqualTo(badPhone)
 			.contains(OrderService.NOT_FOUND_MESSAGE);
-		// The old GET (phone in the URL) is gone
+		// The old GET (phone in the URL) is gone: 405, not a sign-in prompt
 		mvc.perform(get("/api/orders/lookup").param("code", code).param("phone", "0912345678"))
-			.andExpect(status().is4xxClientError());
+			.andExpect(status().isMethodNotAllowed());
 
 		// 10 lookups per IP per window: this test has made 4 (the GET is not counted)
 		for (int i = 0; i < 6; i++) {

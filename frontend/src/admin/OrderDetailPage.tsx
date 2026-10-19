@@ -333,7 +333,8 @@ function CustomerBlock({
           )}
         </div>
       ) : (
-        <p className="text-muted">Khách có tài khoản (tài khoản đã bị xoá)</p>
+        // Only what the backend states: no account details is not proof the account was deleted
+        <p className="text-muted">{detail.accountDeleted === true ? 'Khách có tài khoản (tài khoản đã bị xoá)' : 'Khách có tài khoản'}</p>
       )}
 
       <div className="mt-3 flex gap-2">

@@ -76,11 +76,13 @@ public class AdminOrderService {
 	 * @param allowedActions what the current status allows, so the UI only shows valid buttons
 	 */
 	/**
-	 * @param account who placed it when signed in (null for a guest order, or when that account was deleted): staff
-	 *     and admin accounts stand out in the back office (test orders, orders placed by mistake)
+	 * @param account who placed it when signed in (null for a guest order, or when that account is gone): staff and
+	 *     admin accounts stand out in the back office (test orders, orders placed by mistake)
+	 * @param accountDeleted the order has an owner id but no such account exists any more
 	 */
-	public record AdminOrderDetail(OrderResponse order, boolean guest, Account account, String carrier,
-			String trackingNumber, List<NoteResponse> notes, List<Action> allowedActions, CancelReason cancelReasonCode) {
+	public record AdminOrderDetail(OrderResponse order, boolean guest, Account account, boolean accountDeleted,
+			String carrier, String trackingNumber, List<NoteResponse> notes, List<Action> allowedActions,
+			CancelReason cancelReasonCode) {
 	}
 
 	/** The account an order belongs to. */
@@ -177,7 +179,7 @@ public class AdminOrderService {
 					.map(u -> new Account(u.getId(), u.getFullName(), u.getEmail(), u.getRole()))
 					.orElse(null);
 		return new AdminOrderDetail(orderService.toResponse(order), order.getUserId() == null, account,
-				order.getCarrier(), order.getTrackingNumber(),
+				order.getUserId() != null && account == null, order.getCarrier(), order.getTrackingNumber(),
 				orderNotes.stream()
 					.map(n -> new NoteResponse(n.getBody(), n.getCreatedAt(), names.getOrDefault(n.getAuthorId(), "—")))
 					.toList(),

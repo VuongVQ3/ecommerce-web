@@ -79,8 +79,8 @@ public class SecurityConfig {
 			PATHS.matcher("/api/site"),
 			// Guest carts: priced from the products table, never from the client
 			PATHS.matcher(HttpMethod.POST, "/api/cart/validate"),
-			// Guests look up their order with code + phone
-			PATHS.matcher(HttpMethod.POST, "/api/orders/lookup"),
+			// Guests look up their order with code + phone (POST; any other method gets 405, not a sign-in prompt)
+			PATHS.matcher("/api/orders/lookup"),
 			// Guest tracking links: the token in ?t= is the proof (rate limited per IP)
 			PATHS.matcher(HttpMethod.GET, "/api/orders/track/*"),
 			PATHS.matcher(HttpMethod.POST, "/api/orders/track/*/cancel"),

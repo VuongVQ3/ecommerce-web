@@ -269,7 +269,8 @@ class AdminE2ETest {
 			.andExpect(jsonPath("$.account.id").value(staffId))
 			.andExpect(jsonPath("$.account.fullName").value("Nhân Viên STAFF"))
 			.andExpect(jsonPath("$.account.email", org.hamcrest.Matchers.startsWith("staff-")))
-			.andExpect(jsonPath("$.account.role").value("STAFF"));
+			.andExpect(jsonPath("$.account.role").value("STAFF"))
+			.andExpect(jsonPath("$.accountDeleted").value(false));
 	}
 
 	// ---- dashboard ------------------------------------------------------------------------------------------
@@ -364,7 +365,8 @@ class AdminE2ETest {
 		call(get("/api/admin/orders/" + code), admin).andExpect(status().isOk())
 			.andExpect(jsonPath("$.allowedActions", hasItem("CONFIRM")))
 			.andExpect(jsonPath("$.guest").value(true))
-			.andExpect(jsonPath("$.account").doesNotExist());
+			.andExpect(jsonPath("$.account").doesNotExist())
+			.andExpect(jsonPath("$.accountDeleted").value(false));
 		// PENDING -> COMPLETED is not allowed
 		call(post("/api/admin/orders/" + code + "/complete"), admin).andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"));
