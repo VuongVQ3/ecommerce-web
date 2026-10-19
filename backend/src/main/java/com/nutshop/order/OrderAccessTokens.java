@@ -13,13 +13,16 @@ import java.time.Instant;
 /**
  * Tracking links for guest orders: {@code SITE_URL/don-hang/{code}?t={token}}. The raw token exists only in the
  * response that created it and in the links sent by email; the database keeps its SHA-256. A link is valid for 180
- * days; an order may have several valid links (each email carries a fresh one, older ones keep working).
+ * days (24 hours when handed out by the code + phone lookup); an order may have several valid links (each email
+ * carries a fresh one, older ones keep working).
  */
 @Component
 @Transactional(propagation = Propagation.MANDATORY)
 public class OrderAccessTokens {
 
 	public static final Duration TTL = Duration.ofDays(180);
+	/** Links handed out by the code + phone lookup: weaker proof, shorter life */
+	public static final Duration LOOKUP_TTL = Duration.ofHours(24);
 
 	private final OrderAccessTokenRepository tokens;
 	private final SiteProperties site;
@@ -31,12 +34,22 @@ public class OrderAccessTokens {
 		this.clock = clock;
 	}
 
-	/** @return the raw token, to hand out exactly once */
+	/** @return the raw token (valid {@link #TTL}), to hand out exactly once */
 	public String issue(Order order) {
+		return issue(order, TTL);
+	}
+
+	/** @return the raw token, valid for {@code ttl}, to hand out exactly once */
+	public String issue(Order order, Duration ttl) {
 		String raw = SecureTokens.generate();
 		Instant now = clock.instant();
-		tokens.save(new OrderAccessToken(order.getId(), SecureTokens.hash(raw), now, now.plus(TTL)));
+		tokens.save(new OrderAccessToken(order.getId(), SecureTokens.hash(raw), now, now.plus(ttl)));
 		return raw;
+	}
+
+	/** Drops this order's expired links (each lookup adds one, so the table would otherwise only grow). */
+	public void purgeExpired(Order order) {
+		tokens.deleteExpired(order.getId(), clock.instant());
 	}
 
 	/**

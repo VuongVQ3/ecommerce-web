@@ -16,6 +16,7 @@ import com.nutshop.order.OrderDtos.OrderSummary;
 import com.nutshop.order.OrderDtos.PlaceOrderRequest;
 import com.nutshop.order.OrderDtos.Shortage;
 import com.nutshop.order.OrderDtos.StatusChange;
+import com.nutshop.order.TrackingDtos.LookupResult;
 import com.nutshop.product.PricingService;
 import com.nutshop.product.PricingService.Price;
 import com.nutshop.product.Product;
@@ -68,6 +69,7 @@ public class OrderService {
 	public static final String CANCEL_REASON_REQUIRED = "CANCEL_REASON_REQUIRED";
 	public static final String CANCEL_REASON_TOO_LONG = "CANCEL_REASON_TOO_LONG";
 	public static final String COD_NOT_AVAILABLE = "COD_NOT_AVAILABLE";
+	public static final String ORDER_BELONGS_TO_ACCOUNT = "ORDER_BELONGS_TO_ACCOUNT";
 
 	static final String NOT_FOUND_MESSAGE = "Không tìm thấy đơn hàng. Vui lòng kiểm tra lại mã đơn và số điện thoại.";
 	private static final String MISSING_PRODUCT = "Sản phẩm không còn tồn tại";
@@ -294,17 +296,26 @@ public class OrderService {
 			.orElseThrow(OrderService::notFound);
 	}
 
-	/** Guests: code + phone must both match; any mismatch gives the same 404 (no hint which part was wrong). */
-	@Transactional(readOnly = true)
-	public OrderResponse lookup(String code, String phone) {
+	/**
+	 * Guests: code + phone must both match; any mismatch gives the same 404 (no hint which part was wrong). Returns a
+	 * fresh 24-hour tracking token, never the order itself: the tracking page shows it with the phone and email hidden.
+	 * An order attached to an account answers 409: its owner signs in to see it.
+	 */
+	@Transactional
+	public LookupResult lookup(String code, String phone) {
 		String normalized = PhoneNumbers.normalize(phone);
-		if (!StringUtils.hasText(code) || !PhoneNumbers.isValid(normalized)) {
+		if (!StringUtils.hasText(code) || code.length() > 30 || !PhoneNumbers.isValid(normalized)) {
 			throw notFound();
 		}
-		return orders.findByCode(code.trim().toUpperCase())
+		Order order = orders.findByCode(code.trim().toUpperCase())
 			.filter(o -> o.getPhone().equals(normalized))
-			.map(this::toResponse)
 			.orElseThrow(OrderService::notFound);
+		if (order.getUserId() != null) {
+			throw new ApiException(HttpStatus.CONFLICT, ORDER_BELONGS_TO_ACCOUNT,
+					"Đơn này thuộc một tài khoản. Vui lòng đăng nhập để xem.");
+		}
+		accessTokens.purgeExpired(order);
+		return new LookupResult(order.getCode(), accessTokens.issue(order, OrderAccessTokens.LOOKUP_TTL));
 	}
 
 	// ---- status changes ---------------------------------------------------------------------------------------

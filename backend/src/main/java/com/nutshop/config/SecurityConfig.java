@@ -80,7 +80,7 @@ public class SecurityConfig {
 			// Guest carts: priced from the products table, never from the client
 			PATHS.matcher(HttpMethod.POST, "/api/cart/validate"),
 			// Guests look up their order with code + phone
-			PATHS.matcher(HttpMethod.GET, "/api/orders/lookup"),
+			PATHS.matcher(HttpMethod.POST, "/api/orders/lookup"),
 			// Guest tracking links: the token in ?t= is the proof (rate limited per IP)
 			PATHS.matcher(HttpMethod.GET, "/api/orders/track/*"),
 			PATHS.matcher(HttpMethod.POST, "/api/orders/track/*/cancel"),
@@ -159,7 +159,7 @@ public class SecurityConfig {
 					RequestedWithHeaderFilter.class)
 			.addFilterAfter(new RateLimitFilter(orderCreateRateLimiter, Set.of("/api/orders")),
 					RequestedWithHeaderFilter.class)
-			.addFilterAfter(new RateLimitFilter(orderLookupRateLimiter, HttpMethod.GET, Set.of("/api/orders/lookup")),
+			.addFilterAfter(new RateLimitFilter(orderLookupRateLimiter, Set.of("/api/orders/lookup")),
 					RequestedWithHeaderFilter.class)
 			.addFilterAfter(new RateLimitFilter(orderTrackRateLimiter, TRACKING, "order-track"),
 					RequestedWithHeaderFilter.class)
@@ -245,7 +245,7 @@ public class SecurityConfig {
 		return new RateLimiter(maxRequests, window, clock);
 	}
 
-	/** Per IP, for GET /api/orders/lookup (stops guessing order codes / phone numbers). */
+	/** Per IP, for POST /api/orders/lookup (stops guessing order codes / phone numbers). */
 	@Bean
 	RateLimiter orderLookupRateLimiter(@Value("${app.rate-limit.order-lookup.max-requests}") int maxRequests,
 			@Value("${app.rate-limit.order-lookup.window}") Duration window, Clock clock) {

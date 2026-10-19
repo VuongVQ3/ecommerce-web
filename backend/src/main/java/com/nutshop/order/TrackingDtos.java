@@ -55,6 +55,14 @@ public final class TrackingDtos {
 		}
 	}
 
+	/** Guest lookup: no validation messages, any problem gives the same 404. */
+	public record LookupRequest(String code, String phone) {
+	}
+
+	/** A short-lived tracking link (code + token) for the guest who proved code + phone. */
+	public record LookupResult(String code, String token) {
+	}
+
 	/** One entry of the browser's "recent orders" list. */
 	public record ClaimItem(@NotBlank @Size(max = 30) String code, @NotBlank @Size(max = 100) String token) {
 	}
