@@ -36,9 +36,9 @@ public class AdminCatalogController {
 
 	@GetMapping("/products")
 	public PageResponse<ProductRow> products(@RequestParam(required = false) String q,
-			@RequestParam(required = false) Boolean active, @RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "20") int size) {
-		return catalog.list(q, active, page, size);
+			@RequestParam(required = false) Boolean active, @RequestParam(defaultValue = "false") boolean notReady,
+			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+		return catalog.list(q, active, notReady, page, size);
 	}
 
 	@GetMapping("/products/{id}")

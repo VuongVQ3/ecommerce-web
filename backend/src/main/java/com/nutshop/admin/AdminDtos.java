@@ -70,18 +70,23 @@ public final class AdminDtos {
 			@NotNull(message = "Vui lòng chọn danh mục") Long categoryId,
 			@NotBlank(message = "Vui lòng nhập mô tả") @Size(max = 2000, message = "Mô tả tối đa 2000 ký tự") String description,
 			@Size(max = 100, message = "Xuất xứ tối đa 100 ký tự") String origin,
-			@NotNull(message = "Vui lòng nhập giá") @Min(value = 1000, message = "Giá tối thiểu 1.000₫") @Max(value = 100_000_000L, message = "Giá quá lớn") Long price,
+			// Optional while the product is hidden (being prepared); required to show it
+			@Min(value = 1000, message = "Giá tối thiểu 1.000₫") @Max(value = 100_000_000L, message = "Giá quá lớn") Long price,
 			@NotNull(message = "Vui lòng nhập khối lượng") @Min(value = 1, message = "Khối lượng phải lớn hơn 0") @Max(value = 100_000, message = "Khối lượng quá lớn") Integer weightGrams,
-			@NotNull(message = "Bắt buộc") @DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "1000", message = "Giá trị quá lớn") BigDecimal calories,
-			@NotNull(message = "Bắt buộc") @DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal protein,
-			@NotNull(message = "Bắt buộc") @DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal fat,
-			@NotNull(message = "Bắt buộc") @DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal carbs,
-			@NotNull(message = "Bắt buộc") @DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal fiber,
-			@Min(value = 0, message = "Ngưỡng không được âm") @Max(value = 100_000, message = "Ngưỡng quá lớn") Integer lowStockThreshold) {
+			// Nutrition per 100g: optional, but all five or none (checked by AdminProductService)
+			@DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "1000", message = "Giá trị quá lớn") BigDecimal calories,
+			@DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal protein,
+			@DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal fat,
+			@DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal carbs,
+			@DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal fiber,
+			@Min(value = 0, message = "Ngưỡng không được âm") @Max(value = 100_000, message = "Ngưỡng quá lớn") Integer lowStockThreshold,
+			/** Storefront order (smaller first); null = after the others on create, unchanged on update */
+			@Min(value = 0, message = "Thứ tự không được âm") @Max(value = 100_000, message = "Thứ tự quá lớn") Integer sortOrder) {
 
 		Product.Details details() {
-			return new Product.Details(name.trim(), description.trim(), blankToNull(origin), price, weightGrams,
-					calories, protein, fat, carbs, fiber, lowStockThreshold == null ? 10 : lowStockThreshold);
+			return new Product.Details(name.trim(), description.trim(), blankToNull(origin), price == null ? 0 : price,
+					weightGrams, calories, protein, fat, carbs, fiber, lowStockThreshold == null ? 10 : lowStockThreshold,
+					sortOrder);
 		}
 
 		private static String blankToNull(String s) {

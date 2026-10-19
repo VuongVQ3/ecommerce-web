@@ -119,7 +119,7 @@ public class SiteController {
 		url(xml, "/san-pham", null);
 		jdbc.query("""
 				SELECT c.slug, MAX(p.updated_at) AS lastmod
-				FROM categories c LEFT JOIN products p ON p.category_id = c.id AND p.active
+				FROM categories c JOIN products p ON p.category_id = c.id AND p.active
 				GROUP BY c.id, c.slug ORDER BY c.id""",
 				rs -> {
 					var ts = rs.getTimestamp("lastmod");

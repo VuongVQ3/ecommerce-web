@@ -61,21 +61,20 @@ public class Product {
 	@Column(name = "image_url")
 	private String imageUrl;
 
-	// Nutrition facts per 100g
-	@Column(nullable = false)
+	// Nutrition facts per 100g: all five, or none (not known yet)
 	private BigDecimal calories;
 
-	@Column(nullable = false)
 	private BigDecimal protein;
 
-	@Column(nullable = false)
 	private BigDecimal fat;
 
-	@Column(nullable = false)
 	private BigDecimal carbs;
 
-	@Column(nullable = false)
 	private BigDecimal fiber;
+
+	/** Default order on the storefront (then id) */
+	@Column(name = "sort_order", nullable = false)
+	private int sortOrder;
 
 	@Column(name = "created_at", nullable = false, insertable = false, updatable = false)
 	private Instant createdAt;
@@ -83,10 +82,15 @@ public class Product {
 	protected Product() {
 	}
 
-	/** Editable fields of a product (stock is managed separately through inventory movements). */
+	/**
+	 * Editable fields of a product (stock is managed separately through inventory movements).
+	 *
+	 * @param price 0 = no price yet (the product cannot be shown until it has one)
+	 * @param sortOrder null = keep the current one
+	 */
 	public record Details(String name, String description, String origin, long price, int weightGrams,
 			BigDecimal calories, BigDecimal protein, BigDecimal fat, BigDecimal carbs, BigDecimal fiber,
-			int lowStockThreshold) {
+			int lowStockThreshold, Integer sortOrder) {
 	}
 
 	/** New products start with no stock; stock arrives through an inventory import. */
@@ -114,7 +118,33 @@ public class Product {
 		this.carbs = d.carbs();
 		this.fiber = d.fiber();
 		this.lowStockThreshold = d.lowStockThreshold();
+		if (d.sortOrder() != null) {
+			this.sortOrder = d.sortOrder();
+		}
 		this.updatedAt = Instant.now();
+	}
+
+	public void setSortOrder(int sortOrder) {
+		this.sortOrder = sortOrder;
+	}
+
+	public int getSortOrder() {
+		return sortOrder;
+	}
+
+	/** On the storefront and purchasable: shown and priced (the database also forbids active without a price). */
+	public boolean isOnSale() {
+		return active && hasPrice();
+	}
+
+	/** Has a price: may be shown and sold. */
+	public boolean hasPrice() {
+		return price != null && price > 0;
+	}
+
+	/** Nutrition facts are filled in (all five). */
+	public boolean hasNutrition() {
+		return calories != null && protein != null && fat != null && carbs != null && fiber != null;
 	}
 
 	public void setActive(boolean active) {

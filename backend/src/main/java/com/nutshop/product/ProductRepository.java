@@ -31,6 +31,9 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 
 	long countByCategoryId(Long categoryId);
 
+	@Query("SELECT COALESCE(MAX(p.sortOrder), 0) FROM Product p")
+	int maxSortOrder();
+
 	/** One query for a whole cart (avoids N+1 when enriching cart lines). */
 	@EntityGraph(attributePaths = "category")
 	List<Product> findByIdIn(Collection<Long> ids);

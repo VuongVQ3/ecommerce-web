@@ -2,6 +2,7 @@ package com.nutshop.site;
 
 import com.nutshop.common.Slugs;
 import com.nutshop.product.CategoryRepository;
+import com.nutshop.product.CategorySlugHistory;
 import com.nutshop.product.PricingService;
 import com.nutshop.product.ProductImageRepository;
 import com.nutshop.product.ProductRepository;
@@ -33,11 +34,13 @@ public class PageController {
 	private final CategoryRepository categories;
 	private final PricingService pricing;
 	private final ProductService productService;
+	private final CategorySlugHistory categorySlugs;
 
 	public PageController(HtmlPages pages, PageMetaService meta, ProductRepository products,
 			ProductImageRepository images, CategoryRepository categories, PricingService pricing,
-			ProductService productService) {
+			ProductService productService, CategorySlugHistory categorySlugs) {
 		this.productService = productService;
+		this.categorySlugs = categorySlugs;
 		this.pages = pages;
 		this.meta = meta;
 		this.products = products;
@@ -89,10 +92,20 @@ public class PageController {
 			.orElseGet(() -> pages.notFound(request.getRequestURI()));
 	}
 
+	/** An old slug (renamed category, e.g. hat-mix-granola) moves permanently to the current one. */
 	@GetMapping("/danh-muc/{slug}")
 	public ResponseEntity<String> category(@PathVariable String slug, HttpServletRequest request) {
-		return categories.findBySlug(slug)
-			.map(c -> pages.render(meta.category(c), HttpStatus.OK))
+		var current = categories.findBySlug(slug);
+		if (current.isPresent()) {
+			return pages.render(meta.category(current.get()), HttpStatus.OK);
+		}
+		return categorySlugs.currentSlugFor(slug)
+			.map(now -> ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY)
+				.header(HttpHeaders.LOCATION, UriComponentsBuilder.fromPath("/danh-muc/" + now)
+					.query(request.getQueryString())
+					.build()
+					.toUriString())
+				.<String>build())
 			.orElseGet(() -> pages.notFound(request.getRequestURI()));
 	}
 

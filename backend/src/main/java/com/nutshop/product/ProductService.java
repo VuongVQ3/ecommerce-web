@@ -40,19 +40,26 @@ public class ProductService {
 		this.pricing = pricing;
 	}
 
+	/** Only categories with something on sale (an emptied category disappears from menus and filters). */
 	public List<CategoryResponse> listCategories() {
-		return categories.findAll(Sort.by("id")).stream().map(CategoryResponse::from).toList();
+		return categories.findWithProductsOnSale().stream().map(CategoryResponse::from).toList();
 	}
 
 	/** Catalogue listing: discontinued products are hidden (their pages stay reachable by slug). */
 	public PageResponse<ProductSummary> search(String category, String q, String sort, int page, int size) {
 		boolean byPrice = "price_asc".equals(sort) || "price_desc".equals(sort);
-		// Price sorts use the current (possibly discounted) price, ordered inside the query
+		boolean byNutrition = "calories_asc".equals(sort) || "protein_desc".equals(sort);
+		// Price sorts use the current (possibly discounted) price, nutrition sorts put products without figures last:
+		// both are ordered inside the query
 		var pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, MAX_PAGE_SIZE),
-				byPrice ? Sort.unsorted() : toSort(sort));
+				byPrice || byNutrition ? Sort.unsorted() : Sort.by("sortOrder", "id"));
 		List<Specification<Product>> filters = new ArrayList<>();
 		if (byPrice) {
 			filters.add(ProductSpecs.orderByCurrentPrice("price_asc".equals(sort), pricing.now()));
+		}
+		if (byNutrition) {
+			filters.add("calories_asc".equals(sort) ? ProductSpecs.orderByNutrient("calories", true)
+					: ProductSpecs.orderByNutrient("protein", false));
 		}
 		filters.add(ProductSpecs.active());
 		if (StringUtils.hasText(category)) {
@@ -94,11 +101,4 @@ public class ProductService {
 		return new NotFoundException("Không tìm thấy sản phẩm");
 	}
 
-	private static Sort toSort(String sort) {
-		return switch (sort == null ? "" : sort) {
-			case "calories_asc" -> Sort.by("calories").ascending();
-			case "protein_desc" -> Sort.by("protein").descending();
-			default -> Sort.by("id").ascending();
-		};
-	}
 }

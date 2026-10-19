@@ -20,8 +20,8 @@ import java.util.Map;
 public class PageMetaService {
 
 	public static final String BRAND = "Hạt Lành";
-	public static final String DEFAULT_DESCRIPTION = "Hạt Lành – hạt dinh dưỡng và hạt ăn kiêng chất lượng: hạnh nhân, óc chó,"
-			+ " hạt chia, granola. Bảng dinh dưỡng rõ ràng, giao hàng toàn quốc, thanh toán khi nhận hàng.";
+	public static final String DEFAULT_DESCRIPTION = "Hạt Lành – mắc ca, hạt điều, hạnh nhân, óc chó, bánh hạt, xoài sấy và"
+			+ " mật ong. Gói 500 g, giao hàng toàn quốc, thanh toán khi nhận hàng.";
 	private static final int DESCRIPTION_MAX = 155;
 
 	/** Public, indexable pages that are not products or categories. */
@@ -40,9 +40,9 @@ public class PageMetaService {
 
 	private static Map<String, PageMeta> staticPages() {
 		Map<String, PageMeta> pages = new LinkedHashMap<>();
-		pages.put("/", PageMeta.page(BRAND + " – Hạt dinh dưỡng cho người ăn kiêng", DEFAULT_DESCRIPTION, "/"));
+		pages.put("/", PageMeta.page(BRAND + " – Hạt dinh dưỡng & đặc sản chọn lọc", DEFAULT_DESCRIPTION, "/"));
 		pages.put("/san-pham", PageMeta.page("Tất cả sản phẩm | " + BRAND,
-				"Hạnh nhân, óc chó, hạt điều, hạt chia, granola… lọc theo danh mục, so sánh calo và protein trên 100g."
+				"Mắc ca, hạt điều, hạnh nhân, óc chó, bánh thuyền hạt, xoài sấy, mật ong… lọc theo danh mục, gói 500 g."
 						+ " Giao hàng toàn quốc, thanh toán khi nhận hàng.",
 				"/san-pham"));
 		pages.put("/chinh-sach-doi-tra", PageMeta.page("Chính sách đổi trả | " + BRAND,
@@ -74,13 +74,13 @@ public class PageMetaService {
 		Map<String, Object> breadcrumb = breadcrumb(List.of(crumb("Trang chủ", "/"), crumb("Sản phẩm", "/san-pham"),
 				crumb(category.getName(), path)));
 		return new PageMeta(category.getName() + " | " + BRAND,
-				truncate(category.getName() + " tại " + BRAND + ": chọn theo calo, protein và giá. Bảng dinh dưỡng trên"
-						+ " 100g cho từng sản phẩm, giao hàng toàn quốc, thanh toán khi nhận hàng."),
+				truncate(category.getName() + " tại " + BRAND + ": gói 500 g, chọn lọc kỹ, giao hàng toàn quốc, thanh toán"
+						+ " khi nhận hàng."),
 				path, null, "website", false, List.of(breadcrumb));
 	}
 
 	/**
-	 * "Hạnh nhân rang mộc 500g – 189.000₫ | Hạt Lành", the description cut to 155 characters, the primary image and
+	 * "Hạnh nhân sấy 500g – 189.000₫ | Hạt Lành", the description cut to 155 characters, the primary image and
 	 * schema.org Product + BreadcrumbList.
 	 */
 	public PageMeta product(Product p, List<ProductImage> images, PricingService.Price current) {

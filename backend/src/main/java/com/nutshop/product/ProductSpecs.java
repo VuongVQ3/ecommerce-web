@@ -31,6 +31,23 @@ final class ProductSpecs {
 	}
 
 	/**
+	 * Orders by a nutrition figure, products without figures last (NULLS LAST), then by the storefront order. Adds no
+	 * filter. Skipped for the count query of a page.
+	 */
+	static Specification<Product> orderByNutrient(String field, boolean ascending) {
+		return (root, query, cb) -> {
+			Class<?> result = query.getResultType();
+			if (result == Long.class || result == long.class) {
+				return null;
+			}
+			Expression<Integer> missing = cb.<Integer>selectCase().when(cb.isNull(root.get(field)), 1).otherwise(0);
+			query.orderBy(cb.asc(missing), ascending ? cb.asc(root.get(field)) : cb.desc(root.get(field)),
+					cb.asc(root.get("sortOrder")), cb.asc(root.get("id")));
+			return null;
+		};
+	}
+
+	/**
 	 * Orders by the price buyers pay now: COALESCE(running sale price, regular price), then by id for a stable order.
 	 * Adds no filter. Skipped for the count query of a page.
 	 */

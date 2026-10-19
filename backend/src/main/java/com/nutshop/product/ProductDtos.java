@@ -83,6 +83,7 @@ public final class ProductDtos {
 	/**
 	 * @param active false when discontinued (page stays reachable, cannot be bought)
 	 * @param images primary first; empty = emoji placeholder
+	 * @param nutritionPer100g null when not known yet
 	 */
 	public record ProductDetail(Long id, String name, String slug, String description, String origin, Long price,
 			Long regularPrice, Integer discountPercent, Instant promotionEndsAt, Integer weightGrams, boolean active,
@@ -97,7 +98,9 @@ public final class ProductDtos {
 					p.getWeightGrams(), p.isActive(), StockStatus.of(p), softMax(p, maxQtyPerItem),
 					p.getImageUrl(),
 					images.stream().map(i -> new ImageResponse(i.getUrl(), i.getWidth(), i.getHeight())).toList(),
-					new Nutrition(p.getCalories(), p.getProtein(), p.getFat(), p.getCarbs(), p.getFiber()),
+					// null until the five figures are known: the page then shows no nutrition table
+					p.hasNutrition() ? new Nutrition(p.getCalories(), p.getProtein(), p.getFat(), p.getCarbs(), p.getFiber())
+							: null,
 					CategoryResponse.from(p.getCategory()), null);
 		}
 

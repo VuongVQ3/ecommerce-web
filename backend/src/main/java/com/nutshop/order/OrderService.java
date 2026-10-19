@@ -210,7 +210,8 @@ public class OrderService {
 		long subtotal = 0;
 		for (var entry : wanted.entrySet()) {
 			Product p = found.get(entry.getKey());
-			if (p == null || !p.isActive()) {
+			// Priced as well: a product without a price is never sold, whatever its flag says
+			if (p == null || !p.isOnSale()) {
 				shortages.add(new Shortage(entry.getKey(), p == null ? MISSING_PRODUCT : p.getName(), entry.getValue(), 0));
 				continue;
 			}
@@ -259,7 +260,7 @@ public class OrderService {
 			.collect(Collectors.toMap(Product::getId, Function.identity()));
 		List<Shortage> report = shortages.stream().map(s -> {
 			Product p = now.get(s.productId());
-			int available = p == null || !p.isActive() ? 0 : Math.min(p.availableQuantity(), cartProps.maxQtyPerItem());
+			int available = p == null || !p.isOnSale() ? 0 : Math.min(p.availableQuantity(), cartProps.maxQtyPerItem());
 			return new Shortage(s.productId(), s.name(), s.requested(), available);
 		}).toList();
 		return new ApiException(HttpStatus.CONFLICT, OUT_OF_STOCK, "Một số sản phẩm không còn đủ hàng")

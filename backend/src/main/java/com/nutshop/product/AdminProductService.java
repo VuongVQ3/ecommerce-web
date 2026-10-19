@@ -46,20 +46,22 @@ public class AdminProductService {
 		}
 	}
 
-	public record ProductRow(Long id, String name, String slug, String categoryName, long price, boolean active,
-			int onHand, int reserved, int available, int lowStockThreshold, boolean lowStock, String imageUrl) {
+	/** @param price 0 = no price yet ("Chưa có giá") */
+	public record ProductRow(Long id, String name, String slug, String categoryName, String categorySlug, long price,
+			boolean active, int onHand, int reserved, int available, int lowStockThreshold, boolean lowStock,
+			String imageUrl, int sortOrder) {
 
 		static ProductRow from(Product p) {
-			return new ProductRow(p.getId(), p.getName(), p.getSlug(), p.getCategory().getName(), p.getPrice(),
-					p.isActive(), p.getOnHand(), p.getReserved(), p.availableQuantity(), p.getLowStockThreshold(),
-					p.isLowStock(), p.getImageUrl());
+			return new ProductRow(p.getId(), p.getName(), p.getSlug(), p.getCategory().getName(),
+					p.getCategory().getSlug(), p.getPrice(), p.isActive(), p.getOnHand(), p.getReserved(),
+					p.availableQuantity(), p.getLowStockThreshold(), p.isLowStock(), p.getImageUrl(), p.getSortOrder());
 		}
 	}
 
 	public record ProductAdminDetail(Long id, String name, String slug, Long categoryId, String description,
 			String origin, long price, int weightGrams, BigDecimal calories, BigDecimal protein, BigDecimal fat,
 			BigDecimal carbs, BigDecimal fiber, int lowStockThreshold, boolean active, int onHand, int reserved,
-			int available, List<ImageRow> images, Instant priceLockedUntil) {
+			int available, List<ImageRow> images, Instant priceLockedUntil, int sortOrder) {
 	}
 
 	/** What the audit log stores for a product (editable fields only). */
@@ -85,10 +87,15 @@ public class AdminProductService {
 	private final TransactionTemplate tx;
 	private final PromotionService promotions;
 	private final ProductSlugHistory slugHistory;
+	private final CategorySlugHistory categorySlugHistory;
+
+	public static final String PRICE_REQUIRED = "PRICE_REQUIRED";
+	public static final String PRICE_REQUIRED_MESSAGE = "Nhập giá bán trước khi hiện sản phẩm";
 
 	public AdminProductService(ProductRepository products, CategoryRepository categories,
 			ProductImageRepository images, ImageStorage storage, AuditLog audit, PlatformTransactionManager txManager,
-			PromotionService promotions, ProductSlugHistory slugHistory) {
+			PromotionService promotions, ProductSlugHistory slugHistory, CategorySlugHistory categorySlugHistory) {
+		this.categorySlugHistory = categorySlugHistory;
 		this.promotions = promotions;
 		this.slugHistory = slugHistory;
 		this.products = products;
@@ -101,8 +108,9 @@ public class AdminProductService {
 
 	// ---- products ---------------------------------------------------------------------------------------------
 
+	/** @param notReady only products that cannot be sold yet: no price, or no stock */
 	@Transactional(readOnly = true)
-	public PageResponse<ProductRow> list(String q, Boolean active, int page, int size) {
+	public PageResponse<ProductRow> list(String q, Boolean active, boolean notReady, int page, int size) {
 		Specification<Product> spec = (root, query, cb) -> {
 			List<Predicate> where = new ArrayList<>();
 			if (StringUtils.hasText(q)) {
@@ -112,9 +120,13 @@ public class AdminProductService {
 			if (active != null) {
 				where.add(cb.equal(root.get("active"), active));
 			}
+			if (notReady) {
+				where.add(cb.or(cb.le(root.<Long>get("price"), 0L), cb.le(root.<Integer>get("onHand"), 0)));
+			}
 			return cb.and(where.toArray(Predicate[]::new));
 		};
-		var pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 100), Sort.by("name"));
+		// Same order as the storefront
+		var pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 100), Sort.by("sortOrder", "name", "id"));
 		return PageResponse.from(products.findAll(spec, pageable).map(ProductRow::from));
 	}
 
@@ -123,10 +135,19 @@ public class AdminProductService {
 		return detail(products.findById(id).orElseThrow(AdminProductService::productNotFound));
 	}
 
+	/** A product without a price is created hidden; without a sort order it goes after the others. */
 	@Transactional
 	public ProductAdminDetail create(Long categoryId, String requestedSlug, Product.Details details, UUID actorId) {
+		checkNutrition(details);
 		Category category = category(categoryId);
-		Product product = products.save(new Product(category, slugFor(requestedSlug, details.name(), null), details));
+		Product draft = new Product(category, slugFor(requestedSlug, details.name(), null), details);
+		if (details.sortOrder() == null) {
+			draft.setSortOrder(products.maxSortOrder() + 1);
+		}
+		if (details.price() <= 0) {
+			draft.setActive(false);
+		}
+		Product product = products.save(draft);
 		audit.entry("PRODUCT_CREATED", "PRODUCT", product.getId(), product.getName())
 			.by(actorId)
 			.changes(null, AuditView.of(product))
@@ -138,6 +159,10 @@ public class AdminProductService {
 	public ProductAdminDetail update(long id, Long categoryId, String requestedSlug, Product.Details details,
 			UUID actorId) {
 		Product product = products.lockById(id).orElseThrow(AdminProductService::productNotFound);
+		checkNutrition(details);
+		if (product.isActive() && details.price() <= 0) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, PRICE_REQUIRED, PRICE_REQUIRED_MESSAGE);
+		}
 		if (details.price() != product.getPrice()) {
 			// Frozen while a promotion is running or upcoming
 			promotions.checkNewRegularPrice(id);
@@ -150,10 +175,16 @@ public class AdminProductService {
 		return detail(product);
 	}
 
-	/** Hide/show. Products are never hard-deleted: orders and carts keep referring to them. */
+	/**
+	 * Hide/show. Products are never hard-deleted: orders and carts keep referring to them. Showing needs a price
+	 * (products of the real catalogue start at 0 until the owner prices them).
+	 */
 	@Transactional
 	public ProductAdminDetail setActive(long id, boolean active, UUID actorId) {
 		Product product = products.findById(id).orElseThrow(AdminProductService::productNotFound);
+		if (active && !product.hasPrice()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, PRICE_REQUIRED, PRICE_REQUIRED_MESSAGE);
+		}
 		if (product.isActive() != active) {
 			product.setActive(active);
 			audit.entry(active ? "PRODUCT_SHOWN" : "PRODUCT_HIDDEN", "PRODUCT", id, product.getName())
@@ -293,7 +324,10 @@ public class AdminProductService {
 		Category category = categories.findById(id)
 			.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CATEGORY_NOT_FOUND", "Không tìm thấy danh mục"));
 		Map<String, String> before = Map.of("name", category.getName(), "slug", category.getSlug());
+		String oldSlug = category.getSlug();
 		category.rename(name.trim(), categorySlug(requestedSlug, name, id));
+		// Old links to the category keep working
+		categorySlugHistory.changed(id, oldSlug, category.getSlug());
 		audit.entry("CATEGORY_UPDATED", "CATEGORY", id, category.getName())
 			.by(actorId)
 			.changes(before, Map.of("name", category.getName(), "slug", category.getSlug()))
@@ -309,7 +343,18 @@ public class AdminProductService {
 				p.getCarbs(), p.getFiber(), p.getLowStockThreshold(), p.isActive(), p.getOnHand(), p.getReserved(),
 				p.availableQuantity(),
 				images.findByProductIdOrderByPrimaryDescPositionAsc(p.getId()).stream().map(ImageRow::from).toList(),
-				promotions.priceLockedUntil(p.getId()));
+				promotions.priceLockedUntil(p.getId()), p.getSortOrder());
+	}
+
+	/** Nutrition is optional, but a half-filled table would mislead: all five values or none. */
+	private static void checkNutrition(Product.Details d) {
+		long filled = java.util.stream.Stream.of(d.calories(), d.protein(), d.fat(), d.carbs(), d.fiber())
+			.filter(java.util.Objects::nonNull)
+			.count();
+		if (filled != 0 && filled != 5) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "NUTRITION_INCOMPLETE",
+					"Nhập đủ 5 chỉ số dinh dưỡng hoặc để trống cả 5");
+		}
 	}
 
 	private Category category(Long id) {
