@@ -6,6 +6,7 @@ import { useAuthForm } from '../auth/useAuthForm'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { Checkbox, FormError, PasswordChecklist, PasswordField, SubmitButton, TextField } from '../components/FormFields'
 import CancelOrderDialog from '../components/CancelOrderDialog'
+import Modal from '../components/Modal'
 import { PriceTag } from '../components/Price'
 import { StatusBadge } from '../components/OrderDetails'
 import { useToast } from '../components/Toast'
@@ -265,12 +266,18 @@ function ClaimAccountBox({ order, token }: { order: TrackedOrder; token: string 
   )
 }
 
-/** Signed in but this guest order is not attached yet (e.g. came back through the link): one click to save it. */
-function SaveToAccount({ order, token }: { order: TrackedOrder; token: string }) {
+/**
+ * A signed-in customer looking at a guest order not attached yet (e.g. came back through the link): saving it takes
+ * a click and a confirmation. The server only accepts it when the order was placed with this account's verified email
+ * or phone.
+ */
+function SaveToAccount({ order, token, email }: { order: TrackedOrder; token: string; email: string }) {
   const navigate = useNavigate()
   const toast = useToast()
   const [busy, setBusy] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const save = async () => {
+    setConfirming(false)
     setBusy(true)
     try {
       const result = await api.claimOrders([{ code: order.code, token }])
@@ -279,7 +286,7 @@ function SaveToAccount({ order, token }: { order: TrackedOrder; token: string })
         toast({ tone: 'success', message: 'Đã lưu đơn hàng vào tài khoản' })
         navigate(`/tai-khoan/don-hang/${order.code}`, { replace: true })
       } else {
-        toast({ tone: 'error', message: 'Không lưu được đơn hàng này' })
+        toast({ tone: 'error', message: 'Không lưu được: đơn này không được đặt bằng email hoặc số điện thoại của tài khoản bạn' })
       }
     } catch (err) {
       toast({ tone: 'error', message: err instanceof Error ? err.message : 'Không lưu được đơn hàng này' })
@@ -290,9 +297,16 @@ function SaveToAccount({ order, token }: { order: TrackedOrder; token: string })
   return (
     <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-200 bg-brand-50 p-5">
       <p className="text-stone-800">Lưu đơn này vào tài khoản của bạn để xem trong "Đơn hàng của tôi".</p>
-      <button type="button" onClick={save} disabled={busy} className="rounded-full bg-brand-600 px-5 py-2.5 font-semibold text-white hover:bg-brand-700 disabled:opacity-70">
+      <button type="button" onClick={() => setConfirming(true)} disabled={busy} className="rounded-full bg-brand-600 px-5 py-2.5 font-semibold text-white hover:bg-brand-700 disabled:opacity-70">
         {busy ? 'Đang lưu...' : 'Lưu vào tài khoản'}
       </button>
+      {confirming && (
+        <Modal title="Lưu đơn vào tài khoản" submitLabel="Gắn đơn" cancelLabel="Huỷ" onClose={() => setConfirming(false)} onSubmit={() => void save()}>
+          <p className="text-stone-700">
+            Gắn đơn {order.code} vào tài khoản {email}?
+          </p>
+        </Modal>
+      )}
     </section>
   )
 }
@@ -317,10 +331,11 @@ export default function TrackOrderPage() {
   const order = updated?.code === code ? updated : data?.code === code ? data : null
   const notFound = error instanceof ApiError && error.status === 404
 
-  // Opened from an email or another device: remember it in this browser's recent orders too
+  // Opened from an email or another device by a guest: remember it in this browser's recent orders too. Not when
+  // signed in (staff helping the buyer, a forwarded link): the next sign-in would offer it to that account.
   useEffect(() => {
-    if (data?.canClaim) saveRecentOrder(data.code, token)
-  }, [data, token])
+    if (data?.canClaim && !authLoading && !user) saveRecentOrder(data.code, token)
+  }, [data, token, authLoading, user])
 
   // A link that no longer works: forget it; if the order was saved to this account, go there instead
   useEffect(() => {
@@ -426,7 +441,8 @@ export default function TrackOrderPage() {
         )}
       </section>
 
-      {order.canClaim && !authLoading && (user ? <SaveToAccount order={order} token={token} /> : null)}
+      {/* Staff never save a customer's order to their own account */}
+      {order.canClaim && !authLoading && user?.role === 'CUSTOMER' && <SaveToAccount order={order} token={token} email={user.email} />}
 
       <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6" aria-labelledby="items-title">
         <h2 id="items-title" className="font-bold text-stone-900">

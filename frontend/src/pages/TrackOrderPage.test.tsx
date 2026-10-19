@@ -185,4 +185,31 @@ describe('TrackOrderPage', () => {
     expect(screen.queryByRole('heading', { name: 'Lưu đơn hàng vào tài khoản' })).toBeNull()
     expect(sessionStorage.getItem(`hatlanh_claim_dismissed_${CODE}`)).toBe('1')
   })
+
+  it('a signed-in visitor (staff helping the buyer) neither remembers nor saves the order', async () => {
+    auth.current = { user: { id: 'a1', email: 'admin@example.com', fullName: 'Quản Trị', phone: null, role: 'ADMIN', emailVerified: true, passwordChangeRequired: false }, loading: false }
+    vi.spyOn(api, 'trackOrder').mockResolvedValue(tracked)
+    const claim = vi.spyOn(api, 'claimOrders')
+    renderPage()
+
+    expect(await screen.findByRole('heading', { level: 1, name: CODE })).toBeTruthy()
+    expect(readRecentOrders()).toEqual([])
+    expect(claim).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Lưu vào tài khoản' })).toBeNull()
+  })
+
+  it('a signed-in customer saves the order only after confirming', async () => {
+    auth.current = { user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0912345678', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false }, loading: false }
+    vi.spyOn(api, 'trackOrder').mockResolvedValue(tracked)
+    const claim = vi.spyOn(api, 'claimOrders').mockResolvedValue({ claimed: [CODE], skipped: [] })
+    renderPage()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Lưu vào tài khoản' }))
+    expect(claim).not.toHaveBeenCalled()
+    expect(screen.getByText(`Gắn đơn ${CODE} vào tài khoản an@example.com?`)).toBeTruthy()
+    expect(readRecentOrders()).toEqual([])
+    fireEvent.click(screen.getByRole('button', { name: 'Gắn đơn' }))
+    await waitFor(() => expect(claim).toHaveBeenCalledWith([{ code: CODE, token: TOKEN }]))
+    expect(await screen.findByTestId('where')).toHaveProperty('textContent', `/tai-khoan/don-hang/${CODE}`)
+  })
 })

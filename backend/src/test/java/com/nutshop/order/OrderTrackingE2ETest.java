@@ -512,17 +512,22 @@ class OrderTrackingE2ETest {
 	// ---- attaching after sign-in ----------------------------------------------------------------------------
 
 	@Test
-	void signedInUserAttachesOnlyValidUnownedRecentOrders() throws Exception {
+	void signedInUserAttachesOnlyValidUnownedRecentOrdersThatAreTheirs() throws Exception {
 		long id = product();
 		String[] mine = guestOrder(id, null);
 		String[] wrongToken = guestOrder(id, null);
-		String[] taken = guestOrder(id, null);
-		Cookie someoneElse = register(email());
+		// Someone else's order, placed with their (verified) email: they claim it first
+		String otherEmail = email();
+		Cookie someoneElse = register(otherEmail);
+		jdbc.update("UPDATE users SET email_verified_at = now() WHERE email = ?", otherEmail);
+		String[] taken = guestOrder(id, otherEmail);
 		mvc.perform(json(post("/api/orders/claim"), "[{\"code\":\"%s\",\"token\":\"%s\"}]".formatted(taken[0], taken[1]))
 			.cookie(someoneElse)).andExpect(jsonPath("$.claimed", hasItem(taken[0])));
 
+		// This account has the phone the orders were placed with
 		String email = email();
 		Cookie me = register(email);
+		jdbc.update("UPDATE users SET phone = '0912345678' WHERE email = ?", email);
 		String items = "[{\"code\":\"%s\",\"token\":\"%s\"},{\"code\":\"%s\",\"token\":\"%s\"},{\"code\":\"%s\",\"token\":\"%s\"}]"
 			.formatted(mine[0], mine[1], wrongToken[0], SecureTokens.generate(), taken[0], taken[1]);
 		mvc.perform(json(post("/api/orders/claim"), items).cookie(me))
@@ -534,8 +539,47 @@ class OrderTrackingE2ETest {
 		assertThat(jdbc.queryForObject("SELECT user_id::text FROM orders WHERE code = ?", String.class, mine[0])).isEqualTo(myId);
 		assertThat(jdbc.queryForObject("SELECT user_id::text FROM orders WHERE code = ?", String.class, taken[0])).isNotEqualTo(myId);
 		assertThat(jdbc.queryForObject("SELECT user_id FROM orders WHERE code = ?", String.class, wrongToken[0])).isNull();
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_logs WHERE action = 'ORDER_CLAIMED' AND entity_id = ?",
+				Integer.class, mine[0])).isEqualTo(1);
 
 		mvc.perform(json(post("/api/orders/claim"), "[]")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void aValidLinkAloneDoesNotMoveAnOrderToAnUnrelatedAccount() throws Exception {
+		long id = product();
+		String buyerEmail = email();
+		String[] order = guestOrder(id, buyerEmail);
+		String item = "[{\"code\":\"%s\",\"token\":\"%s\"}]".formatted(order[0], order[1]);
+
+		// Different email and phone (e.g. the link was forwarded)
+		Cookie stranger = register(email());
+		mvc.perform(json(post("/api/orders/claim"), item).cookie(stranger))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.claimed.length()").value(0))
+			.andExpect(jsonPath("$.skipped[0]").value(order[0]));
+
+		// Staff helping the buyer, even with the matching phone
+		String staffEmail = email();
+		Cookie staff = register(staffEmail);
+		jdbc.update("UPDATE users SET role = 'STAFF', phone = '0912345678' WHERE email = ?", staffEmail);
+		mvc.perform(json(post("/api/orders/claim"), item).cookie(staff))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.claimed.length()").value(0));
+		jdbc.update("UPDATE users SET phone = NULL WHERE email = ?", staffEmail);
+
+		// Same email as the order but not verified yet
+		jdbc.update("DELETE FROM users WHERE email = ?", buyerEmail);
+		Cookie unverified = register(buyerEmail);
+		mvc.perform(json(post("/api/orders/claim"), item).cookie(unverified)).andExpect(jsonPath("$.claimed.length()").value(0));
+
+		assertThat(jdbc.queryForObject("SELECT user_id FROM orders WHERE code = ?", String.class, order[0])).isNull();
+		track(order[0], order[1]).andExpect(status().isOk());
+
+		// Once that email is verified, the link attaches it
+		jdbc.update("UPDATE users SET email_verified_at = now() WHERE email = ?", buyerEmail);
+		mvc.perform(json(post("/api/orders/claim"), item).cookie(unverified)).andExpect(jsonPath("$.claimed[0]").value(order[0]));
+		track(order[0], order[1]).andExpect(status().isNotFound());
 	}
 
 	@Test

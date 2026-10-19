@@ -10,6 +10,9 @@ import com.nutshop.common.ApiException;
 import com.nutshop.order.TrackingDtos.ClaimAccountRequest;
 import com.nutshop.order.TrackingDtos.ClaimItem;
 import com.nutshop.order.TrackingDtos.ClaimResult;
+import com.nutshop.user.Role;
+import com.nutshop.user.User;
+import com.nutshop.user.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +21,7 @@ import org.springframework.util.StringUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -25,10 +29,13 @@ import java.util.UUID;
  * <ul>
  * <li>creating an account from the order's tracking page (the token proves this person placed the order) — only
  * that order;</li>
- * <li>signing in with the browser's recent-orders list (code + token for each);</li>
+ * <li>signing in with the browser's recent-orders list (code + token for each), and only orders that match the
+ * account: the account's verified email, or its phone number, is the one on the order — a link that was forwarded or
+ * opened by staff helping the buyer does not move the order to someone else's account. Never for staff/admin
+ * accounts;</li>
  * <li>verifying the account's email — every guest order placed with that email.</li>
  * </ul>
- * Never by phone number (phones are not verified). Once attached, the order's tracking links stop working.
+ * Never by phone number alone (phones are not verified). Once attached, the order's tracking links stop working.
  */
 @Service
 public class OrderClaimService implements VerifiedEmailHook {
@@ -40,9 +47,11 @@ public class OrderClaimService implements VerifiedEmailHook {
 	private final GuestOrderService guestOrders;
 	private final AuthService auth;
 	private final AuditLog audit;
+	private final UserRepository users;
 
 	public OrderClaimService(OrderRepository orders, OrderAccessTokens accessTokens, GuestOrderService guestOrders,
-			AuthService auth, AuditLog audit) {
+			AuthService auth, AuditLog audit, UserRepository users) {
+		this.users = users;
 		this.orders = orders;
 		this.accessTokens = accessTokens;
 		this.guestOrders = guestOrders;
@@ -73,14 +82,17 @@ public class OrderClaimService implements VerifiedEmailHook {
 	}
 
 	/**
-	 * After signing in: the browser sends its recent guest orders. Valid ones not yet owned by anyone are attached
-	 * to the signed-in user; the rest are reported as skipped (wrong token, expired, someone else's).
+	 * After signing in: the browser sends its recent guest orders. Valid ones not yet owned by anyone and matching
+	 * the account (verified email or phone, see the class comment) are attached to the signed-in user; the rest are
+	 * reported as skipped (wrong token, expired, someone else's, not this account's) and keep their tracking links.
+	 * Staff and admin accounts never claim: everything is skipped.
 	 */
 	@Transactional
 	public ClaimResult claim(UUID userId, List<ClaimItem> items) {
 		if (items.size() > MAX_CLAIM_ITEMS) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "TOO_MANY_ITEMS", "Tối đa " + MAX_CLAIM_ITEMS + " đơn mỗi lần");
 		}
+		User user = users.findById(userId).filter(u -> u.getRole() == Role.CUSTOMER).orElse(null);
 		List<String> claimed = new ArrayList<>();
 		List<String> skipped = new ArrayList<>();
 		for (ClaimItem item : items) {
@@ -88,7 +100,10 @@ public class OrderClaimService implements VerifiedEmailHook {
 				continue;
 			}
 			String code = item.code().trim().toUpperCase();
-			var order = orders.findWithLockByCode(code).filter(o -> accessTokens.matches(o, item.token()));
+			var order = user == null ? Optional.<Order>empty()
+					: orders.findWithLockByCode(code)
+						.filter(o -> accessTokens.matches(o, item.token()))
+						.filter(o -> belongsTo(o, user));
 			if (order.isPresent()) {
 				attach(order.get(), userId, "TRACKING_TOKEN");
 				claimed.add(code);
@@ -98,6 +113,14 @@ public class OrderClaimService implements VerifiedEmailHook {
 			}
 		}
 		return new ClaimResult(claimed, skipped);
+	}
+
+	/** The order was placed with this account's verified email or with its phone number. */
+	private static boolean belongsTo(Order order, User user) {
+		boolean sameEmail = order.getEmail() != null && user.isEmailVerified()
+				&& order.getEmail().equalsIgnoreCase(user.getEmail());
+		boolean samePhone = user.getPhone() != null && user.getPhone().equals(order.getPhone());
+		return sameEmail || samePhone;
 	}
 
 	/** The account proved it owns {@code email}: its guest orders placed with that email join the account. */

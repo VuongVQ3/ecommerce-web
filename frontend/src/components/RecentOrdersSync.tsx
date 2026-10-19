@@ -6,11 +6,13 @@ import { readRecentOrders, removeRecentOrders } from '../lib/recentOrders'
 import { useToast } from './Toast'
 
 /**
- * Once someone is signed in (login, register, Google, account created from an order), the guest orders remembered
- * in this browser are attached to the account. Renders nothing.
+ * Right after someone signs in in this tab (login, register, Google, account created from an order), the guest
+ * orders remembered in this browser are offered to the account (the server only attaches those placed with its
+ * verified email or phone). Not for a session that was already open or came from another tab, and never for staff:
+ * opening a customer's link while signed in must not take the order. Renders nothing.
  */
 export default function RecentOrdersSync() {
-  const { user } = useAuth()
+  const { user, lastSignInAt } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
   const location = useLocation()
@@ -18,11 +20,11 @@ export default function RecentOrdersSync() {
   useEffect(() => {
     pathRef.current = location.pathname
   })
-  const syncedFor = useRef<string | null>(null)
+  const syncedFor = useRef<number | null>(null)
 
   useEffect(() => {
-    if (!user || syncedFor.current === user.id) return
-    syncedFor.current = user.id
+    if (!user || user.role !== 'CUSTOMER' || lastSignInAt === null || syncedFor.current === lastSignInAt) return
+    syncedFor.current = lastSignInAt
     const recent = readRecentOrders()
     if (recent.length === 0) return
     api.claimOrders(recent.map(({ code, token }) => ({ code, token }))).then(
@@ -41,7 +43,7 @@ export default function RecentOrdersSync() {
         syncedFor.current = null
       },
     )
-  }, [user, toast, navigate])
+  }, [user, lastSignInAt, toast, navigate])
 
   return null
 }

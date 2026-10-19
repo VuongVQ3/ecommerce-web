@@ -19,6 +19,11 @@ interface AuthContextValue {
    * A network error or 5xx leaves the state as it was (and returns it): only a 401 means "signed out".
    */
   refresh: () => Promise<User | null>
+  /**
+   * When someone signed in or registered in this tab (login, register, Google, account created from an order);
+   * null otherwise, including for a session that was already there or was picked up from another tab.
+   */
+  lastSignInAt: number | null
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -58,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const location = useLocation()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [lastSignInAt, setLastSignInAt] = useState<number | null>(null)
   const userRef = useRef<User | null>(null)
   const lastCheck = useRef(0)
 
@@ -159,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signedIn = useCallback(
     (next: User) => {
       apply(next)
+      setLastSignInAt(Date.now())
       tellOtherTabs()
     },
     [apply],
@@ -178,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.logout()
     } finally {
       apply(null)
+      setLastSignInAt(null)
       tellOtherTabs()
       // Stop Google from silently signing the user back in on the next visit
       window.google?.accounts.id.disableAutoSelect()
@@ -185,8 +193,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [apply])
 
   const value = useMemo(
-    () => ({ user, loading, login, register, loginWithGoogle, logout, signedIn, refresh }),
-    [user, loading, login, register, loginWithGoogle, logout, signedIn, refresh],
+    () => ({ user, loading, login, register, loginWithGoogle, logout, signedIn, refresh, lastSignInAt }),
+    [user, loading, login, register, loginWithGoogle, logout, signedIn, refresh, lastSignInAt],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
