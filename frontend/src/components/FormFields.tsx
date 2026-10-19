@@ -11,6 +11,35 @@ interface FieldProps extends Omit<ComponentProps<'input'>, 'id'> {
   below?: ReactNode
   /** Id of another element that describes the input (e.g. a live password checklist). */
   describedBy?: string
+  /**
+   * Shows a red * after the label and sets aria-required. Not the native `required`: forms are noValidate and zod
+   * decides what is valid, the browser must not add its own checks.
+   */
+  requiredMark?: boolean
+}
+
+/**
+ * The red * of a required field. Hidden from screen readers (aria-required says it) and kept outside the <label>, so
+ * the field's accessible name stays "Họ và tên", not "Họ và tên *".
+ */
+export function RequiredMark() {
+  return (
+    <span aria-hidden="true" className="ml-0.5 text-danger">
+      *
+    </span>
+  )
+}
+
+/** Above forms that mix required and optional fields. */
+export function RequiredLegend() {
+  return (
+    <p className="text-sm text-muted">
+      <span aria-hidden="true" className="text-danger">
+        *
+      </span>{' '}
+      là thông tin bắt buộc
+    </p>
+  )
 }
 
 const inputClass = (error?: string) =>
@@ -28,6 +57,7 @@ function FieldShell({
   error,
   hint,
   below,
+  requiredMark = false,
   children,
 }: {
   id: string
@@ -35,6 +65,7 @@ function FieldShell({
   error?: string
   hint?: ReactNode
   below?: ReactNode
+  requiredMark?: boolean
   children: ReactNode
 }) {
   return (
@@ -42,6 +73,7 @@ function FieldShell({
       <label htmlFor={id} className="text-sm font-medium text-stone-700">
         {label}
       </label>
+      {requiredMark && <RequiredMark />}
       <div className="mt-1">{children}</div>
       {error ? (
         <p id={`${id}-error`} className="mt-1 text-sm text-danger">
@@ -65,13 +97,14 @@ function describedByIds(id: string, error?: string, hint?: ReactNode, extra?: st
 }
 
 /** Text input with label and an error message right below it. Spread `register('field')` into it. */
-export function TextField({ id: idProp, label, error, hint, below, describedBy, className = '', ...input }: FieldProps) {
+export function TextField({ id: idProp, label, error, hint, below, describedBy, requiredMark, className = '', ...input }: FieldProps) {
   const generatedId = useId()
   const id = idProp ?? generatedId
   return (
-    <FieldShell id={id} label={label} error={error} hint={hint} below={below}>
+    <FieldShell id={id} label={label} error={error} hint={hint} below={below} requiredMark={requiredMark}>
       <input
         id={id}
+        aria-required={requiredMark || undefined}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedByIds(id, error, hint, describedBy)}
         className={`${inputClass(error)} ${className}`}
@@ -100,6 +133,7 @@ export function PasswordField({
   visible: visibleProp,
   onVisibleChange,
   alsoControls,
+  requiredMark,
   ...input
 }: PasswordFieldProps) {
   const generatedId = useId()
@@ -112,11 +146,12 @@ export function PasswordField({
     onVisibleChange?.(next)
   }
   return (
-    <FieldShell id={id} label={label} error={error} hint={hint} below={below}>
+    <FieldShell id={id} label={label} error={error} hint={hint} below={below} requiredMark={requiredMark}>
       <div className="relative">
         <input
           id={id}
           type={visible ? 'text' : 'password'}
+          aria-required={requiredMark || undefined}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedByIds(id, error, hint, describedBy)}
           className={`${inputClass(error)} pr-16`}
@@ -171,15 +206,18 @@ interface SelectFieldProps extends Omit<ComponentProps<'select'>, 'id'> {
   hint?: ReactNode
   placeholder: string
   options: { value: string | number; label: string }[]
+  /** Red * after the label and aria-required (see FieldProps.requiredMark) */
+  requiredMark?: boolean
 }
 
 /** Native select (best on phones), with the same label/error/ARIA wiring as TextField. */
-export function SelectField({ label, error, hint, placeholder, options, className = '', ...select }: SelectFieldProps) {
+export function SelectField({ label, error, hint, placeholder, options, requiredMark, className = '', ...select }: SelectFieldProps) {
   const id = useId()
   return (
-    <FieldShell id={id} label={label} error={error} hint={hint}>
+    <FieldShell id={id} label={label} error={error} hint={hint} requiredMark={requiredMark}>
       <select
         id={id}
+        aria-required={requiredMark || undefined}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedByIds(id, error, hint)}
         className={`${inputClass(error)} appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2020%2020'%20fill='%236b625a'%3E%3Cpath%20d='M5.5%207.5l4.5%204.5%204.5-4.5'/%3E%3C/svg%3E")] bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat pr-10 disabled:cursor-not-allowed disabled:bg-stone-50 ${className}`}
@@ -196,19 +234,27 @@ export function SelectField({ label, error, hint, placeholder, options, classNam
   )
 }
 
-export function Checkbox({ label, ...input }: Omit<ComponentProps<'input'>, 'type' | 'id'> & { label: ReactNode }) {
+export function Checkbox({
+  label,
+  requiredMark,
+  ...input
+}: Omit<ComponentProps<'input'>, 'type' | 'id'> & { label: ReactNode; requiredMark?: boolean }) {
   const id = useId()
   return (
     <div className="flex items-start gap-3">
       <input
         id={id}
         type="checkbox"
+        aria-required={requiredMark || undefined}
         className="mt-0.5 size-5 shrink-0 cursor-pointer rounded border-stone-300 accent-brand-600"
         {...input}
       />
-      <label htmlFor={id} className="cursor-pointer text-sm text-stone-700">
-        {label}
-      </label>
+      <p className="text-sm text-stone-700">
+        <label htmlFor={id} className="cursor-pointer">
+          {label}
+        </label>
+        {requiredMark && <RequiredMark />}
+      </p>
     </div>
   )
 }
