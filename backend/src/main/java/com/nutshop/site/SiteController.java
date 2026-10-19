@@ -119,13 +119,13 @@ public class SiteController {
 		url(xml, "/san-pham", null);
 		jdbc.query("""
 				SELECT c.slug, MAX(p.updated_at) AS lastmod
-				FROM categories c JOIN products p ON p.category_id = c.id AND p.active
+				FROM categories c JOIN products p ON p.category_id = c.id AND p.active AND p.price > 0
 				GROUP BY c.id, c.slug ORDER BY c.id""",
 				rs -> {
 					var ts = rs.getTimestamp("lastmod");
 					url(xml, "/danh-muc/" + rs.getString("slug"), ts == null ? null : ts.toInstant());
 				});
-		jdbc.query("SELECT slug, updated_at FROM products WHERE active ORDER BY id",
+		jdbc.query("SELECT slug, updated_at FROM products WHERE active AND price > 0 ORDER BY id",
 				rs -> {
 					url(xml, "/san-pham/" + rs.getString("slug"), rs.getTimestamp("updated_at").toInstant());
 				});

@@ -69,14 +69,15 @@ public class PageMetaService {
 		return new PageMeta("Không tìm thấy trang | " + BRAND, DEFAULT_DESCRIPTION, path, null, "website", true, List.of());
 	}
 
-	public PageMeta category(Category category) {
+	/** A category with nothing on sale is not indexed (its page only says so). */
+	public PageMeta category(Category category, long productsOnSale) {
 		String path = "/danh-muc/" + category.getSlug();
 		Map<String, Object> breadcrumb = breadcrumb(List.of(crumb("Trang chủ", "/"), crumb("Sản phẩm", "/san-pham"),
 				crumb(category.getName(), path)));
 		return new PageMeta(category.getName() + " | " + BRAND,
 				truncate(category.getName() + " tại " + BRAND + ": gói 500 g, chọn lọc kỹ, giao hàng toàn quốc, thanh toán"
 						+ " khi nhận hàng."),
-				path, null, "website", false, List.of(breadcrumb));
+				path, null, "website", productsOnSale == 0, List.of(breadcrumb));
 	}
 
 	/**

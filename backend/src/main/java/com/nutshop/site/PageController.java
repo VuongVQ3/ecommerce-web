@@ -97,7 +97,7 @@ public class PageController {
 	public ResponseEntity<String> category(@PathVariable String slug, HttpServletRequest request) {
 		var current = categories.findBySlug(slug);
 		if (current.isPresent()) {
-			return pages.render(meta.category(current.get()), HttpStatus.OK);
+			return pages.render(meta.category(current.get(), categories.countOnSale(current.get().getId())), HttpStatus.OK);
 		}
 		return categorySlugs.currentSlugFor(slug)
 			.map(now -> ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY)

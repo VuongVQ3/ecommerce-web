@@ -114,6 +114,31 @@ class BackendApplicationTests {
 	}
 
 	@Test
+	void aCategoryAppearsOnceSomethingInItIsShownAndPriced() throws Exception {
+		String cat = category();
+		// Only a hidden draft without a price (like the V17 products), and a hidden priced one
+		jdbc.update("""
+				INSERT INTO products (category_id, name, slug, description, price, weight_grams, active)
+				VALUES ((SELECT id FROM categories WHERE slug = ?), 'Nháp', ?, 'Mô tả', 0, 500, false),
+				       ((SELECT id FROM categories WHERE slug = ?), 'Ẩn có giá', ?, 'Mô tả', 90000, 500, false)""", cat,
+				"draft-" + UUID.randomUUID(), cat, "hidden-" + UUID.randomUUID());
+		mvc.perform(get("/api/categories")).andExpect(jsonPath("$[*].slug", not(hasItem(cat))));
+		mvc.perform(get("/api/categories/" + cat))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.productCount").value(0));
+		// Its page exists (says it is empty) but is not indexed
+		assertThat(mvc.perform(get("/danh-muc/" + cat)).andExpect(status().isOk()).andReturn().getResponse()
+			.getContentAsString()).contains("noindex");
+
+		jdbc.update("UPDATE products SET active = true WHERE name = 'Ẩn có giá' AND category_id = (SELECT id FROM categories WHERE slug = ?)", cat);
+		mvc.perform(get("/api/categories"))
+			.andExpect(jsonPath("$[?(@.slug == '" + cat + "')].productCount").value(org.hamcrest.Matchers.contains(1)));
+		assertThat(mvc.perform(get("/danh-muc/" + cat)).andReturn().getResponse().getContentAsString())
+			.doesNotContain("noindex");
+		mvc.perform(get("/api/categories/khong-co-danh-muc-nay")).andExpect(status().isNotFound());
+	}
+
+	@Test
 	void filtersByCategoryAndSearchInTheShopsOrder() throws Exception {
 		String cat = category();
 		String second = product(cat, "Hạt điều thử", 2, null, null);

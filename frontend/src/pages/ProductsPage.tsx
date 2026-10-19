@@ -3,7 +3,7 @@ import { Link, Navigate, useLocation, useParams, useSearchParams } from 'react-r
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import ProductCard from '../components/ProductCard'
 import QuickViewHost from '../components/QuickView'
-import { api, type Category, type Page, type ProductSummary } from '../lib/api'
+import { api, ApiError, type Category, type Page, type ProductSummary } from '../lib/api'
 import { usePrefersReducedMotion } from '../lib/motion'
 import { MIN_PRODUCTS_WITH_NUTRITION, withNutrition } from '../lib/nutrition'
 import { sharedRequest } from '../lib/sharedRequest'
@@ -272,6 +272,35 @@ function Pagination({ page, totalPages, href, onNavigate }: { page: number; tota
   )
 }
 
+/**
+ * /danh-muc/{slug} for a category that is not in the storefront list: a real category with nothing on sale (yet)
+ * says so, an unknown slug is a 404.
+ */
+function CategoryWithoutProducts({ slug }: { slug: string }) {
+  const found = useAsync((signal) => api.category(slug, signal), [slug])
+  usePageMeta(found.data ? `${found.data.name} | ${BRAND}` : null)
+  if (found.error) {
+    return found.error instanceof ApiError && found.error.status === 404 ? (
+      <NotFoundPage />
+    ) : (
+      <ErrorMessage message={found.error.message} onRetry={found.reload} />
+    )
+  }
+  if (!found.data) return <Spinner />
+  return (
+    <div className="mx-auto max-w-xl px-4 py-16 text-center">
+      <h1 className="text-3xl font-bold text-stone-900">{found.data.name}</h1>
+      <p className="mt-4 text-stone-700">Danh mục chưa có sản phẩm. Mời bạn xem các sản phẩm khác của Hạt Lành.</p>
+      <Link
+        to="/san-pham"
+        className="mt-6 inline-block rounded-full bg-brand-600 px-6 py-3 font-semibold text-white hover:bg-brand-700"
+      >
+        Xem tất cả sản phẩm
+      </Link>
+    </div>
+  )
+}
+
 export default function ProductsPage() {
   const [params, setParams] = useSearchParams()
   // /danh-muc/:slug is the category page; the old ?category= link is redirected there
@@ -417,7 +446,7 @@ export default function ProductsPage() {
     next.delete('category')
     return <Navigate to={`/danh-muc/${encodeURIComponent(legacyCategory)}${next.size ? `?${next}` : ''}`} replace />
   }
-  if (category && categories.data && !activeCategory) return <NotFoundPage />
+  if (category && categories.data && !activeCategory) return <CategoryWithoutProducts slug={category} />
   // ?page=abc, ?page=1, or past the last page (once its results are in) → page 1
   if (!pageValid || rawPage === '1' || (products.data && !products.loading && page > Math.max(1, products.data.totalPages))) {
     return <Navigate to={pageHref(1)} replace />

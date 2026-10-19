@@ -3,7 +3,7 @@ package com.nutshop.product;
 import com.nutshop.cart.CartProperties;
 import com.nutshop.common.NotFoundException;
 import com.nutshop.common.PageResponse;
-import com.nutshop.product.ProductDtos.CategoryResponse;
+import com.nutshop.product.ProductDtos.CategoryListing;
 import com.nutshop.product.ProductDtos.ProductDetail;
 import com.nutshop.product.ProductDtos.ProductSummary;
 import org.springframework.data.domain.PageRequest;
@@ -41,8 +41,17 @@ public class ProductService {
 	}
 
 	/** Only categories with something on sale (an emptied category disappears from menus and filters). */
-	public List<CategoryResponse> listCategories() {
-		return categories.findWithProductsOnSale().stream().map(CategoryResponse::from).toList();
+	public List<CategoryListing> listCategories() {
+		return categories.findWithProductsOnSale().stream().map(row -> {
+			Category c = (Category) row[0];
+			return new CategoryListing(c.getId(), c.getName(), c.getSlug(), (Long) row[1]);
+		}).toList();
+	}
+
+	/** Any category by slug, also one with nothing on sale (productCount 0): its page says so instead of a 404. */
+	public CategoryListing category(String slug) {
+		Category c = categories.findBySlug(slug).orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục"));
+		return new CategoryListing(c.getId(), c.getName(), c.getSlug(), categories.countOnSale(c.getId()));
 	}
 
 	/** Catalogue listing: discontinued products are hidden (their pages stay reachable by slug). */

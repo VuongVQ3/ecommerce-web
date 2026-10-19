@@ -47,6 +47,10 @@ public final class ProductDtos {
 		return available <= LOW_STOCK_PUBLIC ? Math.max(available, 0) : maxQtyPerItem;
 	}
 
+	/** A storefront category with how many products are on sale in it. */
+	public record CategoryListing(Long id, String name, String slug, long productCount) {
+	}
+
 	public record CategoryResponse(Long id, String name, String slug) {
 
 		public static CategoryResponse from(Category c) {

@@ -135,8 +135,18 @@ class SiteE2ETest {
 
 	@Test
 	void categoryAndStaticPagesHaveTheirOwnTitles() throws Exception {
-		assertThat(html("/danh-muc/hat-dinh-duong")).contains("<title>Hạt dinh dưỡng | Hạt Lành</title>")
-			.contains("href=\"http://localhost:8080/danh-muc/hat-dinh-duong\"");
+		// Nothing on sale there: the page exists but is not indexed
+		assertThat(html("/danh-muc/hat-sieu-thuc-pham")).contains("<title>Hạt siêu thực phẩm | Hạt Lành</title>")
+			.contains("noindex");
+		long id = productOnSale("Mắc ca thử", "cat-" + UUID.randomUUID());
+		try {
+			assertThat(html("/danh-muc/hat-dinh-duong")).contains("<title>Hạt dinh dưỡng | Hạt Lành</title>")
+				.contains("href=\"http://localhost:8080/danh-muc/hat-dinh-duong\"")
+				.doesNotContain("noindex");
+		}
+		finally {
+			jdbc.update("DELETE FROM products WHERE id = ?", id);
+		}
 		mvc.perform(get("/danh-muc/khong-co")).andExpect(status().isNotFound());
 		// Renamed in V17: the old address moves permanently, query kept
 		mvc.perform(get("/danh-muc/hat-mix-granola?sort=price_asc"))

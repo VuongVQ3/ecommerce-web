@@ -6,6 +6,12 @@ export interface Category {
   slug: string
 }
 
+/** From /api/categories: only categories with something on sale */
+export interface CategoryListing extends Category {
+  /** Products on sale (shown and priced) */
+  productCount: number
+}
+
 /** Sale price fields (see docs/pricing.md): price is what the buyer pays now. */
 export interface Pricing {
   /** Current price: the sale price during a promotion */
@@ -450,7 +456,10 @@ function toQueryString(query: ProductQuery): string {
 }
 
 export const api = {
-  categories: (signal?: AbortSignal) => apiRequest<Category[]>('/api/categories', { signal }),
+  categories: (signal?: AbortSignal) => apiRequest<CategoryListing[]>('/api/categories', { signal }),
+  /** Any category, also one with nothing on sale (productCount 0); 404 when there is no such category */
+  category: (slug: string, signal?: AbortSignal) =>
+    apiRequest<CategoryListing>(`/api/categories/${encodeURIComponent(slug)}`, { signal }),
 
   products: (query: ProductQuery, signal?: AbortSignal) =>
     apiRequest<Page<ProductSummary>>(`/api/products${toQueryString(query)}`, { signal }),

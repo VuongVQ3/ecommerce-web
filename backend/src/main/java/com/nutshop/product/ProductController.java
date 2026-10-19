@@ -1,7 +1,7 @@
 package com.nutshop.product;
 
 import com.nutshop.common.PageResponse;
-import com.nutshop.product.ProductDtos.CategoryResponse;
+import com.nutshop.product.ProductDtos.CategoryListing;
 import com.nutshop.product.ProductDtos.ProductDetail;
 import com.nutshop.product.ProductDtos.ProductSummary;
 import org.springframework.web.bind.annotation.*;
@@ -18,9 +18,15 @@ public class ProductController {
 		this.productService = productService;
 	}
 
+	/** Categories with something on sale, each with its productCount. */
 	@GetMapping("/categories")
-	public List<CategoryResponse> categories() {
+	public List<CategoryListing> categories() {
 		return productService.listCategories();
+	}
+
+	@GetMapping("/categories/{slug}")
+	public CategoryListing category(@PathVariable String slug) {
+		return productService.category(slug);
 	}
 
 	@GetMapping("/products")

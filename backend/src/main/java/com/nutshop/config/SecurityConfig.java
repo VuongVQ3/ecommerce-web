@@ -74,6 +74,7 @@ public class SecurityConfig {
 			PATHS.matcher(HttpMethod.GET, "/api/auth/providers"),
 			PATHS.matcher(HttpMethod.GET, "/api/products/**"),
 			PATHS.matcher(HttpMethod.GET, "/api/categories"),
+			PATHS.matcher(HttpMethod.GET, "/api/categories/*"),
 			// Any method, so HEAD probes (curl -I, uptime monitors) work too
 			PATHS.matcher("/api/health"),
 			PATHS.matcher("/api/site"),
