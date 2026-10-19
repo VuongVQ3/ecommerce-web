@@ -330,15 +330,30 @@ class OrderE2ETest {
 		String code = place(body(key(), "0912345678", line(id, 1))).andReturn().getResponse().getContentAsString()
 			.replaceAll(".*\"code\":\"([A-Z0-9]+)\".*", "$1");
 
-		mvc.perform(get("/api/orders/lookup").param("code", code.toLowerCase()).param("phone", "+84 912.345.678"))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.code").value(code));
+		lookup(code.toLowerCase(), "+84 912.345.678").andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value(code))
+			.andExpect(jsonPath("$.token").isString());
 
-		String wrongPhone = mvc.perform(get("/api/orders/lookup").param("code", code).param("phone", "0999999999"))
-			.andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
-		String wrongCode = mvc.perform(get("/api/orders/lookup").param("code", "HL000000AAAA").param("phone", "0912345678"))
-			.andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
-		assertThat(wrongPhone).isEqualTo(wrongCode.replace("HL000000AAAA", code)).contains(OrderService.NOT_FOUND_MESSAGE);
+		String wrongPhone = lookup(code, "0999999999").andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
+		String wrongCode = lookup("HL000000AAAA", "0912345678").andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
+		String badPhone = lookup(code, "12345").andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
+		assertThat(wrongPhone).isEqualTo(wrongCode.replace("HL000000AAAA", code)).isEqualTo(badPhone)
+			.contains(OrderService.NOT_FOUND_MESSAGE);
+		// The old GET (phone in the URL) is gone
+		mvc.perform(get("/api/orders/lookup").param("code", code).param("phone", "0912345678"))
+			.andExpect(status().is4xxClientError());
+
+		// 10 lookups per IP per window: this test has made 4 (the GET is not counted)
+		for (int i = 0; i < 6; i++) {
+			lookup(code, "0999999999").andExpect(status().isNotFound());
+		}
+		lookup(code, "0912345678").andExpect(status().isTooManyRequests());
+	}
+
+	private org.springframework.test.web.servlet.ResultActions lookup(String code, String phone) throws Exception {
+		return mvc.perform(post("/api/orders/lookup").header("X-Requested-With", "XMLHttpRequest")
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"code\":\"%s\",\"phone\":\"%s\"}".formatted(code, phone)));
 	}
 
 	@Test

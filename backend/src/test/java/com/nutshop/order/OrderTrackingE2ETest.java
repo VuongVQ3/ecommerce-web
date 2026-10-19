@@ -198,10 +198,93 @@ class OrderTrackingE2ETest {
 			.andExpect(jsonPath("$.history[0].status").value("PENDING"))
 			.andExpect(jsonPath("$.accessToken").doesNotExist());
 
-		// The token is never shown again
-		mvc.perform(get("/api/orders/lookup").param("code", code).param("phone", "0912345678"))
+		// The token is never shown again: a lookup hands out a different one
+		lookup(code, "0912345678").andExpect(status().isOk())
+			.andExpect(jsonPath("$.accessToken").doesNotExist())
+			.andExpect(jsonPath("$.token").value(org.hamcrest.Matchers.not(token)));
+	}
+
+	private ResultActions lookup(String code, String phone) throws Exception {
+		return mvc.perform(json(post("/api/orders/lookup"), "{\"code\":\"%s\",\"phone\":\"%s\"}".formatted(code, phone)));
+	}
+
+	private String orderId(String code) {
+		return jdbc.queryForObject("SELECT id::text FROM orders WHERE code = ?", String.class, code);
+	}
+
+	@Test
+	void lookupHandsOutAShortLivedLinkThatCancels() throws Exception {
+		long id = product();
+		String[] order = guestOrder(id, null);
+		assertThat(stock(id)).containsExactly(20, 2);
+
+		String body = lookup(order[0], "0912345678").andExpect(status().isOk())
+			.andExpect(header().string("Cache-Control", containsString("no-store")))
+			.andExpect(header().string("Referrer-Policy", "no-referrer"))
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		// Only the code and a token: nothing personal
+		assertThat(body).isEqualTo("{\"code\":\"%s\",\"token\":\"%s\"}".formatted(order[0], field(body, "token")))
+			.doesNotContain("0912345678", "12 Phố Test", "Nguyễn");
+		String token = field(body, "token");
+		assertThat(token).isNotEqualTo(order[1]);
+
+		// 24 hours for the lookup link, 180 days for the one from checkout
+		assertThat(jdbc.queryForObject("""
+				SELECT COUNT(*) FROM order_access_tokens WHERE order_id = ?::uuid AND token_hash = ?
+				AND expires_at BETWEEN now() + interval '23 hours' AND now() + interval '25 hours'""", Integer.class,
+				orderId(order[0]), SecureTokens.hash(token))).isOne();
+		assertThat(jdbc.queryForObject("""
+				SELECT COUNT(*) FROM order_access_tokens WHERE token_hash = ?
+				AND expires_at > now() + interval '179 days'""", Integer.class, SecureTokens.hash(order[1]))).isOne();
+
+		track(order[0], token).andExpect(status().isOk())
+			.andExpect(jsonPath("$.maskedPhone").value("09******78"))
+			.andExpect(jsonPath("$.canCancel").value(true));
+		mvc.perform(json(post("/api/orders/track/" + order[0] + "/cancel").param("t", token), "{\"reasonCode\":\"CHANGED_MIND\"}"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.accessToken").doesNotExist());
+			.andExpect(jsonPath("$.status").value("CANCELLED"));
+		assertThat(stock(id)).containsExactly(20, 0);
+	}
+
+	@Test
+	void lookupLinkExpiresAfterADayWithoutTouchingTheEmailLink() throws Exception {
+		String[] order = guestOrder(product(), null);
+		String token = field(lookup(order[0], "0912345678").andReturn().getResponse().getContentAsString(), "token");
+		track(order[0], token).andExpect(status().isOk());
+
+		jdbc.update("UPDATE order_access_tokens SET expires_at = now() - interval '1 minute' WHERE token_hash = ?",
+				SecureTokens.hash(token));
+		track(order[0], token).andExpect(status().isNotFound());
+		track(order[0], order[1]).andExpect(status().isOk());
+
+		// The next lookup clears the expired link instead of piling up rows
+		String again = field(lookup(order[0], "0912345678").andReturn().getResponse().getContentAsString(), "token");
+		assertThat(jdbc.queryForList("SELECT token_hash FROM order_access_tokens WHERE order_id = ?::uuid", String.class,
+				orderId(order[0]))).containsExactlyInAnyOrder(SecureTokens.hash(order[1]), SecureTokens.hash(again));
+	}
+
+	@Test
+	void anAccountsOrderIsNotOpenedByLookup() throws Exception {
+		String email = email();
+		Cookie me = register(email);
+		String code = field(place(orderJson("trk-" + UUID.randomUUID(), null, product(), 1), me).andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString(), "code");
+
+		String body = lookup(code, "0912345678").andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_BELONGS_TO_ACCOUNT"))
+			.andExpect(jsonPath("$.token").doesNotExist())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		assertThat(body).doesNotContain("0912345678", "12 Phố Test");
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM order_access_tokens WHERE order_id = ?::uuid", Integer.class,
+				orderId(code))).isZero();
+		// Wrong phone: the usual 404, the account is not revealed
+		lookup(code, "0999999999").andExpect(status().isNotFound());
 	}
 
 	@Test
