@@ -7,6 +7,7 @@ import { slugify, SLUG_PATTERN } from '../lib/slug'
 import { useAsync } from '../lib/useAsync'
 import { btn, table } from './styles'
 import { Dialog, EmptyState, Field, PageHeader } from './ui'
+import { RequiredLegend } from '../components/FormFields'
 
 /** Create or rename. Categories are never deleted here (products point to them). */
 function CategoryDialog({ category, onClose, onDone }: { category: AdminCategory | null; onClose: () => void; onDone: () => void }) {
@@ -44,7 +45,8 @@ function CategoryDialog({ category, onClose, onDone }: { category: AdminCategory
       pending={pending}
       error={error}
     >
-      <Field label="Tên danh mục" error={errors.name}>
+      <RequiredLegend />
+      <Field label="Tên danh mục" requiredMark error={errors.name}>
         {(p) => <input {...p} value={name} maxLength={100} onChange={(e) => setName(e.target.value)} autoFocus />}
       </Field>
       <Field

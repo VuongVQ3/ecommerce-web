@@ -204,17 +204,17 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
           </label>
         </fieldset>
         {mode === 'percent' ? (
-          <Field label="Giảm (%)" hint="Giá mới làm tròn xuống bội số 1.000₫">
+          <Field label="Giảm (%)" requiredMark hint="Giá mới làm tròn xuống bội số 1.000₫">
             {(p) => <input {...p} inputMode="numeric" value={percent} onChange={(e) => setPercent(e.target.value)} />}
           </Field>
         ) : (
-          <Field label="Giá khuyến mại (₫)" hint="Bội số của 1.000₫, thấp hơn giá gốc">
+          <Field label="Giá khuyến mại (₫)" requiredMark hint="Bội số của 1.000₫, thấp hơn giá gốc">
             {(p) => <MoneyInput {...p} value={price} onChange={setPrice} />}
           </Field>
         )}
         <div className="grid grid-cols-2 gap-3 sm:col-span-2">
-          <DateField label="Từ ngày" min={today} value={first} onChange={setFirst} />
-          <DateField label="Đến hết ngày" min={first || today} value={last} onChange={setLast} />
+          <DateField label="Từ ngày" requiredMark min={today} value={first} onChange={setFirst} />
+          <DateField label="Đến hết ngày" requiredMark min={first || today} value={last} onChange={setLast} />
         </div>
       </fieldset>
 
@@ -305,10 +305,10 @@ function EditDialog({ row, onClose, onDone }: { row: PromotionRow; onClose: () =
         Giá gốc hiện tại: <strong className="tabular-nums">{formatPrice(row.regularPrice)}</strong>
         {sale > 0 && sale < row.regularPrice && <> · giảm {discountPercent(row.regularPrice, sale)}%</>}
       </p>
-      <Field label="Giá khuyến mại (₫)">{(p) => <MoneyInput {...p} value={price} onChange={setPrice} />}</Field>
+      <Field label="Giá khuyến mại (₫)" requiredMark>{(p) => <MoneyInput {...p} value={price} onChange={setPrice} />}</Field>
       <div className="grid grid-cols-2 gap-3">
-        <DateField label="Từ ngày" value={first} onChange={setFirst} />
-        <DateField label="Đến hết ngày" min={first || undefined} value={last} onChange={setLast} />
+        <DateField label="Từ ngày" requiredMark value={first} onChange={setFirst} />
+        <DateField label="Đến hết ngày" requiredMark min={first || undefined} value={last} onChange={setLast} />
       </div>
       <p className="text-xs text-muted">{REMINDER}</p>
     </Dialog>

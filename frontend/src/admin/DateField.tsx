@@ -11,6 +11,7 @@ import {
   WEEKDAY_NAMES,
   WEEKDAYS,
 } from './dates'
+import { RequiredMark } from '../components/FormFields'
 import { btn, input } from './styles'
 
 interface DateFieldProps {
@@ -23,13 +24,15 @@ interface DateFieldProps {
   error?: string
   /** Visually hide the label (still read by screen readers). */
   hideLabel?: boolean
+  /** Red * after the label and aria-required on the input */
+  requiredMark?: boolean
 }
 
 /**
  * Date input showing and accepting "dd/MM/yyyy" (typed or picked from a Monday-first Vietnamese calendar). The value
  * is the ISO day "yyyy-MM-dd" in Vietnam time. Keyboard: arrows move in the calendar, Enter picks, Esc closes.
  */
-export function DateField({ label, value, onChange, min, max, error, hideLabel = false }: DateFieldProps) {
+export function DateField({ label, value, onChange, min, max, error, hideLabel = false, requiredMark = false }: DateFieldProps) {
   const id = useId()
   const [text, setText] = useState(isoToDisplay(value))
   const [shownFor, setShownFor] = useState(value)
@@ -76,9 +79,16 @@ export function DateField({ label, value, onChange, min, max, error, hideLabel =
   const shownError = typingError ?? error
   return (
     <div ref={wrapper} className="relative">
-      <label htmlFor={id} className={hideLabel ? 'sr-only' : 'mb-1 block text-sm font-medium text-stone-700'}>
-        {label}
-      </label>
+      {hideLabel ? (
+        <label htmlFor={id} className="sr-only">
+          {label}
+        </label>
+      ) : (
+        <p className="mb-1 text-sm font-medium text-stone-700">
+          <label htmlFor={id}>{label}</label>
+          {requiredMark && <RequiredMark />}
+        </p>
+      )}
       <div className="flex">
         <input
           id={id}
@@ -96,6 +106,7 @@ export function DateField({ label, value, onChange, min, max, error, hideLabel =
             }
           }}
           aria-invalid={shownError ? true : undefined}
+          aria-required={requiredMark || undefined}
           aria-describedby={shownError ? `${id}-error` : undefined}
           className={`${input} rounded-r-none`}
         />

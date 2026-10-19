@@ -3,7 +3,7 @@ import { Controller } from 'react-hook-form'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useAuthForm } from '../auth/useAuthForm'
 import { ErrorMessage, Spinner } from '../components/Feedback'
-import { FormError, TextField } from '../components/FormFields'
+import { FormError, RequiredLegend, RequiredMark, TextField } from '../components/FormFields'
 import { useToast } from '../components/Toast'
 import { ApiError } from '../lib/api'
 import { adminApi, type AdminCategory, type AdminProduct } from '../lib/adminApi'
@@ -245,7 +245,8 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
   const nameField = register('name')
   const slugField = register('slug')
   const num = (name: keyof ProductForm, label: string, hint?: string) => (
-    <TextField label={label} inputMode="decimal" hint={hint} error={errors[name]?.message} {...register(name)} />
+    // Every number of the product is required
+    <TextField label={label} requiredMark inputMode="decimal" hint={hint} error={errors[name]?.message} {...register(name)} />
   )
 
   return (
@@ -270,9 +271,11 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
       )}
 
       <form onSubmit={onSubmit} noValidate className={`${card} space-y-5 p-5`}>
+        <RequiredLegend />
         <div className="grid gap-5 md:grid-cols-2">
           <TextField
             label="Tên sản phẩm"
+            requiredMark
             error={errors.name?.message}
             {...nameField}
             onChange={(e) => {
@@ -296,8 +299,10 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
             <label htmlFor="category" className="text-sm font-medium text-stone-700">
               Danh mục
             </label>
+            <RequiredMark />
             <select
               id="category"
+              aria-required="true"
               className={`${input} mt-1`}
               aria-invalid={errors.categoryId ? true : undefined}
               {...register('categoryId')}
@@ -319,6 +324,7 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
                 <label htmlFor="price" className="text-sm font-medium text-stone-700">
                   Giá bán (₫)
                 </label>
+                <RequiredMark />
                 {priceConflict && (
                   <p id="price-conflict" tabIndex={-1} role="alert" className="mt-1 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">
                     {priceConflict}
@@ -333,6 +339,7 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
                   onBlur={field.onBlur}
                   disabled={priceLockedUntil != null}
                   aria-invalid={fieldState.error ? true : undefined}
+                  aria-required="true"
                   aria-describedby="price-help"
                   className={`${input} mt-1`}
                 />
@@ -367,9 +374,11 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
           <label htmlFor="description" className="text-sm font-medium text-stone-700">
             Mô tả
           </label>
+          <RequiredMark />
           <textarea
             id="description"
             rows={5}
+            aria-required="true"
             className={`${input} mt-1`}
             aria-invalid={errors.description ? true : undefined}
             {...register('description')}

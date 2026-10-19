@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useBlocker } from 'react-router'
+import { RequiredMark } from '../components/FormFields'
 import { btn, input } from './styles'
 
 export function PageHeader({ title, children }: { title: string; children?: ReactNode }) {
@@ -42,21 +43,37 @@ export function Field({
   label,
   error,
   hint,
+  requiredMark = false,
   children,
 }: {
   label: string
   error?: string
   hint?: string
-  children: (props: { id: string; 'aria-invalid'?: true; 'aria-describedby'?: string; className: string }) => ReactNode
+  /** Red * after the label; the control gets aria-required (see components/FormFields) */
+  requiredMark?: boolean
+  children: (props: {
+    id: string
+    'aria-invalid'?: true
+    'aria-describedby'?: string
+    'aria-required'?: true
+    className: string
+  }) => ReactNode
 }) {
   const id = useId()
   const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium text-stone-700">
-        {label}
-      </label>
-      {children({ id, 'aria-invalid': error ? true : undefined, 'aria-describedby': describedBy, className: input })}
+      <p className="mb-1 text-sm font-medium text-stone-700">
+        <label htmlFor={id}>{label}</label>
+        {requiredMark && <RequiredMark />}
+      </p>
+      {children({
+        id,
+        'aria-invalid': error ? true : undefined,
+        'aria-describedby': describedBy,
+        'aria-required': requiredMark ? true : undefined,
+        className: input,
+      })}
       {error ? (
         <p id={`${id}-error`} className="mt-1 text-sm text-danger">
           {error}

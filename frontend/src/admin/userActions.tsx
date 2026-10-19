@@ -59,7 +59,7 @@ function ReasonDialog({
   return (
     <Dialog title={title} submitLabel={submitLabel} tone={tone} onSubmit={submit} onClose={onClose} pending={pending} error={error}>
       <p className="text-sm text-stone-600">{description}</p>
-      <Field label="Lý do (ghi vào nhật ký)" error={fieldError}>
+      <Field label="Lý do (ghi vào nhật ký)" requiredMark error={fieldError}>
         {(p) => (
           <textarea
             {...p}
@@ -188,13 +188,13 @@ export function InviteDialog({ onDone, onClose }: { onDone: (u: AdminUserRow) =>
         Người được mời nhận email có liên kết đặt mật khẩu (hiệu lực 48 giờ, dùng một lần) và vào trang quản trị với vai
         trò Nhân viên.
       </p>
-      <Field label="Họ tên" error={errors.fullName}>
+      <Field label="Họ tên" requiredMark error={errors.fullName}>
         {(p) => <input {...p} value={form.fullName} onChange={set('fullName')} maxLength={60} autoComplete="off" autoFocus />}
       </Field>
-      <Field label="Email" error={errors.email}>
+      <Field label="Email" requiredMark error={errors.email}>
         {(p) => <input {...p} type="email" value={form.email} onChange={set('email')} maxLength={255} autoComplete="off" />}
       </Field>
-      <Field label="Lý do (ghi vào nhật ký)" error={errors.reason}>
+      <Field label="Lý do (ghi vào nhật ký)" requiredMark error={errors.reason}>
         {(p) => <input {...p} value={form.reason} onChange={set('reason')} maxLength={500} placeholder="VD: Nhân viên kho mới" />}
       </Field>
     </Dialog>

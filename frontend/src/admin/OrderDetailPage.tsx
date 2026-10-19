@@ -53,7 +53,7 @@ function ShipDialog({ code, onDone, onClose }: { code: string; onDone: (d: Admin
       error={error}
     >
       <p className="text-sm text-stone-600">Tồn kho sẽ được trừ và khách nhận email kèm mã vận đơn.</p>
-      <Field label="Đơn vị vận chuyển" error={errors.carrier}>
+      <Field label="Đơn vị vận chuyển" requiredMark error={errors.carrier}>
         {(p) => (
           <input {...p} value={carrier} onChange={(e) => setCarrier(e.target.value)} list="carriers" maxLength={100} autoFocus />
         )}
@@ -63,7 +63,7 @@ function ShipDialog({ code, onDone, onClose }: { code: string; onDone: (d: Admin
           <option key={c} value={c} />
         ))}
       </datalist>
-      <Field label="Mã vận đơn" error={errors.trackingNumber}>
+      <Field label="Mã vận đơn" requiredMark error={errors.trackingNumber}>
         {(p) => <input {...p} value={tracking} onChange={(e) => setTracking(e.target.value)} maxLength={100} />}
       </Field>
     </Dialog>
@@ -209,7 +209,7 @@ export function CancelDialog({
           ? 'Hàng hoàn về sẽ được cộng lại vào kho. Khách nhận email thông báo kèm lý do bên dưới.'
           : 'Hàng đang giữ cho đơn sẽ được trả lại kho. Khách nhận email thông báo kèm lý do bên dưới.'}
       </p>
-      <Field label="Nhóm lý do" error={errors.reasonCode}>
+      <Field label="Nhóm lý do" requiredMark error={errors.reasonCode}>
         {(p) => (
           <select
             {...p}
@@ -229,7 +229,7 @@ export function CancelDialog({
           </select>
         )}
       </Field>
-      <Field label="Lý do huỷ (gửi cho khách)" error={errors.reason}>
+      <Field label="Lý do huỷ (gửi cho khách)" requiredMark error={errors.reason}>
         {(p) => (
           <textarea
             {...p}

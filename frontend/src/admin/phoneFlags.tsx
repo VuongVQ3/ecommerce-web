@@ -114,7 +114,7 @@ export function FlagDialog({
           ))}
         </div>
       </fieldset>
-      <Field label="Lý do" error={fieldError}>
+      <Field label="Lý do" requiredMark error={fieldError}>
         {(p) => (
           <textarea
             {...p}

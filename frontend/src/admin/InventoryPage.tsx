@@ -9,6 +9,7 @@ import { useAsync } from '../lib/useAsync'
 import { btn, input, table } from './styles'
 import MoneyInput from './MoneyInput'
 import { ActionMenu, Dialog, EmptyState, Field, PageHeader, Pagination } from './ui'
+import { RequiredLegend } from '../components/FormFields'
 
 const MOVEMENT_LABEL: Record<MovementType, string> = {
   IMPORT: 'Nhập hàng',
@@ -61,8 +62,9 @@ function ImportDialog({ product, onDone, onClose }: { product: StockRow; onDone:
       <p className="text-sm text-stone-600">
         Tồn hiện tại: <strong className="tabular-nums">{product.onHand}</strong>
       </p>
+      <RequiredLegend />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Số lượng nhập" error={errors.quantity}>
+        <Field label="Số lượng nhập" requiredMark error={errors.quantity}>
           {(p) => <input {...p} inputMode="numeric" value={form.quantity} onChange={set('quantity')} autoFocus />}
         </Field>
         <Field label="Giá nhập / đơn vị (₫)" error={errors.unitCost} hint="Không bắt buộc">
@@ -112,7 +114,7 @@ function StocktakeDialog({ product, onDone, onClose }: { product: StockRow; onDo
         Tồn trên hệ thống: <strong className="tabular-nums">{product.onHand}</strong> (đang giữ cho đơn:{' '}
         <span className="tabular-nums">{product.reserved}</span>)
       </p>
-      <Field label="Số đếm thực tế" error={errors.counted}>
+      <Field label="Số đếm thực tế" requiredMark error={errors.counted}>
         {(p) => <input {...p} inputMode="numeric" value={counted} onChange={(e) => setCounted(e.target.value)} autoFocus />}
       </Field>
       {diff !== null && diff !== 0 && (
@@ -121,7 +123,7 @@ function StocktakeDialog({ product, onDone, onClose }: { product: StockRow; onDo
           {diff}
         </p>
       )}
-      <Field label="Lý do" error={errors.reason}>
+      <Field label="Lý do" requiredMark error={errors.reason}>
         {(p) => (
           <input {...p} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="VD: Hư hỏng, đếm sai lần trước" />
         )}
