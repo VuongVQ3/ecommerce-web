@@ -287,6 +287,39 @@ class AdminE2ETest {
 			.andExpect(jsonPath("$.code").value("PRICE_REQUIRED"));
 	}
 
+	/** The list loads with products that have no price, no stock and no nutrition (the V17 drafts), on every tab. */
+	@Test
+	void productListWorksWithUnpricedProductsWithoutNutrition() throws Exception {
+		Cookie admin = as("ADMIN");
+		long draft = jdbc.queryForObject("""
+				INSERT INTO products (category_id, name, slug, description, price, weight_grams, on_hand, reserved, active,
+				                      calories, protein, fat, carbs, fiber, sort_order)
+				VALUES (1, 'Nháp chưa giá', ?, 'Mô tả', 0, 500, 0, 0, false, NULL, NULL, NULL, NULL, NULL, 7)
+				RETURNING id""", Long.class, "nhap-" + UUID.randomUUID());
+		createdProducts.add(draft);
+		long noStock = createProduct(admin, "Có giá chưa hàng", null);
+		long ready = createProduct(admin, "Có giá có hàng", null);
+		importStock(admin, ready, 5);
+
+		call(get("/api/admin/products").param("size", "100"), admin).andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[*].id", hasItem((int) draft)));
+		call(get("/api/admin/products").param("active", "false").param("size", "100"), admin).andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[*].id", hasItem((int) draft)));
+		call(get("/api/admin/products").param("active", "true").param("size", "100"), admin).andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[*].id", org.hamcrest.Matchers.not(hasItem((int) draft))));
+		call(get("/api/admin/products").param("q", "Nháp chưa").param("size", "100"), admin).andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[0].price").value(0))
+			.andExpect(jsonPath("$.items[0].sortOrder").value(7));
+		// "Chưa sẵn sàng": no price or no stock
+		call(get("/api/admin/products").param("notReady", "true").param("size", "100"), admin).andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[*].id", hasItem((int) draft)))
+			.andExpect(jsonPath("$.items[*].id", hasItem((int) noStock)))
+			.andExpect(jsonPath("$.items[*].id", org.hamcrest.Matchers.not(hasItem((int) ready))));
+		call(get("/api/admin/products/" + draft), admin).andExpect(status().isOk())
+			.andExpect(jsonPath("$.calories").isEmpty())
+			.andExpect(jsonPath("$.sortOrder").value(7));
+	}
+
 	/** An order placed while signed in shows whose account it went to; a staff account stands out. */
 	@Test
 	void orderDetailShowsTheAccountThatPlacedIt() throws Exception {
