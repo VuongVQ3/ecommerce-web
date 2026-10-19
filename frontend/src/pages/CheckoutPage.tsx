@@ -115,8 +115,13 @@ function Summary({ view }: { view: CartView }) {
   )
 }
 
+/** Where the lookup page is told that an order was just placed (its code), when the account page is not an option. */
+export interface PlacedOrderState {
+  placedCode?: string
+}
+
 function CheckoutForm({ view }: { view: CartView }) {
-  const { user } = useAuth()
+  const { user, refresh, logout } = useAuth()
   const { resetAfterOrder } = useCart()
   const navigate = useNavigate()
   const provinces = useProvinces()
@@ -157,8 +162,16 @@ function CheckoutForm({ view }: { view: CartView }) {
         // Guest: straight to the tracking page (reload-proof), and remember it in this browser
         saveRecentOrder(order.code, order.accessToken)
         navigate(trackingPath(order.code, order.accessToken), { replace: true, state })
-      } else {
+        return
+      }
+      // The server saved it to an account: the session cookie is valid even if this tab thought otherwise (signed
+      // in from another tab). Ask again rather than sending the buyer to a page that needs a sign-in.
+      const owner = user ?? (await refresh())
+      if (owner) {
         navigate(`/tai-khoan/don-hang/${order.code}`, { replace: true, state })
+      } else {
+        const placed: PlacedOrderState = { placedCode: order.code }
+        navigate(`/tra-cuu-don-hang?code=${encodeURIComponent(order.code)}`, { replace: true, state: placed })
       }
     },
     {
@@ -276,6 +289,15 @@ function CheckoutForm({ view }: { view: CartView }) {
       </section>
 
       <FormError message={formError} />
+      {user && (
+        <p className="rounded-xl bg-brand-50 px-4 py-3 text-sm text-stone-700">
+          Đơn sẽ được lưu vào tài khoản <strong className="break-words text-stone-900">{user.fullName || user.email}</strong>
+          {user.fullName && <span className="break-all text-stone-600"> ({user.email})</span>}.{' '}
+          <button type="button" onClick={() => void logout()} className="font-semibold text-brand-700 underline">
+            Không phải bạn? Đăng xuất
+          </button>
+        </p>
+      )}
       <SubmitButton pending={pending} pendingLabel="Đang đặt hàng...">
         Đặt hàng · {formatPrice(view.total)}
       </SubmitButton>
@@ -284,8 +306,12 @@ function CheckoutForm({ view }: { view: CartView }) {
 }
 
 export default function CheckoutPage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, refresh } = useAuth()
   const { view, loading } = useCart()
+  // The order is saved to whoever the cookies say is signed in: make the page agree before "Đặt hàng"
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">

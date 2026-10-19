@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
+import { useEffect, useState } from 'react'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { orderLookupSchema } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
@@ -16,6 +16,7 @@ import { useJustPlaced } from '../lib/useJustPlaced'
 import RecentOrders from '../components/RecentOrders'
 import { saveRecentOrder, trackingPath } from '../lib/recentOrders'
 import { loginUrl } from '../lib/redirect'
+import type { PlacedOrderState } from './CheckoutPage'
 
 /**
  * Old address of the "order placed" page. Guests are now sent straight to their tracking link and signed-in buyers
@@ -23,14 +24,21 @@ import { loginUrl } from '../lib/redirect'
  */
 export function OrderSuccessPage() {
   const { code = '' } = useParams()
-  const { user, loading } = useAuth()
-  if (loading) return <Spinner />
-  return (
-    <Navigate
-      to={user ? `/tai-khoan/don-hang/${encodeURIComponent(code)}` : `/tra-cuu-don-hang?code=${encodeURIComponent(code)}`}
-      replace
-    />
-  )
+  const { refresh } = useAuth()
+  // Asks again who is signed in: this tab's idea of the session may be stale (sign-in in another tab)
+  const [target, setTarget] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    void refresh().then((user) => {
+      if (!alive) return
+      setTarget(user ? `/tai-khoan/don-hang/${encodeURIComponent(code)}` : `/tra-cuu-don-hang?code=${encodeURIComponent(code)}`)
+    })
+    return () => {
+      alive = false
+    }
+  }, [refresh, code])
+  if (!target) return <Spinner />
+  return <Navigate to={target} replace />
 }
 
 /** /tai-khoan/don-hang: the signed-in user's orders, newest first, loaded page by page. */
@@ -169,6 +177,8 @@ export function MyOrderDetailPage() {
 export function OrderLookupPage() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
+  // Sent here by checkout when the order could not be opened in an account (session gone at that very moment)
+  const placedCode = (useLocation().state as PlacedOrderState | null)?.placedCode
   // Code of an order that belongs to an account (its owner must sign in)
   const [accountOrder, setAccountOrder] = useState<string | null>(null)
   const initialCode = (params.get('code') ?? '').toUpperCase().slice(0, 30)
@@ -194,6 +204,15 @@ export function OrderLookupPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-3xl font-bold text-stone-900">Tra cứu đơn hàng</h1>
+      {placedCode && (
+        <div role="status" className="mt-6 rounded-2xl border border-brand-200 bg-brand-50 px-5 py-4 text-stone-800">
+          <p className="font-semibold text-brand-800">Đặt hàng thành công!</p>
+          <p className="mt-1 text-sm">
+            Mã đơn của bạn: <strong className="tabular-nums">{placedCode}</strong>. Nhập số điện thoại đã dùng khi đặt
+            hàng để xem và theo dõi đơn.
+          </p>
+        </div>
+      )}
       <div className="mt-6">
         <RecentOrders />
       </div>
