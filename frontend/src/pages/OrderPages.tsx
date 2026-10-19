@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate, useParams, useSearchParams } from 'react-router'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { orderLookupSchema } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
@@ -14,6 +14,8 @@ import { normalizePhone } from '../lib/phone'
 import { useAsync } from '../lib/useAsync'
 import { useJustPlaced } from '../lib/useJustPlaced'
 import RecentOrders from '../components/RecentOrders'
+import { saveRecentOrder, trackingPath } from '../lib/recentOrders'
+import { loginUrl } from '../lib/redirect'
 
 /**
  * Old address of the "order placed" page. Guests are now sent straight to their tracking link and signed-in buyers
@@ -159,14 +161,34 @@ export function MyOrderDetailPage() {
 }
 
 /** /tra-cuu-don-hang: guests find their order with code + phone. */
+/**
+ * Guests find an order with its code + phone. A match opens its tracking page (a fresh 24-hour link, also kept in
+ * "Đơn hàng gần đây"), where the details are shown with the phone/email hidden and a PENDING order can be cancelled.
+ * An order attached to an account asks to sign in instead.
+ */
 export function OrderLookupPage() {
   const [params] = useSearchParams()
-  const [order, setOrder] = useState<Order | null>(null)
+  const navigate = useNavigate()
+  // Code of an order that belongs to an account (its owner must sign in)
+  const [accountOrder, setAccountOrder] = useState<string | null>(null)
   const initialCode = (params.get('code') ?? '').toUpperCase().slice(0, 30)
-  const { form, onSubmit, formError, pending } = useAuthForm(orderLookupSchema, { code: initialCode, phone: '' }, async (values) => {
-    setOrder(null)
-    setOrder(await api.lookupOrder(values.code.toUpperCase(), normalizePhone(values.phone)))
-  })
+  const { form, onSubmit, formError, pending } = useAuthForm(
+    orderLookupSchema,
+    { code: initialCode, phone: '' },
+    async (values) => {
+      setAccountOrder(null)
+      const { code, token } = await api.lookupOrder(values.code.toUpperCase(), normalizePhone(values.phone))
+      saveRecentOrder(code, token)
+      navigate(trackingPath(code, token), { replace: true })
+    },
+    {
+      onApiError: (err, f) => {
+        if (err.code !== 'ORDER_BELONGS_TO_ACCOUNT') return false
+        setAccountOrder(f.getValues('code').trim().toUpperCase())
+        return true
+      },
+    },
+  )
   const { errors } = form.formState
 
   return (
@@ -187,25 +209,18 @@ export function OrderLookupPage() {
       </form>
       <div className="mt-4">
         <FormError message={formError} />
+        {accountOrder && (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p>Đơn này thuộc một tài khoản. Vui lòng đăng nhập để xem.</p>
+            <Link
+              to={loginUrl(`/tai-khoan/don-hang/${accountOrder}`)}
+              className="rounded-full bg-brand-600 px-4 py-2 font-semibold text-white hover:bg-brand-700"
+            >
+              Đăng nhập
+            </Link>
+          </div>
+        )}
       </div>
-      {order && (
-        <div className="mt-8">
-          <OrderDetails
-            order={order}
-            actions={
-              order.canCancel && (
-                <p className="text-sm text-stone-600">
-                  Muốn huỷ đơn? Mở link theo dõi trong email xác nhận, hoặc xem trang{' '}
-                  <Link to="/lien-he" className="font-semibold text-brand-700 underline">
-                    Liên hệ
-                  </Link>
-                  .
-                </p>
-              )
-            }
-          />
-        </div>
-      )}
     </div>
   )
 }

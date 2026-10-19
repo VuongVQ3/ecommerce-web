@@ -503,8 +503,8 @@ export const api = {
   cancelOrder: (code: string, input: CustomerCancelInput) =>
     apiRequest<Order>(`/api/orders/me/${encodeURIComponent(code)}/cancel`, post(input)),
 
-  lookupOrder: (code: string, phone: string) =>
-    apiRequest<Order>(`/api/orders/lookup?code=${encodeURIComponent(code)}&phone=${encodeURIComponent(phone)}`),
+  /** Code + phone (in the body, never the URL) → a 24-hour tracking link for /don-hang/{code}?t={token}. */
+  lookupOrder: (code: string, phone: string) => apiRequest<{ code: string; token: string }>('/api/orders/lookup', post({ code, phone })),
 
   // Guest tracking links: the token is the proof (public)
   trackOrder: (code: string, token: string, signal?: AbortSignal) =>

@@ -340,8 +340,8 @@ export default function TrackOrderPage() {
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
         <h1 className="text-2xl font-bold text-stone-900">Không mở được link theo dõi</h1>
         <p className="mt-3 text-stone-700">
-          Link không đúng, đã hết hạn (sau 180 ngày) hoặc đơn hàng đã được lưu vào tài khoản. Bạn vẫn có thể tra cứu
-          bằng mã đơn và số điện thoại đã dùng khi đặt hàng.
+          Link không đúng, đã hết hạn (link trong email dùng được 180 ngày, link từ trang tra cứu 24 giờ) hoặc đơn hàng
+          đã được lưu vào tài khoản. Bạn vẫn có thể tra cứu lại bằng mã đơn và số điện thoại đã dùng khi đặt hàng.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link
