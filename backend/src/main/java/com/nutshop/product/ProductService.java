@@ -3,7 +3,9 @@ package com.nutshop.product;
 import com.nutshop.cart.CartProperties;
 import com.nutshop.common.NotFoundException;
 import com.nutshop.common.PageResponse;
+import com.nutshop.common.TextFold;
 import com.nutshop.product.ProductDtos.CategoryListing;
+import com.nutshop.product.ProductDtos.ProductSuggestion;
 import com.nutshop.product.ProductDtos.ProductDetail;
 import com.nutshop.product.ProductDtos.ProductSummary;
 import org.springframework.data.domain.PageRequest;
@@ -52,6 +54,29 @@ public class ProductService {
 	public CategoryListing category(String slug) {
 		Category c = categories.findBySlug(slug).orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục"));
 		return new CategoryListing(c.getId(), c.getName(), c.getSlug(), categories.countOnSale(c.getId()));
+	}
+
+	/** Below this many characters the header search suggests nothing */
+	public static final int SUGGEST_MIN_LENGTH = 2;
+	public static final int SUGGEST_MAX = 8;
+
+	/**
+	 * Header search suggestions: up to {@code limit} (at most 8) products on sale whose name contains the term,
+	 * without case or accents, those starting with it first. Fewer than 2 characters → nothing.
+	 */
+	public List<ProductSuggestion> suggest(String q, int limit) {
+		String term = TextFold.fold(q == null ? "" : q.strip()).replaceAll("\\s+", " ");
+		if (term.length() < SUGGEST_MIN_LENGTH) {
+			return List.of();
+		}
+		String like = TextFold.escapeLike(term);
+		List<Product> found = products.suggest(TextFold.ACCENTED, TextFold.PLAIN, "%" + like + "%", like + "%",
+				PageRequest.of(0, Math.clamp(limit, 1, SUGGEST_MAX)));
+		var prices = pricing.pricesOf(found);
+		return found.stream()
+			.map(p -> new ProductSuggestion(p.getId(), p.getName(), p.getSlug(), prices.get(p.getId()).price(),
+					p.getImageUrl(), p.getCategory().getSlug()))
+			.toList();
 	}
 
 	/** Catalogue listing: discontinued products are hidden (their pages stay reachable by slug). */

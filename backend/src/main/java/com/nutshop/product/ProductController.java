@@ -3,6 +3,7 @@ package com.nutshop.product;
 import com.nutshop.common.PageResponse;
 import com.nutshop.product.ProductDtos.CategoryListing;
 import com.nutshop.product.ProductDtos.ProductDetail;
+import com.nutshop.product.ProductDtos.ProductSuggestion;
 import com.nutshop.product.ProductDtos.ProductSummary;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +23,13 @@ public class ProductController {
 	@GetMapping("/categories")
 	public List<CategoryListing> categories() {
 		return productService.listCategories();
+	}
+
+	/** Header search suggestions (search as you type); fewer than 2 characters → []. */
+	@GetMapping("/products/suggest")
+	public List<ProductSuggestion> suggest(@RequestParam(defaultValue = "") String q,
+			@RequestParam(defaultValue = "8") int limit) {
+		return productService.suggest(q, limit);
 	}
 
 	@GetMapping("/categories/{slug}")

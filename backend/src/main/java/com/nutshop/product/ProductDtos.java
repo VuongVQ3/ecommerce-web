@@ -47,6 +47,11 @@ public final class ProductDtos {
 		return available <= LOW_STOCK_PUBLIC ? Math.max(available, 0) : maxQtyPerItem;
 	}
 
+	/** One line of the header search suggestions; price = what the buyer pays now (sale price included). */
+	public record ProductSuggestion(Long id, String name, String slug, Long price, String imageUrl,
+			String categorySlug) {
+	}
+
 	/** A storefront category with how many products are on sale in it. */
 	public record CategoryListing(Long id, String name, String slug, long productCount) {
 	}

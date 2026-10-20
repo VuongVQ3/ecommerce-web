@@ -1,12 +1,12 @@
 package com.nutshop.product;
 
+import com.nutshop.common.TextFold;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.Instant;
-import java.util.Locale;
 
 /**
  * Optional product filters. Built in Java rather than as "(:param IS NULL OR ...)" JPQL, because
@@ -25,9 +25,13 @@ final class ProductSpecs {
 		return (root, query, cb) -> cb.equal(root.get("category").get("slug"), slug);
 	}
 
+	/** Without case or accents: "hat dieu" finds "Hạt điều" (TextFold). */
 	static Specification<Product> nameContains(String q) {
-		String pattern = "%" + q.trim().toLowerCase(Locale.ROOT) + "%";
-		return (root, query, cb) -> cb.like(cb.lower(root.get("name")), pattern);
+		String pattern = "%" + TextFold.escapeLike(TextFold.fold(q.trim())) + "%";
+		return (root, query, cb) -> cb.like(
+				cb.lower(cb.function("translate", String.class, root.get("name"), cb.literal(TextFold.ACCENTED),
+						cb.literal(TextFold.PLAIN))),
+				pattern, '\\');
 	}
 
 	/**
