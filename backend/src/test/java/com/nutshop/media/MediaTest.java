@@ -1,25 +1,22 @@
 package com.nutshop.media;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.Uploader;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.RestClient;
 
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class MediaTest {
-
-	private static final Clock CLOCK = Clock.fixed(Instant.ofEpochSecond(1315060510), ZoneOffset.UTC);
 
 	@Test
 	void detectsImagesByContentNotName() {
@@ -35,36 +32,81 @@ class MediaTest {
 		assertThat(ImageTypes.detect(null)).isEmpty();
 	}
 
-	/** Example from https://cloudinary.com/documentation/authentication_signatures */
-	@Test
-	void signsLikeCloudinaryDocuments() {
-		var storage = new CloudinaryImageStorage(RestClient.builder(), "cloudinary://key:abcd@demo", CLOCK);
-		assertThat(storage.sign(Map.of("timestamp", "1315060510", "public_id", "sample_image", "eager",
-				"w_400,h_300,c_pad|w_260,h_200,c_crop")))
-			.isEqualTo("bfd09f95f331f558cbd1320e67aa8d488770583e");
+	private static final String URL = "cloudinary://123456789012345:s3cr3t-Value_x@demo";
+
+	/** A real SDK configuration whose uploader is a mock (no network). */
+	private static CloudinaryImageStorage storage(Uploader uploader) {
+		Cloudinary cloudinary = spy(new Cloudinary(CloudinaryImageStorage.normalize(URL)));
+		doReturn(uploader).when(cloudinary).uploader();
+		return new CloudinaryImageStorage(cloudinary);
 	}
 
 	@Test
-	void uploadsToTheConfiguredCloud() {
-		RestClient.Builder builder = RestClient.builder();
-		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-		server.expect(requestTo("https://api.cloudinary.com/v1_1/demo/image/upload"))
-			.andExpect(method(HttpMethod.POST))
-			.andRespond(withSuccess("""
-					{"public_id":"hat-lanh/products/abc","secure_url":"https://res.cloudinary.com/demo/image/upload/v1/hat-lanh/products/abc.png","width":640,"height":480}""",
-					MediaType.APPLICATION_JSON));
-		var storage = new CloudinaryImageStorage(builder, "cloudinary://key:secret@demo", CLOCK);
+	void acceptsTheUrlAsPastedFromTheConsoleOrADotEnvLine() {
+		assertThat(CloudinaryImageStorage.normalize("  " + URL + "\n")).isEqualTo(URL);
+		assertThat(CloudinaryImageStorage.normalize("CLOUDINARY_URL=" + URL)).isEqualTo(URL);
+		assertThat(CloudinaryImageStorage.normalize("\"" + URL + "\"")).isEqualTo(URL);
+		// Percent-encoded secret: kept for the SDK, which decodes it
+		Cloudinary cloudinary = new Cloudinary(CloudinaryImageStorage.normalize("cloudinary://key:a%2Fb@demo"));
+		assertThat(cloudinary.config.apiSecret).isEqualTo("a/b");
+		assertThat(cloudinary.config.cloudName).isEqualTo("demo");
+	}
 
-		var stored = storage.upload(new byte[] { 1, 2, 3 }, ImageTypes.ImageType.PNG);
+	@Test
+	void rejectsMalformedUrlWithoutEchoingIt() {
+		for (String bad : new String[] { "https://demo", "cloudinary://onlykey@demo", "cloudinary://key:@demo", "" }) {
+			assertThatThrownBy(() -> CloudinaryImageStorage.normalize(bad)).isInstanceOf(IllegalStateException.class)
+				.hasMessageNotContaining("onlykey");
+		}
+	}
+
+	@Test
+	void uploadsIntoTheProductsFolderAndReturnsTheSecureUrl() throws Exception {
+		Uploader uploader = mock(Uploader.class);
+		when(uploader.upload(any(), any())).thenReturn(Map.of("public_id", "hat-lanh/products/abc", "secure_url",
+				"https://res.cloudinary.com/demo/image/upload/v1/hat-lanh/products/abc.png", "width", 640, "height", 480));
+
+		var stored = storage(uploader).upload(new byte[] { 1, 2, 3 }, ImageTypes.ImageType.PNG);
 
 		assertThat(stored.publicId()).isEqualTo("hat-lanh/products/abc");
+		assertThat(stored.url()).startsWith("https://res.cloudinary.com/");
 		assertThat(stored.width()).isEqualTo(640);
-		server.verify();
+		@SuppressWarnings("unchecked")
+		org.mockito.ArgumentCaptor<Map<String, Object>> options = org.mockito.ArgumentCaptor.forClass(Map.class);
+		verify(uploader).upload(eq(new byte[] { 1, 2, 3 }), options.capture());
+		assertThat(options.getValue()).containsEntry("folder", "hat-lanh/products").containsEntry("resource_type", "image");
 	}
 
 	@Test
-	void rejectsMalformedUrl() {
-		assertThatThrownBy(() -> new CloudinaryImageStorage(RestClient.builder(), "https://demo", CLOCK))
-			.isInstanceOf(IllegalStateException.class);
+	void aRefusedSignatureBecomesAClearMessageAndTheSecretIsNotLogged() throws Exception {
+		Uploader uploader = mock(Uploader.class);
+		when(uploader.upload(any(), any())).thenReturn(Map.of("error",
+				Map.of("http_code", 401, "message", "Invalid api_key 123456789012345")));
+		var logs = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+		var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(CloudinaryImageStorage.class);
+		logs.start();
+		logger.addAppender(logs);
+		try {
+			assertThatThrownBy(() -> storage(uploader).upload(new byte[] { 1 }, ImageTypes.ImageType.PNG))
+				.isInstanceOf(ImageStorageException.class)
+				.hasMessage("Kho ảnh từ chối xác thực, kiểm tra cấu hình CLOUDINARY_URL")
+				.extracting("code").isEqualTo(ImageStorageException.AUTH_FAILED);
+		}
+		finally {
+			logger.detachAppender(logs);
+		}
+		assertThat(logs.list).extracting(e -> e.getFormattedMessage())
+			.anySatisfy(m -> assertThat(m).contains("HTTP 401").contains("Invalid api_key ****2345"))
+			.anySatisfy(m -> assertThat(m).contains("cloud_name=demo"))
+			.allSatisfy(m -> assertThat(m).doesNotContain("s3cr3t").doesNotContain("123456789012345"));
+	}
+
+	@Test
+	void otherFailuresAreAGenericTryAgain() throws Exception {
+		Uploader uploader = mock(Uploader.class);
+		when(uploader.upload(any(), any())).thenThrow(new java.io.IOException("connect timed out"));
+		assertThatThrownBy(() -> storage(uploader).upload(new byte[] { 1 }, ImageTypes.ImageType.PNG))
+			.isInstanceOf(ImageStorageException.class)
+			.extracting("code").isEqualTo(ImageStorageException.FAILED);
 	}
 }

@@ -9,7 +9,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.util.StringUtils;
 
-import java.time.Clock;
 
 @Configuration(proxyBeanMethods = false)
 public class MediaConfig {
@@ -17,9 +16,9 @@ public class MediaConfig {
 	private static final Logger log = LoggerFactory.getLogger(MediaConfig.class);
 
 	@Bean
-	ImageStorage imageStorage(@Value("${app.cloudinary-url:}") String cloudinaryUrl, Clock clock) {
+	ImageStorage imageStorage(@Value("${app.cloudinary-url:}") String cloudinaryUrl) {
 		if (StringUtils.hasText(cloudinaryUrl)) {
-			return new CloudinaryImageStorage(cloudinaryUrl, clock);
+			return new CloudinaryImageStorage(cloudinaryUrl);
 		}
 		log.warn("CLOUDINARY_URL is not set: product image uploads are disabled");
 		return new ImageStorage() {
