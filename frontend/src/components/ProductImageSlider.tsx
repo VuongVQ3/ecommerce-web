@@ -13,8 +13,11 @@ interface Props {
   /** Used when there are no images (older products keep a single imageUrl) */
   fallbackUrl?: string | null
   categorySlug: string
-  /** dots under the photo (quick view) or a row of thumbnails (product page) */
-  nav: 'dots' | 'thumbnails'
+  /**
+   * dots: under the photo · thumbnails: a row under the photo (product page) · quickview: dots inside the photo on
+   * a frosted pill, plus the thumbnail row from 768px
+   */
+  nav: 'dots' | 'thumbnails' | 'quickview'
   /** Rounded corners of the square frame */
   rounded?: string
   /** Emoji size of the placeholder */
@@ -135,6 +138,26 @@ export default function ProductImageSlider({
             <p aria-live="polite" className="absolute right-3 bottom-3 rounded-full bg-stone-900/60 px-2.5 py-0.5 text-xs font-semibold text-white tabular-nums">
               {index + 1}/{count}
             </p>
+            {nav === 'quickview' && (
+              <div
+                role="group"
+                aria-label="Chọn ảnh"
+                className="absolute bottom-3 left-1/2 flex -translate-x-1/2 rounded-full bg-stone-900/35 px-1 backdrop-blur-sm"
+              >
+                {slides.map((url, i) => (
+                  <button
+                    key={url ?? i}
+                    type="button"
+                    onClick={() => goTo(i)}
+                    aria-label={`Ảnh ${i + 1}`}
+                    aria-current={i === index ? 'true' : undefined}
+                    className="flex size-6 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-white"
+                  >
+                    <span className={`block rounded-full transition-all ${i === index ? 'h-2 w-4 bg-white' : 'size-2 bg-white/60'}`} />
+                  </button>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -156,8 +179,9 @@ export default function ProductImageSlider({
         </div>
       )}
 
-      {count > 1 && nav === 'thumbnails' && (
-        <ul className="mt-3 flex gap-2" aria-label="Ảnh sản phẩm">
+      {/* Quick view: phones keep only the dots inside the photo */}
+      {count > 1 && (nav === 'thumbnails' || nav === 'quickview') && (
+        <ul className={`mt-3 flex gap-2 ${nav === 'quickview' ? 'max-md:hidden' : ''}`} aria-label="Ảnh sản phẩm">
           {slides.map((url, i) => (
             <li key={url ?? i}>
               <button

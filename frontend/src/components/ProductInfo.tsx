@@ -129,6 +129,36 @@ export function NutritionTable({
   )
 }
 
+const CHIPS: { key: keyof Nutrition; label: (v: number) => string }[] = [
+  { key: 'calories', label: (v) => `${v} kcal` },
+  { key: 'protein', label: (v) => `Protein ${v}g` },
+  { key: 'fat', label: (v) => `Béo ${v}g` },
+  { key: 'carbs', label: (v) => `Carb ${v}g` },
+  { key: 'fiber', label: (v) => `Xơ ${v}g` },
+]
+
+/** Compact per-100g figures as small chips (quick view); nothing while the figures are not known. */
+export function NutritionChips({ nutrition, className = 'mt-6' }: { nutrition: Nutrition | null; className?: string }) {
+  if (!nutrition) return null
+  return (
+    <section className={className} aria-labelledby="nutrition-chips-title">
+      <h3 id="nutrition-chips-title" className="text-sm font-semibold text-stone-900">
+        Dinh dưỡng <span className="font-normal text-muted">/ 100g</span>
+      </h3>
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {CHIPS.map((c) => (
+          <li
+            key={c.key}
+            className="rounded-full border border-stone-200 bg-white px-3 py-1 text-sm font-medium text-stone-800 tabular-nums"
+          >
+            {c.label(nutrition[c.key])}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 /**
  * Quantity picker + add button: the quantity is what will be added, bounded by what the cart can still take
  * (maxPurchasable minus what is already in it). Shows how many are already in the cart. Discontinued products get a

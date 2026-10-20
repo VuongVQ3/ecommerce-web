@@ -10,7 +10,7 @@ import {
   type QuickViewState,
 } from '../lib/quickView'
 import { useFocusTrap } from '../lib/useFocusTrap'
-import { AddToCartControl, NutritionTable, ProductPrice, StockBadge } from './ProductInfo'
+import { AddToCartControl, NutritionChips, ProductPrice, StockBadge } from './ProductInfo'
 import ProductImageSlider from './ProductImageSlider'
 
 type Load = { detail?: ProductDetail; error?: Error }
@@ -94,6 +94,8 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
   }
 
   const product = detail ?? summary
+  // How many photos the slider shows (1 for the card's photo while the details load)
+  const photoCount = detail ? Math.max(detail.images.length, detail.imageUrl ? 1 : 0) : summary?.imageUrl ? 1 : 0
   const notFound = error instanceof ApiError && error.status === 404
   const name = product?.name
 
@@ -127,9 +129,15 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
         </button>
 
         <div ref={scroller} className="min-h-0 overflow-y-auto overscroll-contain md:flex md:overflow-hidden">
-          {/* A square column (never stretched to the popup's height); the slider marks the shown photo as the one
-              "Thêm vào giỏ hàng" flies to the cart. key: another product starts at its first photo. */}
-          <div className="bg-white md:w-1/2 md:shrink-0 md:self-start">
+          {/* Desktop: a cream column with padding, the square photo with rounded corners and thumbnails under it,
+              staying put (sticky, not scrolled) while the details column scrolls; one photo or none is centred
+              vertically. Phones: the photo edge to edge on top, dots inside it. The slider marks the shown photo
+              as the one "Thêm vào giỏ hàng" flies to the cart; key: another product starts at its first photo. */}
+          <div
+            className={`bg-cream md:sticky md:top-0 md:flex md:w-1/2 md:shrink-0 md:flex-col md:p-6 ${
+              photoCount > 1 ? 'md:justify-start' : 'md:justify-center'
+            }`}
+          >
             {product ? (
               <ProductImageSlider
                 key={product.slug}
@@ -137,11 +145,11 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
                 images={detail?.images ?? []}
                 fallbackUrl={product.imageUrl}
                 categorySlug={product.category.slug}
-                nav="dots"
-                rounded="rounded-none"
+                nav="quickview"
+                rounded="rounded-none md:rounded-2xl"
               />
             ) : (
-              <Bar className="aspect-square w-full rounded-none" />
+              <Bar className="aspect-square w-full rounded-none md:rounded-2xl" />
             )}
           </div>
 
@@ -180,7 +188,7 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
               <>
                 <StockBadge product={detail} className="mt-5" />
                 <p className="mt-5 leading-relaxed text-stone-700">{detail.description}</p>
-                <NutritionTable nutrition={detail.nutritionPer100g} serving className="mt-6" />
+                <NutritionChips nutrition={detail.nutritionPer100g} className="mt-6" />
                 <AddToCartControl product={detail} className="mt-6" onAdded={setAdded} />
                 <p className="mt-2 min-h-5 text-sm font-medium text-success" aria-live="polite">
                   {added != null && `Đã thêm ${added} sản phẩm vào giỏ hàng`}
