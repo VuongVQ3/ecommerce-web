@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useCartBadge } from '../cart/cartBadge'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
@@ -11,67 +11,11 @@ import { useRecentOrders } from '../lib/recentOrders'
 import { telHref, useSiteInfo } from '../lib/siteInfo'
 import FloatingContact from './FloatingContact'
 import { useFocusTrap } from '../lib/useFocusTrap'
-import { usePrefersReducedMotion } from '../lib/motion'
-import { useTypewriterPlaceholder } from '../lib/useTypewriterPlaceholder'
+import SearchBox from './SearchBox'
 import { BRAND } from '../lib/usePageMeta'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `text-sm font-medium transition ${isActive ? 'text-brand-700' : 'text-stone-600 hover:text-brand-700'}`
-
-/** What the search box types by itself while it is empty and not focused */
-const SEARCH_HINTS = [
-  'Tìm mắc ca...',
-  'Tìm hạt điều rang muối...',
-  'Tìm óc chó đỏ...',
-  'Tìm ngũ cốc hạt dinh dưỡng...',
-  'Tìm mật ong hoa cà phê...',
-] as const
-const SEARCH_PLACEHOLDER = 'Tìm kiếm sản phẩm...'
-
-/**
- * Header search. Empty and not focused, it types example searches with a blinking caret (an aria-hidden layer over
- * the field; the field's name stays "Tìm sản phẩm"). Focused, filled in, or with reduced motion: the static
- * placeholder.
- */
-function SearchBox({ className = '', autoFocus = false }: { className?: string; autoFocus?: boolean }) {
-  const navigate = useNavigate()
-  const [q, setQ] = useState('')
-  const [focused, setFocused] = useState(autoFocus)
-  const reducedMotion = usePrefersReducedMotion()
-  const typing = !focused && q === '' && !reducedMotion
-  const hint = useTypewriterPlaceholder(SEARCH_HINTS, { active: typing })
-
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    navigate(q.trim() ? `/san-pham?q=${encodeURIComponent(q.trim())}` : '/san-pham')
-  }
-
-  return (
-    <form onSubmit={onSubmit} role="search" className={`relative ${className}`}>
-      <input
-        type="search"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        autoFocus={autoFocus}
-        enterKeyHint="search"
-        placeholder={typing ? '' : SEARCH_PLACEHOLDER}
-        aria-label="Tìm sản phẩm"
-        className="w-full rounded-full border border-stone-200 bg-white px-4 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-      />
-      {typing && (
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-4 left-4 flex items-center overflow-hidden text-sm whitespace-nowrap text-stone-400"
-        >
-          {hint}
-          <span className="typing-caret ml-px">|</span>
-        </span>
-      )}
-    </form>
-  )
-}
 
 /**
  * Desktop with a mouse: the icon links to /gio-hang and hovering it previews the cart (QuickCart).

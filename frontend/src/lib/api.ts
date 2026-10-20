@@ -6,6 +6,17 @@ export interface Category {
   slug: string
 }
 
+/** One line of the header search suggestions */
+export interface ProductSuggestion {
+  id: number
+  name: string
+  slug: string
+  /** What the buyer pays now (sale price included) */
+  price: number
+  imageUrl: string | null
+  categorySlug: string
+}
+
 /** From /api/categories: only categories with something on sale */
 export interface CategoryListing extends Category {
   /** Products on sale (shown and priced) */
@@ -456,6 +467,9 @@ function toQueryString(query: ProductQuery): string {
 }
 
 export const api = {
+  /** Search as you type: up to 8 products on sale, no case/accents; fewer than 2 characters → [] */
+  suggest: (q: string, signal?: AbortSignal) =>
+    apiRequest<ProductSuggestion[]>(`/api/products/suggest?q=${encodeURIComponent(q)}&limit=8`, { signal }),
   categories: (signal?: AbortSignal) => apiRequest<CategoryListing[]>('/api/categories', { signal }),
   /** Any category, also one with nothing on sale (productCount 0); 404 when there is no such category */
   category: (slug: string, signal?: AbortSignal) =>
