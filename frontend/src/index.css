@@ -123,6 +123,12 @@ body {
   .fade-swap { animation: fade-in 150ms ease-out; }
 }
 
+/* Blinking caret of the header search's self-typing hint (components/Layout.tsx); never shown with reduced motion */
+@keyframes typing-caret-blink {
+  50% { opacity: 0; }
+}
+.typing-caret { animation: typing-caret-blink 1s step-end infinite; }
+
 /* ---------- Contact column, bottom right (components/FloatingContact.tsx): transform/opacity only ---------- */
 
 .fc-dot { transform-origin: center; transition: transform 200ms ease-out, box-shadow 200ms ease-out; }
