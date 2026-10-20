@@ -9,10 +9,12 @@ interface Props {
   /** Rendered size in CSS pixels; a 2x copy is requested for sharp screens. */
   size?: number
   className?: string
+  /** The photo the visitor sees first: load it at once (others wait until near the viewport) */
+  eager?: boolean
 }
 
 /** Product photo (resized by Cloudinary), or a category-themed placeholder when missing or broken. */
-export default function ProductImage({ name, imageUrl, categorySlug, size = 400, className = '' }: Props) {
+export default function ProductImage({ name, imageUrl, categorySlug, size = 400, className = '', eager = false }: Props) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
   if (imageUrl && failedUrl !== imageUrl) {
     return (
@@ -21,7 +23,8 @@ export default function ProductImage({ name, imageUrl, categorySlug, size = 400,
         alt={name}
         width={size}
         height={size}
-        loading="lazy"
+        loading={eager ? 'eager' : 'lazy'}
+        fetchPriority={eager ? 'high' : undefined}
         decoding="async"
         onError={() => setFailedUrl(imageUrl)}
         className={`object-cover ${className}`}

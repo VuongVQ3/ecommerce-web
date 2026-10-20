@@ -11,7 +11,7 @@ import {
 } from '../lib/quickView'
 import { useFocusTrap } from '../lib/useFocusTrap'
 import { AddToCartControl, NutritionTable, ProductPrice, StockBadge } from './ProductInfo'
-import ProductImage from './ProductImage'
+import ProductImageSlider from './ProductImageSlider'
 
 type Load = { detail?: ProductDetail; error?: Error }
 
@@ -127,15 +127,18 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
         </button>
 
         <div ref={scroller} className="min-h-0 overflow-y-auto overscroll-contain md:flex md:overflow-hidden">
-          {/* data-fly-source: "Thêm vào giỏ hàng" flies this picture to the cart */}
-          <div data-fly-source className="bg-white md:flex md:w-1/2 md:shrink-0">
+          {/* A square column (never stretched to the popup's height); the slider marks the shown photo as the one
+              "Thêm vào giỏ hàng" flies to the cart. key: another product starts at its first photo. */}
+          <div className="bg-white md:w-1/2 md:shrink-0 md:self-start">
             {product ? (
-              <ProductImage
+              <ProductImageSlider
+                key={product.slug}
                 name={product.name}
-                imageUrl={product.imageUrl}
+                images={detail?.images ?? []}
+                fallbackUrl={product.imageUrl}
                 categorySlug={product.category.slug}
-                size={440}
-                className="aspect-square w-full md:aspect-auto md:h-full md:min-h-full [&>span]:text-8xl"
+                nav="dots"
+                rounded="rounded-none"
               />
             ) : (
               <Bar className="aspect-square w-full rounded-none" />

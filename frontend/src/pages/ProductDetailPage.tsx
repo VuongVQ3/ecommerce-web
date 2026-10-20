@@ -1,55 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { AddToCartControl, NutritionTable, ProductPrice, StockBadge } from '../components/ProductInfo'
-import ProductImage from '../components/ProductImage'
-import { api, ApiError, type ProductDetail } from '../lib/api'
+import ProductImageSlider from '../components/ProductImageSlider'
+import { api, ApiError } from '../lib/api'
 import { formatPrice, formatWeight } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
 import { BRAND, usePageMeta } from '../lib/usePageMeta'
 import NotFoundPage from './NotFoundPage'
-
-/** Main photo plus thumbnails when the product has several images. */
-function Gallery({ product }: { product: ProductDetail }) {
-  const urls = product.images.length > 0 ? product.images.map((i) => i.url) : product.imageUrl ? [product.imageUrl] : []
-  const [index, setIndex] = useState(0)
-  const current = urls[Math.min(index, urls.length - 1)] ?? null
-  return (
-    // data-fly-source: "Thêm vào giỏ hàng" flies the main photo (the first picture here) to the cart
-    <div data-fly-source>
-      <ProductImage
-        name={product.name}
-        imageUrl={current}
-        categorySlug={product.category.slug}
-        size={560}
-        className="aspect-square w-full rounded-3xl [&>span]:text-9xl"
-      />
-      {urls.length > 1 && (
-        <ul className="mt-3 flex gap-2" aria-label="Ảnh sản phẩm">
-          {urls.map((url, i) => (
-            <li key={url}>
-              <button
-                type="button"
-                onClick={() => setIndex(i)}
-                aria-label={`Xem ảnh ${i + 1}`}
-                aria-pressed={i === index}
-                className={`block overflow-hidden rounded-xl border-2 ${i === index ? 'border-brand-600' : 'border-transparent'}`}
-              >
-                <ProductImage
-                  name={`${product.name} – ảnh ${i + 1}`}
-                  imageUrl={url}
-                  categorySlug={product.category.slug}
-                  size={64}
-                  className="size-16"
-                />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
 
 export default function ProductDetailPage() {
   const { slug = '' } = useParams()
@@ -92,7 +50,16 @@ export default function ProductDetailPage() {
       </nav>
 
       <div className="mt-6 grid gap-10 md:grid-cols-2">
-        <Gallery key={product.id} product={product} />
+        {/* key: another product starts again at its first photo */}
+        <ProductImageSlider
+          key={product.id}
+          name={product.name}
+          images={product.images}
+          fallbackUrl={product.imageUrl}
+          categorySlug={product.category.slug}
+          nav="thumbnails"
+          placeholderClass="[&>span]:text-9xl"
+        />
 
         <div>
           <h1 className="text-3xl font-bold text-stone-900 md:text-4xl">{product.name}</h1>
