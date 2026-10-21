@@ -63,8 +63,8 @@ Bảng `users` ghi `terms_accepted_at` (bắt buộc). Không còn ô "nhận kh
 ### Chống bot khi đăng ký
 
 1. **Honeypot `website`:** ô bị ẩn khỏi người dùng (đẩy ra ngoài màn hình, `tabIndex=-1`, `aria-hidden`). Nếu ô này có giá trị, backend trả **`201` giả** kèm một user không có thật: không tạo tài khoản, không đặt cookie, không gọi Turnstile, chỉ ghi log mức INFO.
-2. **Cloudflare Turnstile:** widget chạy ở chế độ `interaction-only` nên gần như không hiện ra. Backend kiểm tra token với `siteverify`, và **từ chối nếu không kiểm tra được** (token sai thì `400`, Cloudflare không phản hồi thì `503`). Token chỉ dùng được một lần, nên frontend reset widget sau mỗi lần gửi.
-3. **Test key của Cloudflare** (luôn pass): site key `1x00000000000000000000BB` (dạng ẩn) và secret `1x0000000000000000000000000000000AA`. Dùng cho dev (`frontend/.env.development`, `backend/.env`) và test. Ngay cả với test key, backend **vẫn gọi Cloudflare thật**, nên `mvnw test` cần có Internet.
+2. **Cloudflare Turnstile:** widget **luôn hiển thị** (`appearance: 'always'`) giữa dòng đồng ý điều khoản và nút Đăng ký (cỡ `compact` khi form hẹp hơn 300px). Nút Đăng ký bị khoá tới khi có token, và khoá lại khi token hết hạn cho tới lúc Turnstile tự cấp token mới. Lỗi widget (sai tên miền, mất mạng...) hiện chữ đỏ ngay dưới widget. Backend kiểm tra token với `siteverify`, và **từ chối nếu không kiểm tra được** (token sai thì `400`, Cloudflare không phản hồi thì `503`). Token chỉ dùng được một lần, nên frontend reset widget sau mỗi lần gửi.
+3. **Test key của Cloudflare** (luôn pass): site key `1x00000000000000000000AA` (hiện ô, dùng trong `.env.development`) hoặc `1x00000000000000000000BB` (dạng ẩn, mặc định khi build Docker) và secret `1x0000000000000000000000000000000AA`. Dùng cho dev (`frontend/.env.development`, `backend/.env`) và test. Ngay cả với test key, backend **vẫn gọi Cloudflare thật**, nên `mvnw test` cần có Internet.
 
 ## Cookie
 
@@ -152,7 +152,7 @@ Khi phát triển trên máy, đặt các biến trong `backend/.env` (copy từ
 | `FORWARD_HEADERS_STRATEGY` | | `none` | `framework` khi chạy sau reverse proxy tin cậy (để rate limit theo IP thật). **Không** bật nếu không có proxy, vì client có thể giả `X-Forwarded-For` |
 | `GOOGLE_CLIENT_ID` | | (trống) | Trống thì tắt đăng nhập Google |
 | `TURNSTILE_SECRET_KEY` | ✓ | (không có) | Secret của Cloudflare Turnstile. Khi dev, dùng test secret `1x0000000000000000000000000000000AA` |
-| `VITE_TURNSTILE_SITE_KEY` (frontend) | ✓ khi build | test key trong `.env.development` | Site key của widget managed/invisible. **Đặt khi build bản production** (xem `frontend/.env.example`) |
+| `VITE_TURNSTILE_SITE_KEY` (frontend) | ✓ khi build | test key trong `.env.development` | Site key của widget Managed. **Đặt khi build bản production** (xem `frontend/.env.example`) |
 | `RESEND_API_KEY` | khi deploy | (trống) | Trống thì email chỉ được ghi ra log, **không** dùng khi deploy |
 | `MAIL_FROM` | | `Hat Lanh <onboarding@resend.dev>` | Phải thuộc domain đã xác minh trên Resend. `onboarding@resend.dev` chỉ gửi được tới email của chính tài khoản Resend |
 
@@ -175,7 +175,7 @@ cd backend
 | `GoogleLoginTests` | Đăng nhập Google qua HTTP: tạo tài khoản, liên kết tài khoản đã xác minh, chiếm lại tài khoản chưa xác minh (mất mật khẩu, số điện thoại, phiên cũ), token sai, rate limit |
 | `GoogleTokenVerifierTest` | Token ký thật bằng khoá RSA tạm: cả hai `iss` của Google, sai `iss`/`aud`, hết hạn, sai chữ ký, `email_verified` false |
 | `GoogleLoginServiceTest` | Tìm/tạo/liên kết tài khoản (verifier giả): mới, theo `google_id`, theo email đã/chưa xác minh, khác hoa thường, tài khoản bị khoá |
-| `RegistrationE2ETest` | Đồng ý điều khoản (thiếu hoặc `false` thì `400`), ghi thời điểm đồng ý, khuyến mãi mặc định tắt, honeypot (201 giả, không tạo user), `EMAIL_EXISTS`, `PHONE_EXISTS` (kể cả khi nhập dạng `+84`), thiếu token Turnstile, thông báo validate |
+| `RegistrationE2ETest` | Đồng ý điều khoản (thiếu hoặc `false` thì `400`), ghi thời điểm đồng ý, field `marketingConsent` cũ bị bỏ qua, honeypot (201 giả, không tạo user), `EMAIL_EXISTS`, `PHONE_EXISTS` (kể cả khi nhập dạng `+84`), thiếu token Turnstile, thông báo validate |
 | `PhoneNumbersTest` / `TurnstileVerifierTest` | Chuẩn hoá số điện thoại; Turnstile pass, fail, Cloudflare lỗi (giả lập) |
 | `PasswordResetE2ETest` | Phản hồi giống nhau cho email có/không tồn tại; đổi mật khẩu xong thì phiên cũ bị đăng xuất; link chỉ dùng một lần; link hết hạn; link mới làm link cũ hết hiệu lực; mật khẩu yếu; giới hạn theo email |
 

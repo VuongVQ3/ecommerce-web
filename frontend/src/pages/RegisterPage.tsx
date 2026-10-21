@@ -19,6 +19,7 @@ export function RegisterPage() {
   const { user, loading, register, loginWithGoogle } = useAuth()
   const next = useNextPath()
   const turnstile = useRef<TurnstileHandle>(null)
+  const [verified, setVerified] = useState(false)
   const checklistId = useId()
   const confirmId = useId()
   const matchStatusId = useId()
@@ -112,7 +113,8 @@ export function RegisterPage() {
           </>
         }
       />
-      <form onSubmit={onSubmit} className="relative mt-6 space-y-4" noValidate>
+      {/* No token yet: the button is disabled, and Enter does nothing either */}
+      <form onSubmit={(e) => (verified ? onSubmit(e) : e.preventDefault())} className="relative mt-6 space-y-4" noValidate>
         <RequiredLegend />
         <TextField label="Họ và tên" requiredMark autoComplete="name" error={errors.fullName?.message} {...form.register('fullName')} />
 
@@ -212,9 +214,10 @@ export function RegisterPage() {
           Bằng việc đăng ký, bạn đồng ý với <LegalLinks />.
         </p>
 
-        <Turnstile ref={turnstile} action="register" />
+        <Turnstile ref={turnstile} action="register" onStatusChange={(s) => setVerified(s === 'ready')} />
         <FormError message={formError} />
-        <SubmitButton pending={pending} pendingLabel="Đang tạo tài khoản...">
+        {/* Enabled once Turnstile has a token; disabled again while it renews an expired one */}
+        <SubmitButton pending={pending} disabled={!verified} pendingLabel="Đang tạo tài khoản...">
           Đăng ký
         </SubmitButton>
       </form>

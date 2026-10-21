@@ -271,18 +271,21 @@ export function FormError({ message }: { message: string | null }) {
 export function SubmitButton({
   pending,
   pendingLabel = 'Đang xử lý...',
+  disabled = false,
   children,
 }: {
   pending: boolean
   pendingLabel?: string
+  /** Not ready to submit yet (e.g. the anti-bot check has no token) */
+  disabled?: boolean
   children: ReactNode
 }) {
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       aria-busy={pending}
-      className="flex w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-6 py-3 font-semibold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-wait disabled:opacity-70"
+      className={`flex w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-6 py-3 font-semibold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:opacity-70 ${pending ? 'disabled:cursor-wait' : 'disabled:cursor-not-allowed disabled:hover:bg-brand-600'}`}
     >
       {pending && <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
       {pending ? pendingLabel : children}

@@ -10,11 +10,19 @@ const register = vi.hoisted(() => vi.fn<(input: RegisterInput) => Promise<void>>
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ user: null, loading: false, register, loginWithGoogle: vi.fn() }),
 }))
-// The real widget loads Cloudflare's script; here it hands out a token immediately
+// The real widget loads Cloudflare's script; here it reports the status a test picks (a token by default)
+const turnstileStatus = vi.hoisted(() => ({ current: 'ready' as 'pending' | 'ready' | 'error' }))
 vi.mock('../auth/Turnstile', async () => {
-  const { useImperativeHandle } = await import('react')
-  function TurnstileStub({ ref }: { ref: React.Ref<{ getToken(): Promise<string>; reset(): void }> }) {
+  const { useEffect, useImperativeHandle } = await import('react')
+  function TurnstileStub({
+    ref,
+    onStatusChange,
+  }: {
+    ref: React.Ref<{ getToken(): Promise<string>; reset(): void }>
+    onStatusChange?: (status: 'pending' | 'ready' | 'error') => void
+  }) {
     useImperativeHandle(ref, () => ({ getToken: async () => 'turnstile-token', reset: () => {} }))
+    useEffect(() => onStatusChange?.(turnstileStatus.current), [onStatusChange])
     return null
   }
   return { default: TurnstileStub }
@@ -27,6 +35,7 @@ const fill = (label: string, value: string) => {
 }
 
 beforeEach(() => {
+  turnstileStatus.current = 'ready'
   register.mockReset().mockResolvedValue()
   vi.spyOn(api, 'authProviders').mockResolvedValue({ googleClientId: null })
 })
@@ -78,5 +87,26 @@ describe('RegisterPage', () => {
     fill('Mật khẩu', 'matkhau124')
     await waitFor(() => expect(screen.queryByText('Mật khẩu nhập lại không khớp')).toBeNull())
     expect(await screen.findByText('Mật khẩu đã khớp')).toBeTruthy()
+  })
+
+  it('keeps "Đăng ký" disabled until the anti-bot check has a token', async () => {
+    turnstileStatus.current = 'pending'
+    render(
+      <ToastProvider>
+        <MemoryRouter>
+          <RegisterPage />
+        </MemoryRouter>
+      </ToastProvider>,
+    )
+    fill('Họ và tên', 'Nguyễn An')
+    fill('Email', 'an@example.com')
+    fill('Mật khẩu', 'matkhau123')
+    fill('Nhập lại mật khẩu', 'matkhau123')
+
+    const submit = screen.getByRole('button', { name: 'Đăng ký' }) as HTMLButtonElement
+    expect(submit.disabled).toBe(true)
+    fireEvent.submit(submit.form!)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(register).not.toHaveBeenCalled()
   })
 })
