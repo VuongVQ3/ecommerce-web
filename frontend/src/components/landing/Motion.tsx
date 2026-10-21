@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { useCountUp, useInView, usePrefersReducedMotion } from '../../lib/motion'
 
 type RevealFrom = 'up' | 'left' | 'right' | 'scale'
@@ -47,10 +47,25 @@ export function CountUp({ value, suffix = '', className = '' }: { value: number;
 
 /** Infinite horizontal ticker. The duplicate copy is hidden from assistive tech; hovering pauses it. */
 export function Marquee({ items, className = '' }: { items: string[]; className?: string }) {
+  // iOS WebKit could leave the moving layer unpainted (green band, no text) until the first touch when the animation
+  // ran from the very first frame: the text is painted in place first, the animation starts on a later frame.
+  const [running, setRunning] = useState(false)
+  useEffect(() => {
+    let second = 0
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setRunning(true))
+    })
+    return () => {
+      cancelAnimationFrame(first)
+      cancelAnimationFrame(second)
+    }
+  }, [])
+
+  // No background on the moving parts: the band's colour comes from the element around the Marquee
   const row = (hidden: boolean) => (
-    <ul aria-hidden={hidden || undefined} className="flex shrink-0 items-center gap-8 bg-inherit pr-8">
+    <ul aria-hidden={hidden || undefined} className="flex shrink-0 items-center gap-8 pr-8">
       {items.map((item) => (
-        <li key={item} className="flex items-center gap-8 bg-inherit whitespace-nowrap">
+        <li key={item} className="flex items-center gap-8 whitespace-nowrap">
           {item}
           <span aria-hidden className="text-nut">✦</span>
         </li>
@@ -58,8 +73,8 @@ export function Marquee({ items, className = '' }: { items: string[]; className?
     </ul>
   )
   return (
-    <div className={`marquee group flex overflow-hidden bg-inherit ${className}`}>
-      <div className="marquee-track flex bg-inherit">
+    <div className={`marquee group flex overflow-hidden ${className}`}>
+      <div className={`marquee-track flex ${running ? 'is-running' : ''}`}>
         {row(false)}
         {row(true)}
       </div>

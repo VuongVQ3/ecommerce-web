@@ -45,8 +45,11 @@ body {
   from { opacity: 0; transform: translateY(0.6em) rotate(2deg); filter: blur(6px); }
   to { opacity: 1; transform: none; filter: none; }
 }
+/* 3D on purpose (own GPU layer on iOS). Written as translateX + translateZ(0): the CSS minifier turns
+   translate3d(x, 0, 0) into a flat translate(x), but keeps translateZ(0). */
 @keyframes marquee {
-  to { transform: translateX(-50%); }
+  from { transform: translateX(0) translateZ(0); }
+  to { transform: translateX(-50%) translateZ(0); }
 }
 @keyframes gradient-pan {
   0%, 100% { background-position: 0% 50%; }
@@ -72,8 +75,17 @@ body {
 .reveal-scale { transform: scale(0.94); }
 .reveal.is-visible { opacity: 1; transform: none; }
 
-/* Infinite ticker; pauses on hover */
-.marquee-track { animation: marquee 32s linear infinite; }
+/* Infinite ticker; pauses on hover. The band clips its own painting (contain); the track gets its own layer from
+   the start (will-change, backface-visibility) and moves only once Marquee adds .is-running, after the first paint:
+   iOS WebKit could otherwise show the band without its text until the first touch. */
+.marquee { contain: paint; }
+.marquee-track {
+  transform: translateX(0) translateZ(0);
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.marquee-track.is-running { animation: marquee 32s linear infinite; }
 .marquee:hover .marquee-track { animation-play-state: paused; }
 
 /* Pointer-tilt card with a soft spotlight following the pointer */
@@ -105,7 +117,8 @@ body {
 .grow-bar { transition: width 1.1s cubic-bezier(0.2, 0.7, 0.2, 1); }
 
 @media (prefers-reduced-motion: reduce) {
-  .blob, .floaty, .gradient-pan, .marquee-track { animation: none; }
+  .blob, .floaty, .gradient-pan, .marquee-track, .marquee-track.is-running { animation: none; }
+  .marquee-track { will-change: auto; }
   .word-in { animation: none; opacity: 1; }
   .reveal, .reveal.is-visible { opacity: 1; transform: none; transition: none; }
   .tilt-card, .parallax { transform: none; transition: none; }
