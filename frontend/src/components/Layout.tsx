@@ -15,7 +15,7 @@ import SearchBox from './SearchBox'
 import { BRAND } from '../lib/usePageMeta'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
-  `text-sm font-medium transition ${isActive ? 'text-brand-700' : 'text-stone-600 hover:text-brand-700'}`
+  `text-sm font-medium whitespace-nowrap transition ${isActive ? 'text-brand-700' : 'text-stone-600 hover:text-brand-700'}`
 
 /**
  * Desktop with a mouse: the icon links to /gio-hang and hovering it previews the cart (QuickCart).
@@ -108,13 +108,16 @@ function AccountMenu() {
   if (!user) {
     return (
       <div className="flex items-center gap-2">
-        <GuestOrdersLink className="rounded-full px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" />
-        <Link to={LOGIN_PATH} className="rounded-full px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
+        <GuestOrdersLink className="rounded-full px-3 py-2 text-sm font-medium whitespace-nowrap text-stone-700 hover:bg-stone-100" />
+        <Link
+          to={LOGIN_PATH}
+          className="rounded-full px-3 py-2 text-sm font-medium whitespace-nowrap text-stone-700 hover:bg-stone-100 xl:px-4"
+        >
           Đăng nhập
         </Link>
         <Link
           to={REGISTER_PATH}
-          className="rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+          className="rounded-full bg-brand-600 px-4 py-2 text-sm font-medium whitespace-nowrap text-white hover:bg-brand-700"
         >
           Đăng ký
         </Link>
@@ -216,7 +219,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-40 md:hidden">
+    <div className="fixed inset-0 z-40 lg:hidden">
       <div className="absolute inset-0 bg-stone-900/40" onClick={onClose} aria-hidden="true" />
       <div
         ref={panel}
@@ -422,11 +425,15 @@ export default function Layout() {
         Bỏ qua đến nội dung chính
       </a>
       <header ref={headerRef} className="sticky top-0 z-20 border-b border-stone-200 bg-cream/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2.5 md:gap-6 md:py-3">
-          <Link to="/" className="mr-auto flex shrink-0 items-center gap-2 text-xl font-extrabold text-brand-800 md:mr-0">
+        {/* Full header from lg (1024 px); below that the ☰ menu and the magnifier, so no label ever wraps */}
+        <div className="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2.5 lg:gap-4 lg:py-3 xl:gap-6">
+          <Link
+            to="/"
+            className="mr-auto flex shrink-0 items-center gap-2 text-xl font-extrabold whitespace-nowrap text-brand-800 lg:mr-0"
+          >
             <span aria-hidden="true">🌰</span> Hạt Lành
           </Link>
-          <nav className="hidden gap-5 md:flex" aria-label="Menu chính">
+          <nav className="hidden shrink-0 gap-5 lg:flex" aria-label="Menu chính">
             <NavLink to="/" end className={navClass}>
               Trang chủ
             </NavLink>
@@ -434,10 +441,10 @@ export default function Layout() {
               Sản phẩm
             </NavLink>
           </nav>
-          <SearchBox className="hidden md:ml-auto md:block md:w-56 lg:w-64" />
+          <SearchBox className="hidden min-w-0 lg:ml-auto lg:block lg:w-52 xl:w-64" />
           <button
             type="button"
-            className={`${iconButtonClass} md:hidden`}
+            className={`${iconButtonClass} lg:hidden`}
             aria-label="Tìm kiếm"
             aria-expanded={searchOn === pathname}
             aria-controls="mobile-search"
@@ -449,12 +456,12 @@ export default function Layout() {
             </svg>
           </button>
           <CartButton />
-          <div className="hidden md:block">
+          <div className="hidden shrink-0 lg:block">
             <AccountMenu />
           </div>
           <button
             type="button"
-            className={`${iconButtonClass} md:hidden`}
+            className={`${iconButtonClass} lg:hidden`}
             aria-label="Mở menu"
             aria-haspopup="dialog"
             aria-expanded={menuOn === pathname}
@@ -466,7 +473,7 @@ export default function Layout() {
           </button>
         </div>
         {searchOn === pathname && (
-          <div id="mobile-search" className="border-t border-stone-200 px-4 py-2.5 md:hidden">
+          <div id="mobile-search" className="border-t border-stone-200 px-4 py-2.5 lg:hidden">
             <SearchBox autoFocus />
           </div>
         )}
