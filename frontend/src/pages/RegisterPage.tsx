@@ -104,6 +104,7 @@ export function RegisterPage() {
       }
     >
       <GoogleSignInButton
+        text="signup_with"
         onCredential={loginWithGoogle}
         footnote={
           <>

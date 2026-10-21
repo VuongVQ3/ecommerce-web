@@ -85,6 +85,7 @@ export function LoginPage() {
       }
     >
       <GoogleSignInButton
+        text="signin_with"
         onCredential={loginWithGoogle}
         footnote={
           <>

@@ -43,7 +43,7 @@ Lỗi trả về theo chuẩn RFC 9457 (`application/problem+json`). Thông báo
 
 Luồng **ID token** của Google Identity Services, không dùng OAuth redirect, access token hay Client Secret:
 
-1. `GoogleSignInButton` (trên form ở `/dang-nhap`, `/dang-ky`, ngăn cách bằng "hoặc") nạp `https://accounts.google.com/gsi/client` một lần, hiện nút chính thức (`continue_with`, tiếng Việt). Khách chọn tài khoản trong popup.
+1. `GoogleSignInButton` (trên form ở `/dang-nhap`, `/dang-ky`, ngăn cách bằng "hoặc") nạp `https://accounts.google.com/gsi/client` một lần, hiện nút chính thức bằng tiếng Việt: "Đăng nhập bằng Google" (`signin_with`) ở `/dang-nhap`, "Đăng ký bằng Google" (`signup_with`) ở `/dang-ky`. Khách chọn tài khoản trong popup.
 2. Google trả ID token (`credential`), frontend gửi `POST /api/auth/google`.
 3. `GoogleTokenVerifier` kiểm tra chữ ký (khoá công khai của Google), `exp`, `aud` = `GOOGLE_CLIENT_ID`, `iss` là `accounts.google.com` hoặc `https://accounts.google.com`, và `email_verified = true`. Sai bất cứ điều gì → `401` cùng một thông báo. Token không bao giờ được ghi log.
 4. `AuthService.loginWithGoogle` tìm tài khoản (email chuẩn hoá: trim + chữ thường):

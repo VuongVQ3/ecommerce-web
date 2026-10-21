@@ -28,7 +28,8 @@ function loadGoogleScript(): Promise<void> {
 }
 
 interface Props {
-  text?: 'signin_with' | 'signup_with' | 'continue_with'
+  /** "Đăng nhập bằng Google" on /dang-nhap, "Đăng ký bằng Google" on /dang-ky */
+  text: 'signin_with' | 'signup_with'
   /** Receives the Google ID token and exchanges it with the backend; a rejection is shown as a toast. */
   onCredential: (credential: string) => Promise<void>
   /** Small print under the button (e.g. that a first Google sign-in accepts the terms). */
@@ -40,7 +41,7 @@ interface Props {
  * separates the two. Renders nothing when the backend has no Google client ID or Google's script cannot be loaded,
  * so the email form works on its own.
  */
-export default function GoogleSignInButton({ text = 'continue_with', onCredential, footnote }: Props) {
+export default function GoogleSignInButton({ text, onCredential, footnote }: Props) {
   const providers = useAsync((signal) => api.authProviders(signal), [])
   const clientId = providers.data?.googleClientId
   const toast = useToast()

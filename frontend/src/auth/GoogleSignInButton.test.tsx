@@ -15,10 +15,13 @@ const renderButton = vi.fn()
 
 const googleScript = () => document.head.querySelector<HTMLScriptElement>('script[src="https://accounts.google.com/gsi/client"]')
 
-function show(onCredential: (credential: string) => Promise<void> = vi.fn()) {
+function show(
+  onCredential: (credential: string) => Promise<void> = vi.fn(),
+  text: 'signin_with' | 'signup_with' = 'signin_with',
+) {
   render(
     <ToastProvider>
-      <GoogleSignInButton onCredential={onCredential} footnote="Ghi chú" />
+      <GoogleSignInButton text={text} onCredential={onCredential} footnote="Ghi chú" />
       <form aria-label="Form email" />
     </ToastProvider>,
   )
@@ -66,17 +69,27 @@ describe('GoogleSignInButton', () => {
     expect(googleScript()).toBeNull() // removed, so a later visit can try again
   })
 
-  it('renders Google\'s button in Vietnamese ("continue with"), then "hoặc" above the email form', async () => {
+  it('renders Google\'s button in Vietnamese ("Đăng nhập bằng Google"), then "hoặc" above the email form', async () => {
     show()
     await scriptLoads(true)
 
     expect(config?.client_id).toBe('client-123')
     expect(renderButton).toHaveBeenCalledWith(
       expect.any(HTMLElement),
-      expect.objectContaining({ locale: 'vi', text: 'continue_with' }),
+      expect.objectContaining({ locale: 'vi', text: 'signin_with' }),
     )
     expect(screen.getByText('hoặc')).toBeTruthy()
     expect(screen.getByText('Ghi chú')).toBeTruthy()
+  })
+
+  it('says "Đăng ký bằng Google" on the sign-up page', async () => {
+    show(vi.fn(), 'signup_with')
+    await waitFor(() => expect(renderButton).toHaveBeenCalled())
+
+    expect(renderButton).toHaveBeenCalledWith(
+      expect.any(HTMLElement),
+      expect.objectContaining({ locale: 'vi', text: 'signup_with' }),
+    )
   })
 
   it('sends the credential once, even if Google calls back twice while it is being exchanged', async () => {
@@ -111,7 +124,7 @@ describe('GoogleSignInButton', () => {
     vi.mocked(api.authProviders).mockResolvedValue({ googleClientId: null })
     const { container } = render(
       <ToastProvider>
-        <GoogleSignInButton onCredential={vi.fn()} />
+        <GoogleSignInButton text="signin_with" onCredential={vi.fn()} />
       </ToastProvider>,
     )
 
