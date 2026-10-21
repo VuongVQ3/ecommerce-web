@@ -243,23 +243,32 @@ export default function HomePage() {
       {categories.data && (
         <section className="mx-auto max-w-6xl px-4 pt-20">
           <SectionTitle eyebrow="Danh mục" title="Chọn theo nhóm sản phẩm" />
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Every card fills its grid cell (h-full through Reveal), so a row is as tall as its tallest card */}
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {categories.data.map((c, i) => (
-              <Reveal key={c.id} delay={i * 120}>
+              <Reveal key={c.id} delay={i * 120} className="h-full">
                 <Link
                   to={`/danh-muc/${c.slug}`}
-                  className="group relative block overflow-hidden rounded-2xl bg-brand-800 px-6 py-10 text-lg font-semibold text-white"
+                  className="group flex h-full min-h-36 flex-col gap-4 rounded-2xl bg-brand-800 p-4 text-white transition duration-300 hover:-translate-y-0.5 hover:bg-brand-700 focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:outline-none sm:p-5"
                 >
-                  <span
-                    aria-hidden
-                    className="absolute -right-6 -bottom-8 text-8xl opacity-20 transition duration-500 group-hover:scale-125 group-hover:-rotate-12 group-hover:opacity-40"
-                  >
-                    {categoryEmoji(c.slug)}
-                  </span>
-                  <span className="relative">{c.name}</span>
-                  <span aria-hidden className="relative ml-2 inline-block transition group-hover:translate-x-1.5">
-                    →
-                  </span>
+                  {/* Phones: the emoji above the name (side by side the name would need 3 lines in a ~160px card) */}
+                  <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <span className="line-clamp-2 text-base leading-snug font-semibold sm:text-lg">{c.name}</span>
+                    <span
+                      aria-hidden
+                      className="grid size-12 shrink-0 place-items-center self-end rounded-full bg-white/10 sm:size-14 sm:self-auto"
+                    >
+                      <span className="text-3xl transition duration-500 group-hover:scale-110 group-hover:-rotate-12 sm:text-4xl">
+                        {categoryEmoji(c.slug)}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="mt-auto flex items-center justify-between gap-2 text-sm">
+                    <span className="text-white/70">{c.productCount} sản phẩm</span>
+                    <span aria-hidden className="text-lg transition group-hover:translate-x-1.5">
+                      →
+                    </span>
+                  </div>
                 </Link>
               </Reveal>
             ))}
