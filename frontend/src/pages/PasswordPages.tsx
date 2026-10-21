@@ -13,10 +13,13 @@ import { AuthCard, LegalLinks, type LoginPageState } from './AuthPages'
 /**
  * /tai-khoan/doi-mat-khau — same rules as registration. Staff/admins whose password no longer meets them are sent
  * here (with ?next=) and cannot use the back office until it is changed. Other devices are signed out.
+ * An account that only signs in with Google has no password yet: the page then sets one (no current password).
  */
 export function ChangePasswordPage() {
-  usePageMeta(`Đổi mật khẩu | ${BRAND}`)
   const { user, signedIn } = useAuth()
+  const setting = user?.hasPassword === false
+  const title = setting ? 'Đặt mật khẩu' : 'Đổi mật khẩu'
+  usePageMeta(`${title} | ${BRAND}`)
   const toast = useToast()
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -28,9 +31,14 @@ export function ChangePasswordPage() {
     changePasswordSchema,
     { currentPassword: '', newPassword: '', confirmPassword: '' },
     async (values) => {
-      const updated = await api.changePassword(values.currentPassword, values.newPassword)
+      const updated = await api.changePassword(setting ? '' : values.currentPassword, values.newPassword)
       signedIn(updated)
-      toast({ tone: 'success', message: 'Đã đổi mật khẩu. Các thiết bị khác đã được đăng xuất.' })
+      toast({
+        tone: 'success',
+        message: setting
+          ? 'Đã đặt mật khẩu. Từ giờ bạn có thể đăng nhập bằng email và mật khẩu.'
+          : 'Đã đổi mật khẩu. Các thiết bị khác đã được đăng xuất.',
+      })
       navigate(next === '/' ? '/tai-khoan' : next, { replace: true })
     },
   )
@@ -39,7 +47,13 @@ export function ChangePasswordPage() {
 
   return (
     <div className="max-w-md">
-      <h2 className="text-xl font-bold text-stone-900">Đổi mật khẩu</h2>
+      <h2 className="text-xl font-bold text-stone-900">{title}</h2>
+      {setting && (
+        <p className="mt-3 text-sm text-stone-700">
+          Tài khoản của bạn đang đăng nhập bằng Google. Đặt mật khẩu nếu bạn muốn đăng nhập thêm bằng email và mật
+          khẩu.
+        </p>
+      )}
       {forced && (
         <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert">
           Mật khẩu hiện tại không còn đạt yêu cầu bảo mật. Vui lòng đặt mật khẩu mới (tối thiểu 8 ký tự, có cả chữ và
@@ -48,13 +62,15 @@ export function ChangePasswordPage() {
       )}
       <form onSubmit={onSubmit} noValidate className="mt-5 space-y-4">
         <RequiredLegend />
-        <PasswordField
-          label="Mật khẩu hiện tại"
-          autoComplete="current-password"
-          hint="Để trống nếu tài khoản chỉ đăng nhập bằng Google"
-          error={errors.currentPassword?.message}
-          {...form.register('currentPassword')}
-        />
+        {!setting && (
+          <PasswordField
+            label="Mật khẩu hiện tại"
+            requiredMark
+            autoComplete="current-password"
+            error={errors.currentPassword?.message}
+            {...form.register('currentPassword')}
+          />
+        )}
         <div>
           <PasswordField
             label="Mật khẩu mới"
@@ -78,8 +94,8 @@ export function ChangePasswordPage() {
           {...form.register('confirmPassword')}
         />
         <FormError message={formError} />
-        <SubmitButton pending={pending} pendingLabel="Đang đổi mật khẩu...">
-          Đổi mật khẩu
+        <SubmitButton pending={pending} pendingLabel={setting ? 'Đang đặt mật khẩu...' : 'Đang đổi mật khẩu...'}>
+          {title}
         </SubmitButton>
       </form>
     </div>

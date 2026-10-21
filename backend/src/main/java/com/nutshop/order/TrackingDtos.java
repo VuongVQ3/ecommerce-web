@@ -41,18 +41,12 @@ public final class TrackingDtos {
 			@Size(min = 8, max = 72, message = "Mật khẩu phải từ 8 đến 72 ký tự")
 			@Pattern(regexp = AuthDtos.PASSWORD_PATTERN, message = "Mật khẩu phải có cả chữ và số") String password,
 			@NotNull(message = TERMS_REQUIRED) @AssertTrue(message = TERMS_REQUIRED) Boolean acceptTerms,
-			// Boxed on purpose: Jackson 3 rejects a missing JSON field for a primitive boolean
-			Boolean marketingConsent,
 			/** Only used when the order has no email. */
 			@Email(message = "Email không hợp lệ") @Size(max = 255, message = "Email quá dài") String email,
 			/** Optional: the account's name when it should differ from the name on the order. */
 			@PersonName String fullName) {
 
 		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản sử dụng và Chính sách bảo mật";
-
-		boolean wantsMarketing() {
-			return Boolean.TRUE.equals(marketingConsent);
-		}
 	}
 
 	/** Guest lookup: no validation messages, any problem gives the same 404. */

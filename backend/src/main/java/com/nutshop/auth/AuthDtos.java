@@ -23,7 +23,6 @@ public final class AuthDtos {
 	/**
 	 * @param phone optional; accepts "0912 345 678", "0912.345.678", "+84912345678"... normalized before storing
 	 * @param acceptTerms must be true (terms of use + privacy policy)
-	 * @param marketingConsent optional opt-in for promotional emails, false when absent
 	 * @param turnstileToken Cloudflare Turnstile token from the widget
 	 * @param website honeypot: hidden from humans, so any value means a bot
 	 */
@@ -37,16 +36,10 @@ public final class AuthDtos {
 			@Pattern(regexp = PASSWORD_PATTERN, message = "Mật khẩu phải có cả chữ và số") String password,
 			@VietnamesePhone String phone,
 			@NotNull(message = TERMS_REQUIRED) @AssertTrue(message = TERMS_REQUIRED) Boolean acceptTerms,
-			// Boxed on purpose: Jackson 3 rejects a missing JSON field for a primitive boolean
-			Boolean marketingConsent,
 			String turnstileToken,
 			String website) {
 
 		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản sử dụng và Chính sách bảo mật";
-
-		boolean wantsMarketing() {
-			return Boolean.TRUE.equals(marketingConsent);
-		}
 
 		boolean isHoneypotFilled() {
 			return website != null && !website.isBlank();
@@ -84,12 +77,13 @@ public final class AuthDtos {
 
 	/** Public view of a user. Never contains the password hash. */
 	/** @param passwordChangeRequired staff/admin with a password below the rules: must change it first */
+	/** @param hasPassword false for accounts that only sign in with Google (they can set one, or use "Quên mật khẩu") */
 	public record UserResponse(UUID id, String email, String fullName, String phone, String role,
-			boolean emailVerified, boolean passwordChangeRequired) {
+			boolean emailVerified, boolean passwordChangeRequired, boolean hasPassword) {
 
 		public static UserResponse from(User u) {
 			return new UserResponse(u.getId(), u.getEmail(), u.getFullName(), u.getPhone(), u.getRole().name(),
-					u.isEmailVerified(), u.isPasswordChangeRequired());
+					u.isEmailVerified(), u.isPasswordChangeRequired(), u.hasPassword());
 		}
 	}
 

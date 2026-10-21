@@ -69,7 +69,7 @@ public class AuthController {
 		if (req.isHoneypotFilled()) {
 			log.info("Registration honeypot triggered from {}", request.getRemoteAddr());
 			return new UserResponse(UUID.randomUUID(), req.email().trim().toLowerCase(Locale.ROOT), req.fullName().trim(),
-					null, Role.CUSTOMER.name(), false, false);
+					null, Role.CUSTOMER.name(), false, false, true);
 		}
 		return complete(authService.register(req, ClientInfo.from(request)), response);
 	}

@@ -7,7 +7,7 @@ import Turnstile, { type TurnstileHandle } from '../auth/Turnstile'
 import { useAuthForm } from '../auth/useAuthForm'
 import { useNextPath } from '../auth/useNextPath'
 import { Spinner } from '../components/Feedback'
-import { Checkbox, FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton, TextField } from '../components/FormFields'
+import { FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton, TextField } from '../components/FormFields'
 import { suggestEmail } from '../lib/emailSuggestion'
 import { normalizePhone } from '../lib/phone'
 import { FORGOT_PASSWORD_PATH, LOGIN_PATH, withNext } from '../lib/redirect'
@@ -33,7 +33,6 @@ export function RegisterPage() {
       password: '',
       confirmPassword: '',
       phone: '',
-      marketingConsent: false,
       website: '',
     },
     async (values) => {
@@ -45,7 +44,6 @@ export function RegisterPage() {
           email: values.email,
           password: values.password,
           phone: values.phone ? normalizePhone(values.phone) : undefined,
-          marketingConsent: values.marketingConsent,
           website: values.website,
           acceptTerms: true,
           turnstileToken,
@@ -105,6 +103,14 @@ export function RegisterPage() {
         </>
       }
     >
+      <GoogleSignInButton
+        onCredential={loginWithGoogle}
+        footnote={
+          <>
+            Lần đầu tiếp tục với Google, bạn đồng ý với <LegalLinks />.
+          </>
+        }
+      />
       <form onSubmit={onSubmit} className="relative mt-6 space-y-4" noValidate>
         <RequiredLegend />
         <TextField label="Họ và tên" requiredMark autoComplete="name" error={errors.fullName?.message} {...form.register('fullName')} />
@@ -201,8 +207,6 @@ export function RegisterPage() {
           <input id="register-website" type="text" tabIndex={-1} autoComplete="off" {...form.register('website')} />
         </div>
 
-        <Checkbox label="Nhận thông tin khuyến mãi qua email" {...form.register('marketingConsent')} />
-
         <p className="text-sm text-stone-700">
           Bằng việc đăng ký, bạn đồng ý với <LegalLinks />.
         </p>
@@ -213,7 +217,6 @@ export function RegisterPage() {
           Đăng ký
         </SubmitButton>
       </form>
-      <GoogleSignInButton text="signup_with" onCredential={loginWithGoogle} />
     </AuthCard>
   )
 }

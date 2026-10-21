@@ -7,7 +7,6 @@ const valid = {
   password: 'matkhau123',
   confirmPassword: 'matkhau123',
   phone: '',
-  marketingConsent: false,
   website: '',
 }
 

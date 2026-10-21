@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError, type User } from '../lib/api'
 import { AUTH_CHANNEL, AuthProvider, REFOCUS_CHECK_MS, useAuth } from './AuthContext'
 
-const AN: User = { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: null, role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false }
+const AN: User = { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: null, role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true }
 const offline = () => new ApiError('Không kết nối được máy chủ. Vui lòng thử lại.', 0)
 const signedOut = () => new ApiError('Vui lòng đăng nhập để tiếp tục', 401)
 

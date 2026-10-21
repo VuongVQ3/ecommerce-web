@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { claimAccountSchema, isPersonName, type ClaimAccountForm } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
 import { ErrorMessage, Spinner } from '../components/Feedback'
-import { Checkbox, FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton, TextField } from '../components/FormFields'
+import { FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton, TextField } from '../components/FormFields'
 import CancelOrderDialog from '../components/CancelOrderDialog'
 import CopyButton from '../components/CopyButton'
 import Modal from '../components/Modal'
@@ -94,12 +94,11 @@ function ClaimAccountBox({ order, token }: { order: TrackedOrder; token: string 
   const needsName = !isPersonName(order.customerName)
   const { form, onSubmit, formError, pending } = useAuthForm<ClaimAccountForm>(
     claimAccountSchema(!order.hasEmail, needsName),
-    { email: '', fullName: needsName ? '' : order.customerName, password: '', confirmPassword: '', marketingConsent: false },
+    { email: '', fullName: needsName ? '' : order.customerName, password: '', confirmPassword: '' },
     async (values) => {
       const user = await api.claimAccount(order.code, token, {
         password: values.password,
         acceptTerms: true,
-        marketingConsent: values.marketingConsent,
         email: order.hasEmail ? undefined : values.email,
         fullName: needsName ? values.fullName : undefined,
       })
@@ -215,7 +214,6 @@ function ClaimAccountBox({ order, token }: { order: TrackedOrder; token: string 
             error={errors.confirmPassword?.message}
             {...form.register('confirmPassword')}
           />
-          <Checkbox label="Nhận thông tin khuyến mãi qua email" {...form.register('marketingConsent')} />
           <p className="text-sm text-stone-700">
             Bằng việc tạo tài khoản, bạn đồng ý với <LegalLinks />.
           </p>

@@ -51,7 +51,6 @@ export const registerSchema = z
       .string()
       .trim()
       .refine((v) => v === '' || isValidPhone(normalizePhone(v)), PHONE_ERROR),
-    marketingConsent: z.boolean(),
     // Honeypot, hidden from humans: accept anything so a bot is not told it was caught
     website: z.string(),
   })
@@ -108,7 +107,6 @@ export function claimAccountSchema(needsEmail: boolean, needsName = false) {
       fullName: needsName ? personName : z.string(),
       password: newPassword,
       confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu'),
-      marketingConsent: z.boolean(),
     })
     .refine((v) => v.confirmPassword === '' || v.password === v.confirmPassword, {
       message: PASSWORD_MISMATCH,

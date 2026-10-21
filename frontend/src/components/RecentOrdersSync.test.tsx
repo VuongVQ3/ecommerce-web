@@ -10,7 +10,7 @@ import { ToastProvider } from './Toast'
 const auth = vi.hoisted(() => ({ current: { user: null as User | null, lastSignInAt: null as number | null } }))
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth.current }))
 
-const AN: User = { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0912345678', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false }
+const AN: User = { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0912345678', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true }
 const TOKEN = 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde'
 
 function renderSync() {

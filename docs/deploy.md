@@ -17,7 +17,8 @@ Một Docker image duy nhất ([Dockerfile](../Dockerfile)): React được buil
 2. Điền các biến Render hỏi:
    - `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`: lấy từ Neon.
    - `FRONTEND_URL`: địa chỉ của chính service, ví dụ `https://hat-lanh.onrender.com`. Nếu chưa biết, điền tạm, deploy xong sửa lại cho đúng rồi bấm **Manual Deploy**.
-   - `RESEND_API_KEY`, `GOOGLE_CLIENT_ID`: để trống cũng được.
+   - `RESEND_API_KEY`, `GOOGLE_CLIENT_ID`: để trống cũng được. `GOOGLE_CLIENT_ID` (OAuth client loại Web application,
+     origin `https://<tên miền>`) bật nút Google cho cả frontend: không có biến `VITE_` riêng, không cần Client Secret.
    - `SITE_URL`: địa chỉ công khai dùng cho canonical, Open Graph, robots.txt và sitemap. Để trống thì lấy
      `FRONTEND_URL`. Khi chuyển sang tên miền riêng chỉ cần đổi biến này (và `FRONTEND_URL`).
    - `BUSINESS_OWNER_NAME`, `BUSINESS_ADDRESS`, `BUSINESS_REGISTRATION_NUMBER`, `BUSINESS_HOTLINE`, `BUSINESS_EMAIL`,

@@ -67,13 +67,16 @@ class AuthServiceTest {
 	@Mock
 	com.nutshop.user.UserStatusCache statuses;
 
+	@Mock
+	com.nutshop.audit.AuditLog audit;
+
 	AuthService service;
 
 	@BeforeEach
 	void setUp() {
 		given(passwordEncoder.encode(anyString())).willReturn(DUMMY_HASH);
 		service = new AuthService(users, passwordEncoder, tokenService, refreshTokens, googleVerifier, turnstile,
-				verification, statuses, Clock.fixed(NOW, ZoneOffset.UTC));
+				verification, statuses, audit, Clock.fixed(NOW, ZoneOffset.UTC));
 	}
 
 	private static final Instant NOW = Instant.parse("2026-10-07T12:00:00Z");
@@ -85,15 +88,15 @@ class AuthServiceTest {
 		return user;
 	}
 
-	private static RegisterRequest registration(String email, String phone, boolean marketing) {
-		return new RegisterRequest("An", email, "matkhau123", phone, true, marketing, "token", null);
+	private static RegisterRequest registration(String email, String phone) {
+		return new RegisterRequest("An", email, "matkhau123", phone, true, "token", null);
 	}
 
 	@Test
 	void registerRejectsDuplicateEmailCaseInsensitivelyWithCode() {
 		given(users.existsByEmail("an@example.com")).willReturn(true);
 
-		assertThatThrownBy(() -> service.register(registration("  An@Example.COM ", null, false), CLIENT))
+		assertThatThrownBy(() -> service.register(registration("  An@Example.COM ", null), CLIENT))
 			.isInstanceOfSatisfying(ConflictException.class,
 					ex -> assertThat(ex.getCode()).isEqualTo(AuthService.EMAIL_EXISTS));
 
@@ -105,7 +108,7 @@ class AuthServiceTest {
 	void registerChecksDuplicatePhoneAfterNormalizing() {
 		given(users.existsByPhone("0912345678")).willReturn(true);
 
-		assertThatThrownBy(() -> service.register(registration("an@example.com", "+84 912.345.678", false), CLIENT))
+		assertThatThrownBy(() -> service.register(registration("an@example.com", "+84 912.345.678"), CLIENT))
 			.isInstanceOfSatisfying(ConflictException.class,
 					ex -> assertThat(ex.getCode()).isEqualTo(AuthService.PHONE_EXISTS));
 		verify(users, never()).saveAndFlush(any());
@@ -116,28 +119,19 @@ class AuthServiceTest {
 		willThrow(new ApiException(HttpStatus.BAD_REQUEST, TurnstileVerifier.FAILED_CODE, "x")).given(turnstile)
 			.verify("token", "127.0.0.1");
 
-		assertThatThrownBy(() -> service.register(registration("an@example.com", null, false), CLIENT))
+		assertThatThrownBy(() -> service.register(registration("an@example.com", null), CLIENT))
 			.isInstanceOf(ApiException.class);
 		verifyNoInteractions(users);
 	}
 
 	@Test
-	void registerRecordsConsentTimestamps() {
+	void registerRecordsWhenTheTermsWereAccepted() {
 		given(users.saveAndFlush(any(User.class))).willAnswer(inv -> inv.getArgument(0));
 
-		service.register(registration("an@example.com", "0912 345 678", true), CLIENT);
+		service.register(registration("an@example.com", "0912 345 678"), CLIENT);
 
-		verify(users).saveAndFlush(argThat(u -> NOW.equals(u.getTermsAcceptedAt()) && u.hasMarketingConsent()
-				&& NOW.equals(u.getMarketingConsentAt()) && "0912345678".equals(u.getPhone())));
-	}
-
-	@Test
-	void registerWithoutMarketingConsentLeavesItOff() {
-		given(users.saveAndFlush(any(User.class))).willAnswer(inv -> inv.getArgument(0));
-
-		service.register(registration("an@example.com", null, false), CLIENT);
-
-		verify(users).saveAndFlush(argThat(u -> !u.hasMarketingConsent() && u.getMarketingConsentAt() == null));
+		verify(users).saveAndFlush(
+				argThat(u -> NOW.equals(u.getTermsAcceptedAt()) && "0912345678".equals(u.getPhone())));
 	}
 
 	@Test

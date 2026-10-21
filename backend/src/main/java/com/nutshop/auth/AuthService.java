@@ -5,6 +5,7 @@ import com.nutshop.auth.AuthDtos.RegisterRequest;
 import com.nutshop.auth.AuthDtos.UserResponse;
 import com.nutshop.auth.GoogleTokenVerifier.GoogleUser;
 import com.nutshop.auth.RefreshTokenService.Rotation;
+import com.nutshop.audit.AuditLog;
 import com.nutshop.common.ConflictException;
 import com.nutshop.common.UnauthorizedException;
 import com.nutshop.user.PhoneNumbers;
@@ -22,8 +23,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
-import java.time.Instant;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -46,6 +47,7 @@ public class AuthService {
 	private final TurnstileVerifier turnstile;
 	private final EmailVerificationService verification;
 	private final UserStatusCache statuses;
+	private final AuditLog audit;
 	private final Clock clock;
 
 	/**
@@ -56,7 +58,7 @@ public class AuthService {
 
 	public AuthService(UserRepository users, PasswordEncoder passwordEncoder, TokenService tokenService,
 			RefreshTokenService refreshTokens, GoogleTokenVerifier googleVerifier, TurnstileVerifier turnstile,
-			EmailVerificationService verification, UserStatusCache statuses, Clock clock) {
+			EmailVerificationService verification, UserStatusCache statuses, AuditLog audit, Clock clock) {
 		this.users = users;
 		this.passwordEncoder = passwordEncoder;
 		this.tokenService = tokenService;
@@ -65,6 +67,7 @@ public class AuthService {
 		this.turnstile = turnstile;
 		this.verification = verification;
 		this.statuses = statuses;
+		this.audit = audit;
 		this.clock = clock;
 		this.dummyHash = passwordEncoder.encode(UUID.randomUUID().toString());
 	}
@@ -81,9 +84,7 @@ public class AuthService {
 		if (phone != null && users.existsByPhone(phone)) {
 			throw new ConflictException(PHONE_EXISTS, "Số điện thoại này đã được sử dụng");
 		}
-		Instant now = clock.instant();
-		User user = new User(email, passwordEncoder.encode(req.password()), req.fullName().trim(), phone, now);
-		user.setMarketingConsent(req.wantsMarketing(), now);
+		User user = new User(email, passwordEncoder.encode(req.password()), req.fullName().trim(), phone, clock.instant());
 		user = users.saveAndFlush(user); // audit rows reference it through JDBC
 		verification.sendLink(user);
 		return issue(user, client);
@@ -96,14 +97,12 @@ public class AuthService {
 	 */
 	@Transactional
 	public AuthResult createAccountForOrder(String rawEmail, String fullName, String phone, String password,
-			boolean marketingConsent, ClientInfo client) {
+			ClientInfo client) {
 		String email = normalizeEmail(rawEmail);
 		if (users.existsByEmail(email) || (phone != null && users.existsByPhone(phone))) {
 			throw new ConflictException(ACCOUNT_EXISTS, "Email hoặc số điện thoại này đã có tài khoản.");
 		}
-		Instant now = clock.instant();
-		User user = new User(email, passwordEncoder.encode(password), fullName.trim(), phone, now);
-		user.setMarketingConsent(marketingConsent, now);
+		User user = new User(email, passwordEncoder.encode(password), fullName.trim(), phone, clock.instant());
 		user = users.saveAndFlush(user); // audit rows reference it through JDBC
 		verification.sendLink(user);
 		return issue(user, client);
@@ -154,10 +153,7 @@ public class AuthService {
 		GoogleUser google = googleVerifier.verify(credential);
 		String email = normalizeEmail(google.email());
 		User user = users.findByGoogleId(google.googleId())
-			.or(() -> users.findByEmail(email).map(existing -> {
-				existing.linkGoogle(google.googleId());
-				return existing;
-			}))
+			.or(() -> users.findByEmail(email).map(existing -> linkGoogle(existing, google.googleId())))
 			.orElseGet(() -> users
 				.saveAndFlush(User.fromGoogle(email, displayName(google, email), google.googleId(), clock.instant())));
 		ensureActive(user);
@@ -195,6 +191,28 @@ public class AuthService {
 			.filter(User::isActive)
 			.map(UserResponse::from)
 			.orElseThrow(() -> new UnauthorizedException(RefreshTokenService.INVALID_SESSION));
+	}
+
+	/**
+	 * An account with this email but no Google link yet. If its email was never verified, whoever registered it may
+	 * have used someone else's address (e.g. to be signed in when the real owner arrives): the Google owner gets it
+	 * without that person's password, phone or sessions.
+	 */
+	private User linkGoogle(User existing, String googleId) {
+		ensureActive(existing);
+		if (!existing.isEmailVerified()) {
+			Map<String, Object> before = Map.of("passwordSet", existing.hasPassword(), "phoneSet", existing.getPhone() != null);
+			existing.clearUnprovenDetails();
+			refreshTokens.revokeAll(existing.getId());
+			statuses.evict(existing.getId());
+			audit.entry("USER_GOOGLE_TAKEOVER", "USER", existing.getId(),
+					AuditLog.userLabel(existing.getFullName(), existing.getEmail()))
+				.byCustomer(existing.getId())
+				.changes(before, Map.of("passwordSet", false, "phoneSet", false))
+				.record();
+		}
+		existing.linkGoogle(googleId);
+		return existing;
 	}
 
 	private AuthResult issue(User user, ClientInfo client) {

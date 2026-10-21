@@ -52,7 +52,7 @@ Chỉ `OrderService.transition()` được đổi trạng thái: hàm này chặ
 | GET | `/lookup?code=&phone=` | Khách vãng lai | Phải khớp cả mã đơn lẫn số điện thoại (nhận được cả dạng `+84`). Sai bất kỳ phần nào cũng trả **cùng một** `404 ORDER_NOT_FOUND`. Giới hạn 10 lần/10 phút/IP |
 | GET | `/track/{code}?t=` | Khách vãng lai (có link) | Xem đơn qua link theo dõi. Số điện thoại và email bị che bớt, địa chỉ đầy đủ; kèm `canCancel`, `canClaim`. Giới hạn **30 lần/phút/IP** (chung với huỷ) |
 | POST | `/track/{code}/cancel?t=` | Khách vãng lai (có link) | `{reason}` bắt buộc; chỉ khi `PENDING`, trả lại `reserved` như huỷ thường |
-| POST | `/track/{code}/claim-account?t=` | Khách vãng lai (có link) | `{password, acceptTerms: true, marketingConsent?, email?}` → tạo tài khoản, gắn đơn, đăng nhập luôn (cookie). Giới hạn **5 lần/15 phút/IP** |
+| POST | `/track/{code}/claim-account?t=` | Khách vãng lai (có link) | `{password, acceptTerms: true, email?}` → tạo tài khoản, gắn đơn, đăng nhập luôn (cookie). Giới hạn **5 lần/15 phút/IP** |
 | POST | `/claim` | Đã đăng nhập | `[{code, token}]` (tối đa 20) → `{claimed, skipped}`. Giới hạn 10 lần/phút/IP |
 
 ## Link theo dõi đơn của khách vãng lai

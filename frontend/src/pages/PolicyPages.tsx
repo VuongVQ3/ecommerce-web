@@ -149,7 +149,11 @@ export function PrivacyPage() {
         <h2>2. Thông tin chúng tôi thu thập</h2>
         <ul>
           <li>Khi đăng ký: họ tên, email, số điện thoại (không bắt buộc), mật khẩu (chỉ lưu dạng mã hoá một chiều).</li>
-          <li>Khi đăng nhập bằng Google: họ tên, email và mã định danh tài khoản Google.</li>
+          <li>
+            Khi đăng nhập bằng Google: Google gửi cho chúng tôi họ tên, email (đã được Google xác minh) và ảnh đại diện.
+            Chúng tôi chỉ lưu họ tên, email và mã định danh tài khoản Google, không lưu ảnh đại diện. Chúng tôi không
+            bao giờ nhận hay biết mật khẩu Google của bạn.
+          </li>
           <li>Khi đặt hàng: họ tên người nhận, số điện thoại, email (không bắt buộc), địa chỉ giao hàng, ghi chú.</li>
           <li>Nhật ký kỹ thuật: địa chỉ IP và trình duyệt khi đăng nhập, dùng để bảo vệ tài khoản.</li>
         </ul>
@@ -159,7 +163,6 @@ export function PrivacyPage() {
         <ul>
           <li>Xử lý, giao hàng và hỗ trợ đơn hàng; gửi email xác nhận, giao hàng, huỷ đơn.</li>
           <li>Quản lý tài khoản, đặt lại mật khẩu, chống gian lận và spam.</li>
-          <li>Gửi email khuyến mãi chỉ khi bạn đã đồng ý; bạn có thể huỷ đăng ký bất cứ lúc nào.</li>
         </ul>
       </section>
       <section>

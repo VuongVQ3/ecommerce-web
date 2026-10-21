@@ -59,11 +59,12 @@ class RegistrationE2ETest {
 	}
 
 	@Test
-	void registersWithConsentAndNormalizedPhone() throws Exception {
+	void registersWithTermsAndNormalizedPhone() throws Exception {
 		String email = uniqueEmail();
 		String phone = uniquePhone();
 		String typed = "+84 " + phone.substring(1, 4) + "." + phone.substring(4, 7) + "." + phone.substring(7);
 
+		// marketingConsent: the opt-in no longer exists, an older page still sending it must not get a 400
 		register("{\"fullName\":\"Phạm Hạt\",\"email\":\"" + email + "\",\"password\":\"" + PASSWORD
 				+ "\",\"phone\":\"" + typed + "\",\"acceptTerms\":true,\"marketingConsent\":true,\"turnstileToken\":\""
 				+ RegisterJson.TURNSTILE_TEST_TOKEN + "\",\"website\":\"\"}")
@@ -72,8 +73,6 @@ class RegistrationE2ETest {
 
 		User user = users.findByEmail(email).orElseThrow();
 		assertThat(user.getTermsAcceptedAt()).isNotNull();
-		assertThat(user.hasMarketingConsent()).isTrue();
-		assertThat(user.getMarketingConsentAt()).isNotNull();
 	}
 
 	@Test
@@ -84,16 +83,6 @@ class RegistrationE2ETest {
 
 		register(json).andExpect(status().isCreated()).andExpect(jsonPath("$.confirmPassword").doesNotExist());
 		assertThat(users.findByEmail(email)).isPresent();
-	}
-
-	@Test
-	void marketingConsentDefaultsToOff() throws Exception {
-		String email = uniqueEmail();
-		register(RegisterJson.of("An", email, PASSWORD)).andExpect(status().isCreated());
-
-		User user = users.findByEmail(email).orElseThrow();
-		assertThat(user.hasMarketingConsent()).isFalse();
-		assertThat(user.getMarketingConsentAt()).isNull();
 	}
 
 	@Test

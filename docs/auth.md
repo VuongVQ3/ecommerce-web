@@ -9,12 +9,12 @@ Prefix `/api/auth`. Mọi request `POST/PUT/PATCH/DELETE` tới `/api/**` **bắ
 
 | Method | Path | Body | Thành công | Lỗi thường gặp |
 |---|---|---|---|---|
-| POST | `/register` | `{ fullName, email, password, phone?, acceptTerms: true, marketingConsent?, turnstileToken, website }` | `201` + user, đặt 2 cookie (đăng nhập luôn) | `400` dữ liệu sai hoặc Turnstile thất bại (`TURNSTILE_FAILED`), `409` `EMAIL_EXISTS` / `PHONE_EXISTS`, `429`, `503` không gọi được Cloudflare |
+| POST | `/register` | `{ fullName, email, password, phone?, acceptTerms: true, turnstileToken, website }` | `201` + user, đặt 2 cookie (đăng nhập luôn) | `400` dữ liệu sai hoặc Turnstile thất bại (`TURNSTILE_FAILED`), `409` `EMAIL_EXISTS` / `PHONE_EXISTS`, `429`, `503` không gọi được Cloudflare |
 | POST | `/login` | `{ email, password }` | `200` + user, đặt 2 cookie | `401` "Email hoặc mật khẩu không đúng", `403` tài khoản bị khóa, `429` |
 | POST | `/refresh` | không có (đọc cookie `refresh_token`) | `200` + user, đặt cặp cookie mới | `401` và **xoá cả 2 cookie** |
 | POST | `/logout` | không có | `204`, thu hồi refresh token, xoá cookie | luôn thành công |
 | GET | `/me` | không có | `200` + user | `401` |
-| POST | `/google` | `{ credential }` (Google ID token) | `200` + user, đặt 2 cookie | `401`, `403`, `503` nếu chưa cấu hình |
+| POST | `/google` | `{ credential }` (Google ID token) | `200` + user, đặt 2 cookie (giống `/login`) | `401` "Đăng nhập Google không thành công. Vui lòng thử lại.", `403` tài khoản bị khoá, `429`, `503` nếu chưa cấu hình |
 | POST | `/forgot-password` | `{ email }` | `202` + `{ message }`, **giống hệt nhau** dù email có tồn tại hay không | `400` email sai định dạng, `429` |
 | POST | `/reset-password` | `{ token, newPassword }` | `204`, xoá cookie, **thu hồi mọi phiên đăng nhập** của user | `400` liên kết không hợp lệ/hết hạn/đã dùng, hoặc mật khẩu yếu; `429` |
 | GET | `/providers` | không có | `{ googleClientId }` (null nếu tắt Google) | |
@@ -38,13 +38,27 @@ Lỗi trả về theo chuẩn RFC 9457 (`application/problem+json`). Thông báo
 | `fullName` | Bắt buộc, tối đa 100 ký tự |
 | `phone` | Không bắt buộc. Chấp nhận dấu cách, dấu chấm, gạch ngang và dạng `+84`/`84`. Được chuẩn hoá về `0xxxxxxxxx` (`PhoneNumbers.java` ↔ `lib/phone.ts`), sau đó phải đúng 10 chữ số bắt đầu bằng `0` |
 | `acceptTerms` | Bắt buộc `true`. Frontend gửi `true` khi người dùng bấm "Đăng ký" ngay dưới dòng "Bằng việc đăng ký, bạn đồng ý với…" |
-| `marketingConsent` | Không bắt buộc, mặc định `false`. Chỉ `true` khi người dùng tự tích ô |
+
+## Đăng nhập Google
+
+Luồng **ID token** của Google Identity Services, không dùng OAuth redirect, access token hay Client Secret:
+
+1. `GoogleSignInButton` (trên form ở `/dang-nhap`, `/dang-ky`, ngăn cách bằng "hoặc") nạp `https://accounts.google.com/gsi/client` một lần, hiện nút chính thức (`continue_with`, tiếng Việt). Khách chọn tài khoản trong popup.
+2. Google trả ID token (`credential`), frontend gửi `POST /api/auth/google`.
+3. `GoogleTokenVerifier` kiểm tra chữ ký (khoá công khai của Google), `exp`, `aud` = `GOOGLE_CLIENT_ID`, `iss` là `accounts.google.com` hoặc `https://accounts.google.com`, và `email_verified = true`. Sai bất cứ điều gì → `401` cùng một thông báo. Token không bao giờ được ghi log.
+4. `AuthService.loginWithGoogle` tìm tài khoản (email chuẩn hoá: trim + chữ thường):
+   - theo `google_id` (claim `sub`) → đăng nhập;
+   - không có → theo email: gắn `google_id`, đánh dấu email đã xác minh. **Nếu email đó chưa từng được xác minh**, người đã đăng ký có thể không phải chủ email (đăng ký trước bằng email người khác): mật khẩu và số điện thoại của tài khoản bị xoá, mọi phiên đăng nhập cũ bị thu hồi, ghi audit `USER_GOOGLE_TAKEOVER`. Tài khoản không lưu địa chỉ (địa chỉ nằm trong từng đơn), nên số điện thoại là thông tin giao hàng duy nhất cần xoá. Access token đã cấp cho phiên cũ hết hạn sau tối đa 15 phút như khi đổi mật khẩu;
+   - không có → tạo tài khoản khách hàng: họ tên từ `name` (thiếu thì phần trước @), không mật khẩu, email đã xác minh.
+5. Cấp cookie như đăng nhập bằng mật khẩu. Rate limit chung nhóm với `/login`.
+
+Tài khoản không có mật khẩu (`hasPassword: false` trong user): đăng nhập bằng mật khẩu trả lỗi chung như sai mật khẩu; tab "Đổi mật khẩu" thành **"Đặt mật khẩu"** (không hỏi mật khẩu hiện tại); "Quên mật khẩu" vẫn dùng được.
 
 **"Nhập lại mật khẩu" (`confirmPassword`) chỉ được kiểm tra ở frontend** (zod `.refine()`, lỗi gắn path `confirmPassword`). Frontend loại trường này khỏi payload; nếu request vẫn có trường này (hoặc bất kỳ trường lạ nào) thì backend bỏ qua, không báo lỗi và không lưu.
 
-### Đồng ý điều khoản và nhận khuyến mãi
+### Đồng ý điều khoản
 
-Bảng `users` có `terms_accepted_at` (bắt buộc), `marketing_consent` (mặc định `false`) và `marketing_consent_at` (thời điểm đồng ý; bị xoá khi rút lại đồng ý). Tài khoản tạo qua Google cũng được ghi `terms_accepted_at`: trang đăng nhập có ghi chú "Lần đầu tiếp tục với Google, bạn đồng ý với…", còn trang đăng ký dùng chung dòng đồng ý điều khoản.
+Bảng `users` ghi `terms_accepted_at` (bắt buộc). Không còn ô "nhận khuyến mãi qua email": hai cột `marketing_consent`, `marketing_consent_at` đã bị xoá (V19); request cũ còn gửi `marketingConsent` thì backend bỏ qua. Tài khoản tạo qua Google cũng được ghi `terms_accepted_at`: trang đăng nhập có ghi chú "Lần đầu tiếp tục với Google, bạn đồng ý với…", còn trang đăng ký dùng chung dòng đồng ý điều khoản.
 
 ### Chống bot khi đăng ký
 
@@ -158,7 +172,9 @@ cd backend
 | `AuthServiceTest` | Đăng ký trùng email/SĐT, sai mật khẩu, email không tồn tại (vẫn chạy BCrypt), tài khoản bị khóa, refresh |
 | `RefreshTokenServiceTest` | Chỉ lưu hash, xoay vòng, token bị dùng lại (thu hồi tất cả), token hết hạn |
 | `AuthFlowE2ETest` | register → me → refresh → logout; dùng lại token ở 2 thiết bị; thông báo lỗi chung; tài khoản bị khóa; trùng dữ liệu; validate; thiếu `X-Requested-With`; rate limit; `@Roles` |
-| `GoogleLoginTests` | Đăng nhập Google: tạo tài khoản, liên kết tài khoản sẵn có, token sai |
+| `GoogleLoginTests` | Đăng nhập Google qua HTTP: tạo tài khoản, liên kết tài khoản đã xác minh, chiếm lại tài khoản chưa xác minh (mất mật khẩu, số điện thoại, phiên cũ), token sai, rate limit |
+| `GoogleTokenVerifierTest` | Token ký thật bằng khoá RSA tạm: cả hai `iss` của Google, sai `iss`/`aud`, hết hạn, sai chữ ký, `email_verified` false |
+| `GoogleLoginServiceTest` | Tìm/tạo/liên kết tài khoản (verifier giả): mới, theo `google_id`, theo email đã/chưa xác minh, khác hoa thường, tài khoản bị khoá |
 | `RegistrationE2ETest` | Đồng ý điều khoản (thiếu hoặc `false` thì `400`), ghi thời điểm đồng ý, khuyến mãi mặc định tắt, honeypot (201 giả, không tạo user), `EMAIL_EXISTS`, `PHONE_EXISTS` (kể cả khi nhập dạng `+84`), thiếu token Turnstile, thông báo validate |
 | `PhoneNumbersTest` / `TurnstileVerifierTest` | Chuẩn hoá số điện thoại; Turnstile pass, fail, Cloudflare lỗi (giả lập) |
 | `PasswordResetE2ETest` | Phản hồi giống nhau cho email có/không tồn tại; đổi mật khẩu xong thì phiên cũ bị đăng xuất; link chỉ dùng một lần; link hết hạn; link mới làm link cũ hết hiệu lực; mật khẩu yếu; giới hạn theo email |

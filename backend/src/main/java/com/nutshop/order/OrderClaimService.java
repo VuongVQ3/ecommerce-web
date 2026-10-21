@@ -75,8 +75,7 @@ public class OrderClaimService implements VerifiedEmailHook {
 		if (!PersonName.Validator.valid(fullName)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_NAME", PersonName.MESSAGE);
 		}
-		AuthResult result = auth.createAccountForOrder(email, fullName, order.getPhone(), req.password(),
-				req.wantsMarketing(), client);
+		AuthResult result = auth.createAccountForOrder(email, fullName, order.getPhone(), req.password(), client);
 		attach(order, result.user().id(), "NEW_ACCOUNT");
 		return result;
 	}

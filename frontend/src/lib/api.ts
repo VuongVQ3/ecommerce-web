@@ -114,6 +114,8 @@ export interface User {
   emailVerified: boolean
   /** Staff/admin password below the rules: the back office stays closed until it is changed. */
   passwordChangeRequired: boolean
+  /** False for an account that only signs in with Google (it can set a password, or use "Quên mật khẩu"). */
+  hasPassword: boolean
 }
 
 export interface RegisterInput {
@@ -124,7 +126,6 @@ export interface RegisterInput {
   phone?: string
   /** Sent as true when the user clicks "Đăng ký" under the terms notice. */
   acceptTerms: true
-  marketingConsent: boolean
   turnstileToken: string
   /** Honeypot: always empty for humans. */
   website: string
@@ -279,7 +280,6 @@ export interface CustomerCancelInput {
 export interface ClaimAccountInput {
   password: string
   acceptTerms: true
-  marketingConsent: boolean
   /** Only when the order has no email. */
   email?: string
   /** Only when the name on the order is not a valid name. */

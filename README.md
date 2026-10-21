@@ -43,10 +43,13 @@ Khi phát triển, Vite chuyển tiếp mọi request `/api` sang backend (cùng
 ### Bật đăng nhập Google
 
 1. Vào [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials), tạo **OAuth client ID** loại **Web application**.
-2. Thêm vào **Authorized JavaScript origins**: `http://localhost:5173` và `http://localhost`.
+2. Thêm vào **Authorized JavaScript origins**: `http://localhost:5173` và `http://localhost` (máy dev), `https://hat-lanh.com` (live).
+   Không cần redirect URI và **không cần Client Secret**: web chỉ nhận ID token từ popup của Google.
 3. Điền `GOOGLE_CLIENT_ID` trong `backend/.env`, rồi khởi động lại backend.
 
-Nếu không có Client ID, nút Google sẽ tự ẩn.
+Chỉ có **một** biến: frontend lấy Client ID từ `GET /api/auth/providers`, nên không có `VITE_GOOGLE_CLIENT_ID` và đổi
+Client ID không cần build lại. Nếu không có Client ID (hoặc không tải được script của Google), nút Google tự ẩn, form
+email vẫn dùng bình thường. Chi tiết luồng: [docs/auth.md](docs/auth.md#đăng-nhập-google).
 
 ## Deploy
 

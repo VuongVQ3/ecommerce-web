@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, type Ref } from 'react'
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react'
 
 const SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
 const SITE_KEY: string | undefined = import.meta.env.VITE_TURNSTILE_SITE_KEY
@@ -39,6 +39,16 @@ export default function Turnstile({ ref, action }: { ref: Ref<TurnstileHandle>; 
   const token = useRef<string | null>(null)
   const error = useRef<string | null>(null)
   const waiters = useRef<{ resolve: (t: string) => void; reject: (e: Error) => void }[]>([])
+  // The hidden widget still has children (not :empty): only take a spot in the form's spacing while it shows something
+  const [shown, setShown] = useState(false)
+
+  useEffect(() => {
+    const el = container.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => setShown(el.offsetHeight > 0))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     if (!SITE_KEY) {
@@ -109,5 +119,5 @@ export default function Turnstile({ ref, action }: { ref: Ref<TurnstileHandle>; 
     },
   }))
 
-  return <div ref={container} className="flex justify-center empty:hidden" />
+  return <div ref={container} className={`flex justify-center empty:hidden ${shown ? '' : 'my-0!'}`} />
 }

@@ -103,9 +103,9 @@ public class SecurityConfig {
 	/** The REST API. Everything else is the bundled React app (static files and client-side routes). */
 	static final RequestMatcher API = PATHS.matcher("/api/**");
 
-	/** Login, register and password reset: per IP (stops credential stuffing and reset-link spam). */
-	private static final Set<String> AUTH_LIMITED_PATHS = Set.of("/api/auth/login", "/api/auth/register",
-			"/api/auth/forgot-password", "/api/auth/reset-password");
+	/** Login (password or Google), register and password reset: per IP (stops credential stuffing and reset-link spam). */
+	private static final Set<String> AUTH_LIMITED_PATHS = Set.of("/api/auth/login", "/api/auth/google",
+			"/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password");
 
 	/**
 	 * Content-Security-Policy for the app: own scripts only, plus Cloudflare Turnstile and Google Sign-In; Google

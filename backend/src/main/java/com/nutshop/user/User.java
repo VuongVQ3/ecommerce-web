@@ -45,13 +45,6 @@ public class User {
 	@Column(name = "password_change_required", nullable = false)
 	private boolean passwordChangeRequired;
 
-	/** Opt-in for promotional emails; off unless the user ticked the checkbox. */
-	@Column(name = "marketing_consent", nullable = false)
-	private boolean marketingConsent;
-
-	@Column(name = "marketing_consent_at")
-	private Instant marketingConsentAt;
-
 	/** Set once the owner proved they read this inbox (email link, or Google Sign-In). */
 	@Column(name = "email_verified_at")
 	private Instant emailVerifiedAt;
@@ -81,16 +74,6 @@ public class User {
 		return user;
 	}
 
-	public void setMarketingConsent(boolean consent, Instant now) {
-		if (consent && !marketingConsent) {
-			marketingConsentAt = now;
-		}
-		else if (!consent) {
-			marketingConsentAt = null;
-		}
-		marketingConsent = consent;
-	}
-
 	@PreUpdate
 	void touch() {
 		updatedAt = Instant.now();
@@ -98,6 +81,18 @@ public class User {
 
 	public void linkGoogle(String googleId) {
 		this.googleId = googleId;
+	}
+
+	/**
+	 * The owner of the email (proven by Google) takes over an account whose email was never verified: whoever
+	 * registered it may not be them, so the password and phone number they chose are dropped. The phone is the only
+	 * delivery detail an account keeps (addresses live on each order).
+	 */
+	public void clearUnprovenDetails() {
+		this.passwordHash = null;
+		this.passwordChangeRequired = false;
+		this.phone = null;
+		this.updatedAt = Instant.now();
 	}
 
 	/** {@code passwordHash} must already be encoded. Also gives Google-only accounts a password. */
@@ -175,14 +170,6 @@ public class User {
 
 	public Instant getTermsAcceptedAt() {
 		return termsAcceptedAt;
-	}
-
-	public boolean hasMarketingConsent() {
-		return marketingConsent;
-	}
-
-	public Instant getMarketingConsentAt() {
-		return marketingConsentAt;
 	}
 
 	public Instant getCreatedAt() {

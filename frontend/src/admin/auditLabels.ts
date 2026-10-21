@@ -40,6 +40,7 @@ export const ACTION_LABEL: Record<string, string> = {
   USER_UNLOCKED: 'Mở khoá tài khoản',
   USER_PROMOTED: 'Cấp quyền quản trị',
   USER_EMAIL_VERIFIED: 'Xác minh email',
+  USER_GOOGLE_TAKEOVER: 'Chủ email nhận lại tài khoản qua Google',
   USER_PASSWORD_SET: 'Đặt mật khẩu',
 }
 
@@ -54,6 +55,8 @@ export const ENTITY_LABEL: Record<string, string> = {
 }
 
 export const FIELD_LABEL: Record<string, string> = {
+  passwordSet: 'Có mật khẩu',
+  phoneSet: 'Có số điện thoại',
   price: 'Giá bán',
   salePrice: 'Giá khuyến mại',
   startsAt: 'Bắt đầu',

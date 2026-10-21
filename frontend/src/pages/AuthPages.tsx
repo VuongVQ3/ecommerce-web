@@ -84,6 +84,14 @@ export function LoginPage() {
         </>
       }
     >
+      <GoogleSignInButton
+        onCredential={loginWithGoogle}
+        footnote={
+          <>
+            Lần đầu tiếp tục với Google, bạn đồng ý với <LegalLinks />.
+          </>
+        }
+      />
       <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
         {state.notice && !formError && (
           <p className="rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800" role="status">
@@ -117,15 +125,6 @@ export function LoginPage() {
         </div>
         <SubmitButton pending={pending}>Đăng nhập</SubmitButton>
       </form>
-      <GoogleSignInButton
-        text="signin_with"
-        onCredential={loginWithGoogle}
-        footnote={
-          <>
-            Lần đầu tiếp tục với Google, bạn đồng ý với <LegalLinks />.
-          </>
-        }
-      />
     </AuthCard>
   )
 }

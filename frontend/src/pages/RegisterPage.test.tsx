@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
+import { ToastProvider } from '../components/Toast'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, type RegisterInput } from '../lib/api'
 import { RegisterPage } from './RegisterPage'
@@ -38,9 +39,11 @@ afterEach(() => {
 describe('RegisterPage', () => {
   it('never sends confirmPassword to the backend', async () => {
     render(
-      <MemoryRouter>
-        <RegisterPage />
-      </MemoryRouter>,
+      <ToastProvider>
+        <MemoryRouter>
+          <RegisterPage />
+        </MemoryRouter>
+      </ToastProvider>,
     )
     fill('Họ và tên', 'Nguyễn An')
     fill('Email', 'an@example.com')
@@ -56,9 +59,11 @@ describe('RegisterPage', () => {
 
   it('shows the mismatch under the confirmation and blocks submit', async () => {
     render(
-      <MemoryRouter>
-        <RegisterPage />
-      </MemoryRouter>,
+      <ToastProvider>
+        <MemoryRouter>
+          <RegisterPage />
+        </MemoryRouter>
+      </ToastProvider>,
     )
     fill('Họ và tên', 'Nguyễn An')
     fill('Email', 'an@example.com')

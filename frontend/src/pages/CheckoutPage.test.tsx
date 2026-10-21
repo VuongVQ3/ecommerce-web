@@ -83,7 +83,7 @@ async function fillValidForm() {
   change(input('Địa chỉ chi tiết'), '12 Phố Test')
 }
 
-const ADMIN: User = { id: 'a1', email: 'admin@example.com', fullName: 'Quản Trị', phone: null, role: 'ADMIN', emailVerified: true, passwordChangeRequired: false }
+const ADMIN: User = { id: 'a1', email: 'admin@example.com', fullName: 'Quản Trị', phone: null, role: 'ADMIN', emailVerified: true, passwordChangeRequired: false, hasPassword: true }
 
 beforeEach(() => {
   auth.current = { user: null, loading: false }
@@ -163,7 +163,7 @@ describe('CheckoutPage', () => {
     fireEvent.change(input('Họ và tên'), { target: { value: 'Khách Đã Nhập' } })
     first.unmount()
     auth.current = {
-      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false },
+      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true },
       loading: false,
     }
     renderCheckout()
@@ -181,7 +181,7 @@ describe('CheckoutPage', () => {
 
   it('prefills name, email and phone for a signed-in user', () => {
     auth.current = {
-      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false },
+      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true },
       loading: false,
     }
     renderCheckout()

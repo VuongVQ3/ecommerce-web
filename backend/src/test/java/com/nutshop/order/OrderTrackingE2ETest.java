@@ -422,9 +422,8 @@ class OrderTrackingE2ETest {
 		Cookie session = res.getCookie(AuthCookies.ACCESS_COOKIE);
 		assertThat(session).isNotNull();
 
-		Map<String, Object> user = jdbc.queryForMap("SELECT id::text AS id, terms_accepted_at, marketing_consent, password_hash FROM users WHERE email = ?", email);
+		Map<String, Object> user = jdbc.queryForMap("SELECT id::text AS id, terms_accepted_at, password_hash FROM users WHERE email = ?", email);
 		assertThat(user.get("terms_accepted_at")).isNotNull();
-		assertThat(user.get("marketing_consent")).isEqualTo(false);
 		assertThat((String) user.get("password_hash")).startsWith("$2").doesNotContain("matkhau123");
 		assertThat(jdbc.queryForObject("SELECT user_id::text FROM orders WHERE code = ?", String.class, first[0])).isEqualTo(user.get("id"));
 		// Only this order: the other one waits for email verification
@@ -502,11 +501,12 @@ class OrderTrackingE2ETest {
 			.andExpect(status().isNotFound());
 
 		String email = email();
+		// marketingConsent: the opt-in no longer exists, an older page still sending it must not get a 400
 		mvc.perform(json(post(url).param("t", order[1]),
 				"{\"password\":\"matkhau123\",\"acceptTerms\":true,\"marketingConsent\":true,\"email\":\"" + email + "\"}"))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.email").value(email));
-		assertThat(jdbc.queryForObject("SELECT marketing_consent FROM users WHERE email = ?", Boolean.class, email)).isTrue();
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM users WHERE email = ?", Long.class, email)).isEqualTo(1);
 	}
 
 	// ---- attaching after sign-in ----------------------------------------------------------------------------

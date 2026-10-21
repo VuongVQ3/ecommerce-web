@@ -11,6 +11,7 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
 
 /** Shell for /tai-khoan/*; only rendered for signed-in users (see RequireAuth). */
 export function AccountLayout() {
+  const { user } = useAuth()
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-3xl font-bold text-stone-900">Tài khoản của tôi</h1>
@@ -19,7 +20,7 @@ export function AccountLayout() {
           Thông tin
         </NavLink>
         <NavLink to="/tai-khoan/doi-mat-khau" className={tabClass}>
-          Đổi mật khẩu
+          {user?.hasPassword === false ? 'Đặt mật khẩu' : 'Đổi mật khẩu'}
         </NavLink>
         <NavLink to="/tai-khoan/don-hang" className={tabClass}>
           Đơn hàng của tôi
