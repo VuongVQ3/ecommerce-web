@@ -238,6 +238,8 @@ body {
 .btt-ring { transition: stroke-dashoffset 100ms linear; }
 .btt:active .btt-dot { transform: scale(0.95); transition-duration: 100ms; }
 .btt:focus-visible .fc-label { opacity: 1; transform: none; }
+/* Phones: 12px gap + 8px, so it stays at least 12px from the chat button even while that one hops (up 4px, 1.12×) */
+.fc[data-compact] .btt { margin-bottom: 8px; }
 @media (hover: hover) and (pointer: fine) {
   .btt:hover .btt-dot { transform: scale(1.1); }
   .btt:hover:active .btt-dot { transform: scale(0.95); }

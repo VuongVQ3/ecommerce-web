@@ -170,7 +170,7 @@ export default function FloatingContact() {
       aria-label="Liên hệ và mạng xã hội"
       data-compact={wide ? undefined : ''}
       data-open={open ? '' : undefined}
-      className="fc pointer-events-none fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 flex flex-col items-end gap-3"
+      className="fc pointer-events-none fixed right-[calc(1rem+env(safe-area-inset-right))] bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 flex flex-col items-end gap-3"
     >
       {hasItems && (
         <ul ref={column} id={listId} className="flex flex-col items-end gap-2 sm:gap-2.5" inert={!wide && !open}>

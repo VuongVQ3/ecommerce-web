@@ -123,8 +123,13 @@ export default function BackToTop() {
       <span className="fc-label pointer-events-none absolute top-1/2 right-full mr-3 -translate-y-1/2 rounded-full bg-white px-3 py-1.5 text-sm font-semibold whitespace-nowrap text-stone-800 shadow-md max-sm:hidden">
         Lên đầu trang
       </span>
-      <span className="btt-dot relative flex size-11 items-center justify-center rounded-full border border-stone-200 bg-white text-brand-700 shadow-md">
-        <svg aria-hidden="true" viewBox="0 0 44 44" className="pointer-events-none absolute -inset-px -rotate-90">
+      {/*
+        The ring is the dot's only edge (no border): the SVG fills exactly the dot's box (explicit size; WebKit does not
+        stretch an absolutely positioned SVG between its insets), so they stay concentric in every browser and state.
+        The shadow is even all round: an offset one showed as a grey crescent under the ring.
+      */}
+      <span className="btt-dot relative flex size-11 items-center justify-center rounded-full bg-white text-brand-700 shadow-[0_0_8px_rgb(0_0_0/0.15)]">
+        <svg aria-hidden="true" viewBox="0 0 44 44" className="pointer-events-none absolute inset-0 size-full -rotate-90">
           <circle cx="22" cy="22" r={RADIUS} fill="none" strokeWidth="2" className="stroke-stone-200" />
           <circle
             ref={ring}
