@@ -10,7 +10,7 @@ export const btn = {
 }
 
 export const input =
-  'w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-base outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:text-sm aria-[invalid=true]:border-danger'
+  'w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-base outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 lg:text-sm aria-[invalid=true]:border-danger'
 
 export const card = 'rounded-2xl border border-stone-200 bg-white'
 
