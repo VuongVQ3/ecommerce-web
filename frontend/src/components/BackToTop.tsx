@@ -49,12 +49,13 @@ function glideToTop(): Promise<boolean> {
   })
 }
 
-/** Back to the top of the page: the logo, else the main content. Focus ring only for keyboard users (focus-visible). */
+/**
+ * Back at the top, focus goes to the start of the content: <main id="main" tabIndex={-1}> (Layout), which is not a
+ * control and draws no ring, so the next Tab reaches the page's first control. Not the logo: after a tap, iOS
+ * Safari/Chrome draw their default focus ring around a focused link.
+ */
 function focusPageTop() {
-  const target = document.querySelector<HTMLElement>('header a[href="/"]') ?? document.getElementById('main')
-  if (!target) return
-  if (target.tabIndex < 0 && !target.hasAttribute('tabindex')) target.tabIndex = -1
-  target.focus({ preventScroll: true })
+  document.getElementById('main')?.focus({ preventScroll: true })
 }
 
 /**

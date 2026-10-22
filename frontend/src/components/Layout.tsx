@@ -480,7 +480,8 @@ export default function Layout() {
       </header>
       {menuOn === pathname && <MobileMenu onClose={closeMenu} />}
 
-      <main id="main" className="flex-1">
+      {/* Focus target (no ring, not a control) for the skip link and "Lên đầu trang": the next Tab goes into the page */}
+      <main id="main" tabIndex={-1} className="flex-1 outline-none">
         <Outlet />
       </main>
       <CartDrawer />
