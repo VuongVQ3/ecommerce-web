@@ -171,12 +171,13 @@ export default function SearchBox({ className = '', autoFocus = false }: { class
         enterKeyHint="search"
         placeholder={typing ? '' : SEARCH_PLACEHOLDER}
         aria-label="Tìm sản phẩm"
-        className="w-full rounded-full border border-stone-200 bg-white px-4 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+        // 16px below lg: iOS Safari zooms into any field under 16px when it is focused, and stays zoomed after
+        className="w-full rounded-full border border-stone-200 bg-white px-4 py-2 text-base outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 lg:text-sm"
       />
       {typing && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-4 left-4 flex items-center overflow-hidden text-sm whitespace-nowrap text-stone-400"
+          className="pointer-events-none absolute inset-y-0 right-4 left-4 flex items-center overflow-hidden text-base whitespace-nowrap text-stone-400 lg:text-sm"
         >
           {hint}
           <span className="typing-caret ml-px">|</span>

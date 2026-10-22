@@ -63,7 +63,8 @@ export default function CopyButton({ text, label, copiedLabel = 'Đã sao chép'
           value={text}
           aria-label="Nhấn giữ hoặc Ctrl+C để sao chép"
           onFocus={(e) => e.currentTarget.select()}
-          className="w-full min-w-0 rounded-lg border border-stone-300 bg-stone-50 px-2 py-1 text-sm sm:w-80"
+          // 16px below lg: iOS Safari zooms into any field under 16px when it is focused, and stays zoomed after
+          className="w-full min-w-0 rounded-lg border border-stone-300 bg-stone-50 px-2 py-1 text-base sm:w-80 lg:text-sm"
         />
       )}
       <span className="sr-only" aria-live="polite">
