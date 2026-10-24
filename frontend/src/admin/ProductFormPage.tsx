@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { Fragment, useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { Controller } from 'react-hook-form'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useAuthForm } from '../auth/useAuthForm'
@@ -9,6 +9,7 @@ import { ApiError } from '../lib/api'
 import { adminApi, type AdminCategory, type AdminProduct } from '../lib/adminApi'
 import { formatPrice, formatPromotionEnd } from '../lib/format'
 import { cloudinaryUrl } from '../lib/images'
+import { NUTRIENTS, nutrientFieldLabel } from '../lib/nutrition'
 import { slugify } from '../lib/slug'
 import { useAsync } from '../lib/useAsync'
 import NotFoundPage from '../pages/NotFoundPage'
@@ -394,12 +395,11 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
         <fieldset>
           <legend className="text-sm font-semibold text-stone-900">Dinh dưỡng trên 100g (không bắt buộc)</legend>
           <p className="mt-1 text-sm text-muted">Nhập đủ cả 5 chỉ số, hoặc để trống hết nếu chưa có (cửa hàng sẽ không hiện bảng dinh dưỡng).</p>
-          <div className="mt-2 grid grid-cols-2 gap-4 md:grid-cols-5">
-            {num('calories', 'Năng lượng (kcal)', undefined, false)}
-            {num('protein', 'Protein (g)', undefined, false)}
-            {num('fat', 'Chất béo (g)', undefined, false)}
-            {num('carbs', 'Carb (g)', undefined, false)}
-            {num('fiber', 'Chất xơ (g)', undefined, false)}
+          {/* 1, 2 then 3 per row: five in a row squeezed "Chất bột đường – Carb (g)" onto two lines and misaligned the fields */}
+          <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {NUTRIENTS.map((n) => (
+              <Fragment key={n.key}>{num(n.key, nutrientFieldLabel(n.key), undefined, false)}</Fragment>
+            ))}
           </div>
         </fieldset>
         <FormError message={formError} />

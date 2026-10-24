@@ -6,6 +6,7 @@ import QuantityStepper from '../cart/QuantityStepper'
 import type { Nutrition, Pricing, ProductDetail } from '../lib/api'
 import { formatPrice, formatPromotionEnd, formatWeight } from '../lib/format'
 import { stockLabel } from '../lib/images'
+import { NUTRIENTS, nutrientLabel } from '../lib/nutrition'
 import { DiscountBadge, PriceTag } from './Price'
 
 /** Shared by the product page and the quick view. */
@@ -60,13 +61,7 @@ export function StockBadge({ product, className = 'mt-6' }: { product: ProductDe
   )
 }
 
-const NUTRITION_ROWS: { key: keyof Nutrition; label: string; unit: string }[] = [
-  { key: 'calories', label: 'Năng lượng', unit: 'kcal' },
-  { key: 'protein', label: 'Protein', unit: 'g' },
-  { key: 'fat', label: 'Chất béo', unit: 'g' },
-  { key: 'carbs', label: 'Carbohydrate', unit: 'g' },
-  { key: 'fiber', label: 'Chất xơ', unit: 'g' },
-]
+const NUTRITION_ROWS = NUTRIENTS.map((n) => ({ key: n.key, label: nutrientLabel(n.key), unit: n.unit }))
 
 const SERVING_GRAMS = 30
 
