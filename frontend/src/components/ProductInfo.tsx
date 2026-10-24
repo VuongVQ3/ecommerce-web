@@ -71,7 +71,13 @@ const perServing = (key: keyof Nutrition, per100: number) => {
   return key === 'calories' ? Math.round(value) : Math.round(value * 10) / 10
 }
 
-/** Per 100g; with `serving` also per 30g (a handful). Nothing at all while the figures are not known (null). */
+/**
+ * Per 100g as compact tiles (figure and unit on top, name underneath); with `serving` each tile also gives one 30g
+ * handful. Nothing at all while the figures are not known (null).
+ * A <dl>: each tile is a name (dt) and its figure (dd), read in that order; only the display puts the figure first.
+ * Tiles: 2 per row on phones (energy across the first row, so no tile is left alone), 3 from sm and in the lg
+ * column (five in a row would squeeze "Chất bột đường (Carb)" to under 70px).
+ */
 export function NutritionTable({
   nutrition,
   serving = false,
@@ -83,43 +89,29 @@ export function NutritionTable({
 }) {
   if (!nutrition) return null
   return (
-    <section className={`${className} rounded-2xl border border-stone-200 bg-white p-5`}>
-      <h2 className="font-bold text-stone-900">Giá trị dinh dưỡng</h2>
-      {!serving && <p className="text-sm text-muted">Trên 100g sản phẩm</p>}
-      <table className="mt-4 w-full text-sm">
-        {serving && (
-          <thead>
-            <tr className="text-muted">
-              <th scope="col" className="pb-2 text-left font-medium">
-                <span className="sr-only">Thành phần</span>
-              </th>
-              <th scope="col" className="pb-2 text-right font-medium">
-                100g
-              </th>
-              <th scope="col" className="pb-2 text-right font-medium">
-                {SERVING_GRAMS}g
-              </th>
-            </tr>
-          </thead>
-        )}
-        <tbody>
-          {NUTRITION_ROWS.map((row) => (
-            <tr key={row.key} className="border-t border-stone-100">
-              <th scope="row" className="py-2.5 text-left font-medium text-stone-600">
-                {row.label}
-              </th>
-              <td className="py-2.5 text-right font-semibold text-stone-900 tabular-nums">
-                {nutrition[row.key]} {row.unit}
-              </td>
+    <section className={`${className} rounded-2xl border border-stone-200 bg-white p-5`} aria-labelledby="nutrition-title">
+      <h2 id="nutrition-title" className="font-bold text-stone-900">
+        Giá trị dinh dưỡng
+      </h2>
+      <p className="text-sm text-muted">Trên 100g sản phẩm{serving && ` · dòng nhỏ: một nắm ${SERVING_GRAMS}g`}</p>
+      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {NUTRITION_ROWS.map((row, i) => (
+          <div
+            key={row.key}
+            className={`flex flex-col-reverse justify-end rounded-xl bg-stone-50 p-3 ${i === 0 ? 'col-span-2 sm:col-span-1' : ''}`}
+          >
+            <dt className="mt-0.5 text-xs text-muted">{row.label}</dt>
+            <dd className="font-semibold text-stone-900 tabular-nums">
+              <span className="text-lg">{nutrition[row.key]}</span> {row.unit}
               {serving && (
-                <td className="py-2.5 text-right font-semibold text-stone-900 tabular-nums">
-                  {perServing(row.key, nutrition[row.key])} {row.unit}
-                </td>
+                <span className="block text-xs font-normal text-muted">
+                  {SERVING_GRAMS}g: {perServing(row.key, nutrition[row.key])} {row.unit}
+                </span>
               )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+            </dd>
+          </div>
+        ))}
+      </dl>
     </section>
   )
 }

@@ -29,11 +29,18 @@ describe('nutrient labels', () => {
 })
 
 describe('NutritionTable', () => {
-  it('names each row without its unit; the unit goes with the value', () => {
+  it('pairs each name (without its unit) with its figure and unit, name first for screen readers', () => {
     render(<NutritionTable nutrition={{ calories: 718, protein: 7.9, fat: 76, carbs: 13.8, fiber: 9.6 }} />)
 
-    const rows = screen.getAllByRole('row').map((r) => [r.querySelector('th')!.textContent, r.querySelector('td')!.textContent])
-    expect(rows).toEqual([
+    // <dl> has no ARIA role to query by: the section's description list
+    const list = screen.getByRole('region', { name: 'Giá trị dinh dưỡng' }).querySelector('dl')!
+    const pairs = [...list.children].map((tile) => {
+      const [dt, dd] = tile.children
+      expect([dt.tagName, dd.tagName]).toEqual(['DT', 'DD'])
+      return [dt.textContent, dd.textContent]
+    })
+    expect(screen.getByText('Trên 100g sản phẩm')).toBeTruthy()
+    expect(pairs).toEqual([
       ['Năng lượng (Energy)', '718 kcal'],
       ['Chất đạm (Protein)', '7.9 g'],
       ['Chất béo (Fat)', '76 g'],

@@ -49,7 +49,7 @@ function RelatedProducts({ product }: { product: ProductDetail }) {
   const related = (data?.items ?? []).filter((p) => p.id !== product.id).slice(0, RELATED_MAX)
   if (related.length === 0) return null
   return (
-    <section className="mt-14" aria-labelledby="related-title">
+    <section className="mt-10" aria-labelledby="related-title">
       <h2 id="related-title" className="text-xl font-bold text-stone-900">
         Sản phẩm liên quan
       </h2>
@@ -104,9 +104,12 @@ export default function ProductDetailPage() {
         </Link>
       </nav>
 
-      {/* Two columns from lg only; below, one column with the photos at a moderate size, centred */}
+      {/*
+        Two columns from lg only; below, one column with the photos at a moderate size, centred. From lg the photos
+        stick under the header while the longer details column scrolls (self-start: a stretched item cannot stick).
+      */}
       <div className="mt-6 grid grid-cols-1 gap-10 lg:grid-cols-2">
-        <div className="mx-auto w-full max-w-xl lg:max-w-none">
+        <div className="mx-auto w-full max-w-xl lg:sticky lg:top-[calc(var(--header-h,0px)+1.5rem)] lg:max-w-none lg:self-start">
           {/* key: another product starts again at its first photo */}
           <ProductImageSlider
             key={product.id}
