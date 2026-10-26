@@ -16,6 +16,6 @@ import java.lang.annotation.Target;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, com.nutshop.auth.StubTurnstileConfig.class})
 public @interface IntegrationTest {
 }
