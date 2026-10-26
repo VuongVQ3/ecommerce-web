@@ -514,7 +514,6 @@ class OrderTrackingE2ETest {
 	@Test
 	void signedInUserAttachesOnlyValidUnownedRecentOrdersThatAreTheirs() throws Exception {
 		long id = product();
-		String[] mine = guestOrder(id, null);
 		String[] wrongToken = guestOrder(id, null);
 		// Someone else's order, placed with their (verified) email: they claim it first
 		String otherEmail = email();
@@ -524,23 +523,24 @@ class OrderTrackingE2ETest {
 		mvc.perform(json(post("/api/orders/claim"), "[{\"code\":\"%s\",\"token\":\"%s\"}]".formatted(taken[0], taken[1]))
 			.cookie(someoneElse)).andExpect(jsonPath("$.claimed", hasItem(taken[0])));
 
-		// This account has the phone the orders were placed with
+		// This account claims only its own orders, matched by its verified email (not an unverified phone).
 		String email = email();
 		Cookie me = register(email);
-		jdbc.update("UPDATE users SET phone = '0912345678' WHERE email = ?", email);
+		jdbc.update("UPDATE users SET email_verified_at = now() WHERE email = ?", email);
+		String[] mineByEmail = guestOrder(id, email);
 		String items = "[{\"code\":\"%s\",\"token\":\"%s\"},{\"code\":\"%s\",\"token\":\"%s\"},{\"code\":\"%s\",\"token\":\"%s\"}]"
-			.formatted(mine[0], mine[1], wrongToken[0], SecureTokens.generate(), taken[0], taken[1]);
+			.formatted(mineByEmail[0], mineByEmail[1], wrongToken[0], SecureTokens.generate(), taken[0], taken[1]);
 		mvc.perform(json(post("/api/orders/claim"), items).cookie(me))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.claimed.length()").value(1))
-			.andExpect(jsonPath("$.claimed[0]").value(mine[0]))
+			.andExpect(jsonPath("$.claimed[0]").value(mineByEmail[0]))
 			.andExpect(jsonPath("$.skipped.length()").value(2));
 		String myId = jdbc.queryForObject("SELECT id::text FROM users WHERE email = ?", String.class, email);
-		assertThat(jdbc.queryForObject("SELECT user_id::text FROM orders WHERE code = ?", String.class, mine[0])).isEqualTo(myId);
+		assertThat(jdbc.queryForObject("SELECT user_id::text FROM orders WHERE code = ?", String.class, mineByEmail[0])).isEqualTo(myId);
 		assertThat(jdbc.queryForObject("SELECT user_id::text FROM orders WHERE code = ?", String.class, taken[0])).isNotEqualTo(myId);
 		assertThat(jdbc.queryForObject("SELECT user_id FROM orders WHERE code = ?", String.class, wrongToken[0])).isNull();
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_logs WHERE action = 'ORDER_CLAIMED' AND entity_id = ?",
-				Integer.class, mine[0])).isEqualTo(1);
+				Integer.class, mineByEmail[0])).isEqualTo(1);
 
 		mvc.perform(json(post("/api/orders/claim"), "[]")).andExpect(status().isUnauthorized());
 	}
@@ -580,6 +580,27 @@ class OrderTrackingE2ETest {
 		jdbc.update("UPDATE users SET email_verified_at = now() WHERE email = ?", buyerEmail);
 		mvc.perform(json(post("/api/orders/claim"), item).cookie(unverified)).andExpect(jsonPath("$.claimed[0]").value(order[0]));
 		track(order[0], order[1]).andExpect(status().isNotFound());
+	}
+
+	// run-2 lead 8: a tracking-link holder who registers an account with the buyer's (self-asserted) phone must not
+	// be able to seize the order. Phones are never verified, so the phone must not count as proof of ownership.
+	@Test
+	void aMatchingUnverifiedPhoneDoesNotClaimSomeoneElsesOrder() throws Exception {
+		long id = product();
+		String[] order = guestOrder(id, email()); // placed with the buyer's email and phone 0912345678
+		String item = "[{\"code\":\"%s\",\"token\":\"%s\"}]".formatted(order[0], order[1]);
+
+		// Attacker: a CUSTOMER whose account carries the same phone the order was placed with, different email, and who
+		// holds the tracking token (e.g. a forwarded link).
+		String attackerEmail = email();
+		Cookie attacker = register(attackerEmail);
+		jdbc.update("UPDATE users SET phone = '0912345678' WHERE email = ?", attackerEmail);
+
+		mvc.perform(json(post("/api/orders/claim"), item).cookie(attacker))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.claimed.length()").value(0))
+			.andExpect(jsonPath("$.skipped[0]").value(order[0]));
+		assertThat(jdbc.queryForObject("SELECT user_id FROM orders WHERE code = ?", String.class, order[0])).isNull();
 	}
 
 	@Test

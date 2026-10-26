@@ -30,12 +30,11 @@ import java.util.UUID;
  * <li>creating an account from the order's tracking page (the token proves this person placed the order) — only
  * that order;</li>
  * <li>signing in with the browser's recent-orders list (code + token for each), and only orders that match the
- * account: the account's verified email, or its phone number, is the one on the order — a link that was forwarded or
- * opened by staff helping the buyer does not move the order to someone else's account. Never for staff/admin
- * accounts;</li>
+ * account: the account's <em>verified</em> email is the one on the order — a link that was forwarded or opened by
+ * staff helping the buyer does not move the order to someone else's account. Never for staff/admin accounts;</li>
  * <li>verifying the account's email — every guest order placed with that email.</li>
  * </ul>
- * Never by phone number alone (phones are not verified). Once attached, the order's tracking links stop working.
+ * Never by phone number (phones are self-asserted and never verified). Once attached, the tracking links stop working.
  */
 @Service
 public class OrderClaimService implements VerifiedEmailHook {
@@ -82,7 +81,7 @@ public class OrderClaimService implements VerifiedEmailHook {
 
 	/**
 	 * After signing in: the browser sends its recent guest orders. Valid ones not yet owned by anyone and matching
-	 * the account (verified email or phone, see the class comment) are attached to the signed-in user; the rest are
+	 * the account (its verified email is on the order, see the class comment) are attached to the signed-in user; the rest are
 	 * reported as skipped (wrong token, expired, someone else's, not this account's) and keep their tracking links.
 	 * Staff and admin accounts never claim: everything is skipped.
 	 */
@@ -114,12 +113,14 @@ public class OrderClaimService implements VerifiedEmailHook {
 		return new ClaimResult(claimed, skipped);
 	}
 
-	/** The order was placed with this account's verified email or with its phone number. */
+	/**
+	 * Ownership proof: the order was placed with this account's <em>verified</em> email. The phone is not used — it is
+	 * self-asserted at registration and never verified, so a forwarded tracking link plus an account registered with
+	 * the buyer's phone would otherwise be enough to seize the order (run-2 lead 8).
+	 */
 	private static boolean belongsTo(Order order, User user) {
-		boolean sameEmail = order.getEmail() != null && user.isEmailVerified()
+		return order.getEmail() != null && user.isEmailVerified()
 				&& order.getEmail().equalsIgnoreCase(user.getEmail());
-		boolean samePhone = user.getPhone() != null && user.getPhone().equals(order.getPhone());
-		return sameEmail || samePhone;
 	}
 
 	/** The account proved it owns {@code email}: its guest orders placed with that email join the account. */
