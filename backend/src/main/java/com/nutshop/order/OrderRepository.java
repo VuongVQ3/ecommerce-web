@@ -18,6 +18,14 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
 
 	long countByStatus(OrderStatus status);
 
+	/** Open orders a phone is currently holding (used to cap anonymous PENDING orders per phone). */
+	long countByPhoneAndStatus(String phone, OrderStatus status);
+
+	/** Codes of orders stuck in a status since before {@code cutoff}; used by the stale-PENDING sweep. */
+	@Query("SELECT o.code FROM Order o WHERE o.status = :status AND o.createdAt < :cutoff")
+	List<String> findCodesByStatusAndCreatedAtBefore(@Param("status") OrderStatus status,
+			@Param("cutoff") java.time.Instant cutoff);
+
 	@EntityGraph(attributePaths = "items")
 	Optional<Order> findByIdempotencyKey(String idempotencyKey);
 

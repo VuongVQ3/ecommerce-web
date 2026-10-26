@@ -20,11 +20,14 @@ import com.nutshop.order.TrackingDtos.LookupResult;
 import com.nutshop.product.PricingService;
 import com.nutshop.product.PricingService.Price;
 import com.nutshop.product.Product;
+import com.nutshop.auth.TurnstileVerifier;
 import com.nutshop.product.ProductRepository;
 import com.nutshop.user.PhoneNumbers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -40,6 +43,8 @@ import org.springframework.util.StringUtils;
 
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -101,13 +106,22 @@ public class OrderService {
 	private final Clock clock;
 	private final AuditLog audit;
 	private final ApplicationEventPublisher events;
+	private final TurnstileVerifier turnstile;
+	private final int maxOpenPendingPerPhone;
+	private final Duration pendingExpiry;
 
 	public OrderService(OrderRepository orders, OrderStatusHistoryRepository history, ProductRepository products,
 			InventoryService inventory, CartService carts, CartProperties cartProps, AdminUnits adminUnits,
 			OrderEmails emails, OrderAccessTokens accessTokens, PricingService pricing, PhoneFlagService phoneFlags,
 			EmailSender emailSender,
 			@Qualifier("applicationTaskExecutor") TaskExecutor executor,
-			PlatformTransactionManager txManager, Clock clock, AuditLog audit, ApplicationEventPublisher events) {
+			PlatformTransactionManager txManager, Clock clock, AuditLog audit, ApplicationEventPublisher events,
+			TurnstileVerifier turnstile,
+			@Value("${app.orders.max-open-pending-per-phone}") int maxOpenPendingPerPhone,
+			@Value("${app.orders.pending-expiry}") Duration pendingExpiry) {
+		this.turnstile = turnstile;
+		this.maxOpenPendingPerPhone = maxOpenPendingPerPhone;
+		this.pendingExpiry = pendingExpiry;
 		this.audit = audit;
 		this.events = events;
 		this.orders = orders;
@@ -143,6 +157,16 @@ public class OrderService {
 		// Every order is cash on delivery today; the reason a number is blocked is never revealed
 		if (phoneFlags.isCodBlocked(phone)) {
 			throw new ApiException(HttpStatus.CONFLICT, COD_NOT_AVAILABLE, "Vui lòng liên hệ hotline để được hỗ trợ đặt hàng.");
+		}
+		// Optional bot check: the frontend may send a Turnstile token; when present it must pass (run-2 leads 11/12).
+		if (StringUtils.hasText(req.turnstileToken())) {
+			turnstile.verify(req.turnstileToken(), null);
+		}
+		// Cap how many unconfirmed orders one phone can hold, so anonymous orders cannot pin stock indefinitely
+		// (run-2 lead 10). The stale-PENDING sweep below also releases abandoned reservations.
+		if (orders.countByPhoneAndStatus(phone, OrderStatus.PENDING) >= maxOpenPendingPerPhone) {
+			throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "TOO_MANY_PENDING_ORDERS",
+					"Bạn đang có nhiều đơn chờ xác nhận. Vui lòng hoàn tất hoặc huỷ bớt trước khi đặt thêm.");
 		}
 		try {
 			return new PlaceResult(tx.execute(status -> create(req, key, phone, userId)), true);
@@ -320,6 +344,28 @@ public class OrderService {
 	}
 
 	// ---- status changes ---------------------------------------------------------------------------------------
+
+	/**
+	 * Auto-cancels PENDING orders older than {@code app.orders.pending-expiry}, releasing their reserved stock, so
+	 * abandoned or fake anonymous orders cannot hold inventory indefinitely (run-2 lead 10). Each order is locked and
+	 * re-checked in its own transaction, so a confirmation racing the sweep is not clobbered.
+	 */
+	@Scheduled(fixedDelayString = "${app.orders.expiry-sweep-ms}")
+	public void expireStalePendingOrders() {
+		Instant cutoff = clock.instant().minus(pendingExpiry);
+		List<String> stale = orders.findCodesByStatusAndCreatedAtBefore(OrderStatus.PENDING, cutoff);
+		for (String code : stale) {
+			try {
+				tx.executeWithoutResult(status -> orders.findWithLockByCode(code)
+					.filter(o -> o.getStatus() == OrderStatus.PENDING && o.getCreatedAt().isBefore(cutoff))
+					.ifPresent(o -> transition(o, OrderStatus.CANCELLED, null,
+							"Tự động huỷ: đơn quá hạn xác nhận", CancelReason.OTHER)));
+			}
+			catch (RuntimeException ex) {
+				log.warn("Could not auto-cancel stale order {}", code, ex);
+			}
+		}
+	}
 
 	/** The customer cancels their own order; only while it is still PENDING. Reserved stock is released. */
 	@Transactional

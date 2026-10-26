@@ -46,7 +46,9 @@ public final class OrderDtos {
 			@Size(max = 255, message = "Địa chỉ tối đa 255 ký tự") String addressLine,
 			@Size(max = 500, message = "Ghi chú tối đa 500 ký tự") String note,
 			@NotBlank(message = "Thiếu mã chống gửi trùng")
-			@Size(min = 8, max = 100, message = "Mã chống gửi trùng không hợp lệ") String idempotencyKey) {
+			@Size(min = 8, max = 100, message = "Mã chống gửi trùng không hợp lệ") String idempotencyKey,
+			/** Optional Cloudflare Turnstile token; verified server-side when present (run-2 leads 11/12). */
+			@Size(max = 4096) String turnstileToken) {
 	}
 
 	/** @param regularUnitPrice the regular price at purchase time (higher than unitPrice when discounted) */

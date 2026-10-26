@@ -44,7 +44,9 @@ public final class TrackingDtos {
 			/** Only used when the order has no email. */
 			@Email(message = "Email không hợp lệ") @Size(max = 255, message = "Email quá dài") String email,
 			/** Optional: the account's name when it should differ from the name on the order. */
-			@PersonName String fullName) {
+			@PersonName String fullName,
+			/** Optional Cloudflare Turnstile token; verified server-side when present (run-2 leads 11/12). */
+			@Size(max = 4096) String turnstileToken) {
 
 		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản sử dụng và Chính sách bảo mật";
 	}

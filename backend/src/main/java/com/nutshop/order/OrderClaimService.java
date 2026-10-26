@@ -47,15 +47,17 @@ public class OrderClaimService implements VerifiedEmailHook {
 	private final AuthService auth;
 	private final AuditLog audit;
 	private final UserRepository users;
+	private final com.nutshop.auth.TurnstileVerifier turnstile;
 
 	public OrderClaimService(OrderRepository orders, OrderAccessTokens accessTokens, GuestOrderService guestOrders,
-			AuthService auth, AuditLog audit, UserRepository users) {
+			AuthService auth, AuditLog audit, UserRepository users, com.nutshop.auth.TurnstileVerifier turnstile) {
 		this.users = users;
 		this.orders = orders;
 		this.accessTokens = accessTokens;
 		this.guestOrders = guestOrders;
 		this.auth = auth;
 		this.audit = audit;
+		this.turnstile = turnstile;
 	}
 
 	/**
@@ -64,6 +66,10 @@ public class OrderClaimService implements VerifiedEmailHook {
 	 */
 	@Transactional
 	public AuthResult claimWithNewAccount(String code, String token, ClaimAccountRequest req, ClientInfo client) {
+		// Optional bot check: verify a Turnstile token when the client sends one (run-2 leads 11/12).
+		if (StringUtils.hasText(req.turnstileToken())) {
+			turnstile.verify(req.turnstileToken(), client.ip());
+		}
 		Order order = guestOrders.find(code, token, true);
 		String email = order.getEmail() != null ? order.getEmail() : req.email();
 		if (!StringUtils.hasText(email)) {

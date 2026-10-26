@@ -179,16 +179,15 @@ public class CartService {
 
 	/** {@code price} comes from PricingService: a promotion starting or ending counts as a price change. */
 	private CartLine line(LineInput in, Product p, Price price) {
-		if (p == null) {
-			return new CartLine(in.productId(), MISSING_PRODUCT_NAME, null, null, null, null, 0, null, in.priceAtAdd(),
-					0, in.quantity(), 0, 0, LineStatus.UNAVAILABLE);
+		// A missing or inactive (draft/discontinued) product is opaque: no name, slug, image or category. /api/cart/validate
+		// accepts arbitrary ids, so returning an inactive product's metadata would leak draft products by id (run-2 lead 13).
+		if (p == null || !p.isActive()) {
+			return new CartLine(p == null ? in.productId() : p.getId(), MISSING_PRODUCT_NAME, null, null, null, null, 0,
+					null, in.priceAtAdd(), 0, in.quantity(), 0, 0, LineStatus.UNAVAILABLE);
 		}
-		int max = p.isActive() ? cap(p) : 0;
+		int max = cap(p);
 		LineStatus status;
-		if (!p.isActive()) {
-			status = LineStatus.UNAVAILABLE;
-		}
-		else if (max == 0) {
+		if (max == 0) {
 			status = LineStatus.OUT_OF_STOCK;
 		}
 		else if (in.quantity() > max) {
