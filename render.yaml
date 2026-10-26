@@ -35,7 +35,7 @@ services:
       # (and VITE_TURNSTILE_SITE_KEY) before taking real customers.
       - key: TURNSTILE_SECRET_KEY
         value: 1x0000000000000000000000000000000AA
-      # Empty = password-reset emails are only written to the Render logs
+      # Required: with no key the app fails to start (it will not silently log reset/invite links). Set it in the dashboard.
       - key: RESEND_API_KEY
         sync: false
       - key: GOOGLE_CLIENT_ID
