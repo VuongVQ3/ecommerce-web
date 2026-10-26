@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -26,6 +28,9 @@ import java.util.UUID;
 public class UserStatusFilter extends OncePerRequestFilter {
 
 	public static final String PASSWORD_CHANGE_REQUIRED = "PASSWORD_CHANGE_REQUIRED";
+
+	// Decoded, normalized match on the back office, so an encoded path such as /api/%61dmin/** cannot skip these checks.
+	private static final RequestMatcher BACK_OFFICE = PathPatternRequestMatcher.withDefaults().matcher("/api/admin/**");
 
 	private final UserStatusCache statuses;
 
@@ -48,7 +53,7 @@ public class UserStatusFilter extends OncePerRequestFilter {
 					"Tài khoản đã bị khoá. Vui lòng liên hệ cửa hàng để được hỗ trợ.", "ACCOUNT_LOCKED");
 			return;
 		}
-		if (request.getRequestURI().startsWith("/api/admin/")) {
+		if (BACK_OFFICE.matches(request)) {
 			Role role = status.get().role();
 			if (role != Role.STAFF && role != Role.ADMIN) {
 				ProblemResponses.write(response, HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập chức năng này");

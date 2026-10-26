@@ -5,6 +5,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -21,9 +23,12 @@ public class RequestedWithHeaderFilter extends OncePerRequestFilter {
 
 	private static final Set<String> UNSAFE_METHODS = Set.of("POST", "PUT", "PATCH", "DELETE");
 
+	// Decoded, normalized match on /api/**, so an encoded first segment (e.g. /%61pi/...) cannot skip the CSRF check.
+	private static final RequestMatcher API = PathPatternRequestMatcher.withDefaults().matcher("/api/**");
+
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
-		return !UNSAFE_METHODS.contains(request.getMethod()) || !request.getRequestURI().startsWith("/api/");
+		return !UNSAFE_METHODS.contains(request.getMethod()) || !API.matches(request);
 	}
 
 	@Override
