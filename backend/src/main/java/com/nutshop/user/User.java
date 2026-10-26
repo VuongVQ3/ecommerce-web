@@ -49,6 +49,10 @@ public class User {
 	@Column(name = "email_verified_at")
 	private Instant emailVerifiedAt;
 
+	/** Bumped on any credential change; access tokens carry it so older sessions stop working when it changes. */
+	@Column(name = "credential_version", nullable = false)
+	private int credentialVersion;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt = Instant.now();
 
@@ -92,6 +96,7 @@ public class User {
 		this.passwordHash = null;
 		this.passwordChangeRequired = false;
 		this.phone = null;
+		this.credentialVersion++;
 		this.updatedAt = Instant.now();
 	}
 
@@ -99,6 +104,7 @@ public class User {
 	public void changePassword(String passwordHash) {
 		this.passwordHash = passwordHash;
 		this.passwordChangeRequired = false;
+		this.credentialVersion++;
 		this.updatedAt = Instant.now();
 	}
 
@@ -186,6 +192,10 @@ public class User {
 
 	public Instant getEmailVerifiedAt() {
 		return emailVerifiedAt;
+	}
+
+	public int getCredentialVersion() {
+		return credentialVersion;
 	}
 
 	/** @return true when this call verified it (false if it already was) */

@@ -1,5 +1,6 @@
 package com.nutshop.security;
 
+import com.nutshop.auth.TokenService;
 import com.nutshop.user.Role;
 import com.nutshop.user.UserStatusCache;
 import jakarta.servlet.FilterChain;
@@ -51,6 +52,14 @@ public class UserStatusFilter extends OncePerRequestFilter {
 			SecurityContextHolder.clearContext();
 			ProblemResponses.write(response, HttpStatus.UNAUTHORIZED,
 					"Tài khoản đã bị khoá. Vui lòng liên hệ cửa hàng để được hỗ trợ.", "ACCOUNT_LOCKED");
+			return;
+		}
+		Object tokenVersion = jwt.getToken().getClaim(TokenService.CREDENTIAL_VERSION_CLAIM);
+		long presented = tokenVersion instanceof Number n ? n.longValue() : 0L;
+		if (presented != status.get().credentialVersion()) {
+			SecurityContextHolder.clearContext();
+			ProblemResponses.write(response, HttpStatus.UNAUTHORIZED,
+					"Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.", "SESSION_INVALIDATED");
 			return;
 		}
 		if (BACK_OFFICE.matches(request)) {

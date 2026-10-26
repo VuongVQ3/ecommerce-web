@@ -20,7 +20,7 @@ public class UserStatusCache {
 
 	public static final Duration TTL = Duration.ofSeconds(60);
 
-	public record Status(boolean active, Role role, boolean passwordChangeRequired) {
+	public record Status(boolean active, Role role, boolean passwordChangeRequired, int credentialVersion) {
 	}
 
 	private record Entry(Optional<Status> status, Instant expiresAt) {
@@ -41,7 +41,7 @@ public class UserStatusCache {
 		Entry entry = cache.get(userId);
 		if (entry == null || entry.expiresAt().isBefore(now)) {
 			Optional<Status> status = users.findById(userId)
-				.map(u -> new Status(u.isActive(), u.getRole(), u.isPasswordChangeRequired()));
+				.map(u -> new Status(u.isActive(), u.getRole(), u.isPasswordChangeRequired(), u.getCredentialVersion()));
 			entry = new Entry(status, now.plus(TTL));
 			cache.put(userId, entry);
 			if (cache.size() > 10_000) {

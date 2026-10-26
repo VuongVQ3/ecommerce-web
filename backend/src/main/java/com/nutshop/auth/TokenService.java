@@ -17,6 +17,7 @@ import java.time.Instant;
 public class TokenService {
 
 	public static final String ROLE_CLAIM = "role";
+	public static final String CREDENTIAL_VERSION_CLAIM = "cv";
 
 	private final JwtEncoder encoder;
 	private final JwtProperties props;
@@ -34,6 +35,7 @@ public class TokenService {
 		var claims = JwtClaimsSet.builder()
 			.subject(user.getId().toString())
 			.claim(ROLE_CLAIM, user.getRole().name())
+			.claim(CREDENTIAL_VERSION_CLAIM, user.getCredentialVersion())
 			.issuedAt(now)
 			.expiresAt(now.plus(props.accessTokenTtl()))
 			.build();
