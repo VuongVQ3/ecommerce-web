@@ -51,6 +51,11 @@ public class AdminBootstrap implements ApplicationRunner {
 		if (user.getRole() == Role.ADMIN) {
 			return;
 		}
+		if (!user.isEmailVerified() || !user.isActive()) {
+			log.warn("ADMIN_EMAIL account {} is not verified/active; not promoting to ADMIN until its owner proves the email",
+					user.getId());
+			return;
+		}
 		Role previous = user.getRole();
 		user.changeRole(Role.ADMIN);
 		audit.entry("USER_PROMOTED", "USER", user.getId(), AuditLog.userLabel(user.getFullName(), user.getEmail()))

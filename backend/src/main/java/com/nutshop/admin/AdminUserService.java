@@ -167,6 +167,12 @@ public class AdminUserService {
 		if (user.getRole() == role) {
 			throw conflict("ROLE_UNCHANGED", "Tài khoản đã có role này");
 		}
+		// Granting staff authority needs a proven email. An unverified account may have been registered by someone
+		// who does not control the inbox, so route it through the invite flow (which proves the inbox) instead.
+		if (role == Role.STAFF && !user.isEmailVerified()) {
+			throw conflict("EMAIL_NOT_VERIFIED",
+					"Tài khoản chưa xác minh email. Hãy dùng chức năng mời nhân viên để xác minh trước khi cấp quyền.");
+		}
 		Role before = user.getRole();
 		user.changeRole(role);
 		users.flush();

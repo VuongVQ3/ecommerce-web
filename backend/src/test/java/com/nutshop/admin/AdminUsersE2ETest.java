@@ -236,6 +236,12 @@ class AdminUsersE2ETest {
 			.andExpect(status().isBadRequest());
 		as(admin, json(post("/api/admin/users/" + customer.id() + "/role"), "{\"role\":\"ADMIN\",\"reason\":\"x\"}"))
 			.andExpect(status().isConflict());
+		// Granting STAFF needs a proven email (run-2 lead 6); verify it first, then the promotion succeeds.
+		as(admin, json(post("/api/admin/users/" + customer.id() + "/role"), "{\"role\":\"STAFF\",\"reason\":\"tuyển mới\"}"))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("EMAIL_NOT_VERIFIED"));
+		jdbc.update("UPDATE users SET email_verified_at = now() WHERE id = ?", customer.id());
+		statuses.evict(customer.id());
 		as(admin, json(post("/api/admin/users/" + customer.id() + "/role"), "{\"role\":\"STAFF\",\"reason\":\"tuyển mới\"}"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.role").value("STAFF"));

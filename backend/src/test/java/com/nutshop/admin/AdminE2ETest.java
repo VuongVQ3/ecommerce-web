@@ -809,6 +809,11 @@ class AdminE2ETest {
 
 		mvc.perform(json(post("/api/auth/register"), RegisterJson.of("Chủ Shop", email, "matkhau123")))
 			.andExpect(status().isCreated());
+		// Registered but unverified: promotion is withheld until the email is proven (run-2 lead 5).
+		tx.executeWithoutResult(s -> new AdminBootstrap(users, auditLog, email.toUpperCase()).run(null));
+		assertThat(users.findByEmail(email).orElseThrow().getRole()).isEqualTo(com.nutshop.user.Role.CUSTOMER);
+
+		jdbc.update("UPDATE users SET email_verified_at = now() WHERE email = ?", email);
 		tx.executeWithoutResult(s -> new AdminBootstrap(users, auditLog, " " + email.toUpperCase() + " ").run(null));
 		var user = users.findByEmail(email).orElseThrow();
 		assertThat(user.getRole()).isEqualTo(com.nutshop.user.Role.ADMIN);
