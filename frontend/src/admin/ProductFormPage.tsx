@@ -388,9 +388,13 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
             aria-required="true"
             className={`${input} mt-1`}
             aria-invalid={errors.description ? true : undefined}
+            aria-describedby="description-help"
             {...register('description')}
           />
           {errors.description && <p className="mt-1 text-sm text-danger">{errors.description.message}</p>}
+          <p id="description-help" className="mt-1 text-sm text-muted">
+            Chia thành nhiều mục: mỗi mục cách nhau một dòng trống, dòng đầu của mục là tiêu đề (ví dụ "Bảo quản:").
+          </p>
         </div>
         <fieldset>
           <legend className="text-sm font-semibold text-stone-900">Dinh dưỡng trên 100g (không bắt buộc)</legend>

@@ -10,6 +10,7 @@ import {
   type QuickViewState,
 } from '../lib/quickView'
 import { useFocusTrap } from '../lib/useFocusTrap'
+import ProductDescription from './ProductDescription'
 import { AddToCartControl, NutritionChips, ProductPrice, StockBadge } from './ProductInfo'
 import ProductImageSlider from './ProductImageSlider'
 
@@ -187,7 +188,7 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
             ) : detail ? (
               <>
                 <StockBadge product={detail} className="mt-5" />
-                <p className="mt-5 leading-relaxed text-stone-700">{detail.description}</p>
+                <ProductDescription text={detail.description} className="mt-5" />
                 <NutritionChips nutrition={detail.nutritionPer100g} className="mt-6" />
                 <AddToCartControl product={detail} className="mt-6" onAdded={setAdded} />
                 <p className="mt-2 min-h-5 text-sm font-medium text-success" aria-live="polite">

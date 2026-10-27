@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import ProductCard from '../components/ProductCard'
+import ProductDescription from '../components/ProductDescription'
 import { AddToCartControl, NutritionTable, ProductPrice, StockBadge } from '../components/ProductInfo'
 import ProductImageSlider from '../components/ProductImageSlider'
 import QuickViewHost from '../components/QuickView'
@@ -128,7 +129,7 @@ export default function ProductDetailPage() {
 
           <StockBadge product={product} />
 
-          <p className="mt-6 leading-relaxed text-stone-700">{product.description}</p>
+          <ProductDescription text={product.description} className="mt-6" />
 
           {/* Keyed by product so the chosen quantity resets when navigating to another product */}
           <AddToCartControl key={product.id} product={product} />
