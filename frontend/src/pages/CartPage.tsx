@@ -38,7 +38,7 @@ export default function CartPage() {
         <EmptyCart />
       ) : (
         <div className="mt-6 grid gap-8 md:grid-cols-[1fr_320px]">
-          <section aria-label="Sản phẩm trong giỏ" className="rounded-2xl border border-stone-200 bg-white px-4 sm:px-6">
+          <section aria-label="Sản phẩm trong giỏ" className="self-start rounded-2xl border border-stone-200 bg-white px-4 sm:px-6">
             <CartLines lines={lines} highlight={shortages.map((s) => s.productId)} />
           </section>
           {view && (
