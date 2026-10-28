@@ -59,7 +59,7 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
             imageUrl={product.imageUrl}
             categorySlug={product.category.slug}
             size={320}
-            className="aspect-square size-full transition-transform duration-300 motion-safe:group-hover:scale-[1.02]"
+            className="aspect-square size-full transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.08]"
           />
         </Link>
         <div className="pointer-events-none absolute top-3 left-3 flex flex-col items-start gap-1.5">
