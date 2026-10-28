@@ -211,7 +211,7 @@ body {
 .fc-link:focus-visible, .fc-link:focus-visible .fc-dot::after { animation-play-state: paused; }
 
 /*
- * Phones (data-compact): one chat button; the channels open above it, bottom one first, and close faster. Idle
+ * Under 1280px (data-compact): one chat button; the channels open above it, bottom one first, and close faster. Idle
  * motion only on the button; names always shown in the open list; the chat icon turns into ×.
  */
 .fc[data-compact] .fc-item {
@@ -229,7 +229,7 @@ body {
   transition: opacity 180ms ease-out var(--fc-open-delay, 0ms), transform 180ms ease-out var(--fc-open-delay, 0ms), visibility 0s;
 }
 .fc[data-compact] .fc-item .fc-link, .fc[data-compact] .fc-item .fc-dot::after { animation: none; }
-.fc[data-compact] .fc-label { opacity: 1; transform: none; }
+.fc[data-compact] .fc-item .fc-label { opacity: 1; transform: none; }
 .fc[data-open] .fc-toggle, .fc[data-open] .fc-toggle .fc-dot::after { animation-play-state: paused; }
 .fc-icon { transition: transform 200ms ease-out, opacity 200ms ease-out; }
 .fc-icon-close { opacity: 0; transform: rotate(-90deg); }
@@ -244,7 +244,7 @@ body {
 .btt-ring { transition: stroke-dashoffset 100ms linear; }
 .btt:active .btt-dot { transform: scale(0.95); transition-duration: 100ms; }
 .btt:focus-visible .fc-label { opacity: 1; transform: none; }
-/* Phones: 12px gap + 8px, so it stays at least 12px from the chat button even while that one hops (up 4px, 1.12×) */
+/* Compact mode: 12px gap + 8px, so it stays at least 12px from the chat button even while that one hops (up 4px, 1.12×) */
 .fc[data-compact] .btt { margin-bottom: 8px; }
 @media (hover: hover) and (pointer: fine) {
   .btt:hover .btt-dot { transform: scale(1.1); }
