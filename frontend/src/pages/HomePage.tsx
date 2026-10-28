@@ -99,7 +99,14 @@ function Hero({ productCount }: { productCount?: number }) {
         <div aria-hidden className="relative mx-auto aspect-square w-full max-w-sm">
           <div className="parallax absolute inset-[12%] rounded-full bg-gradient-to-br from-white to-nut-light shadow-2xl shadow-nut/20 [--depth:8px]" />
           <div className="parallax absolute inset-[24%] flex items-center justify-center rounded-full bg-white/70 text-[7rem] [--depth:-10px]">
-            <span className="floaty">🌰</span>
+            <img
+              src="/brand/logo-hat-lanh-masthead.webp"
+              alt=""
+              width={444}
+              height={406}
+              fetchPriority="high"
+              className="floaty w-[70%] drop-shadow-md"
+            />
           </div>
           {FLOATERS.map((f) => (
             <div key={f.emoji} className={`parallax absolute ${f.className}`} style={{ ['--depth' as string]: f.depth }}>

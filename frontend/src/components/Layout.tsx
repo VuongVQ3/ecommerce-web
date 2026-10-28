@@ -301,8 +301,9 @@ function Footer() {
       {/* Under 1280px: 64px clear on the right for the floating chat / back-to-top buttons */}
       <div className="mx-auto grid max-w-6xl gap-8 px-4 pt-10 pb-8 pr-16 text-sm text-stone-600 sm:grid-cols-2 xl:pr-4 lg:grid-cols-4">
         <div>
-          <p className="text-base font-bold text-brand-800">
-            <span aria-hidden="true">🌰 </span>Hạt Lành
+          <p className="flex items-center gap-2 text-base font-bold text-brand-800">
+            <img src="/brand/logo-hat-lanh-96.webp" alt="" width={26} height={24} loading="lazy" className="h-6 w-auto" />
+            Hạt Lành
           </p>
           <p className="mt-2">Hạt dinh dưỡng, bánh hạt và đặc sản chọn lọc.</p>
         </div>
@@ -431,7 +432,8 @@ export default function Layout() {
             to="/"
             className="mr-auto flex shrink-0 items-center gap-2 text-xl font-extrabold whitespace-nowrap text-brand-800 lg:mr-0"
           >
-            <span aria-hidden="true">🌰</span> Hạt Lành
+            <img src="/brand/logo-hat-lanh-96.webp" alt="" width={35} height={32} className="h-8 w-auto" />
+            Hạt Lành
           </Link>
           <nav className="hidden shrink-0 gap-5 lg:flex" aria-label="Menu chính">
             <NavLink to="/" end className={navClass}>
