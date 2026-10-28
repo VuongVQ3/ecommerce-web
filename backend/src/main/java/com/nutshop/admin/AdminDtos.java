@@ -4,6 +4,7 @@ import com.nutshop.order.AdminOrderService.ContactResult;
 import com.nutshop.order.CancelReason;
 import com.nutshop.order.PhoneFlag;
 import com.nutshop.product.Product;
+import com.nutshop.product.ShortDescription;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -68,6 +69,8 @@ public final class AdminDtos {
 			@NotBlank(message = "Vui lòng nhập tên sản phẩm") @Size(max = 200, message = "Tên tối đa 200 ký tự") String name,
 			@Size(max = 200, message = "Slug tối đa 200 ký tự") String slug,
 			@NotNull(message = "Vui lòng chọn danh mục") Long categoryId,
+			// Trimmed (blank = none) before it is validated, see the compact constructor
+			@Size(max = ShortDescription.MAX, message = "Mô tả ngắn tối đa 160 ký tự") String shortDescription,
 			@NotBlank(message = "Vui lòng nhập mô tả") @Size(max = 2000, message = "Mô tả tối đa 2000 ký tự") String description,
 			@Size(max = 100, message = "Xuất xứ tối đa 100 ký tự") String origin,
 			// Optional while the product is hidden (being prepared); required to show it
@@ -83,8 +86,12 @@ public final class AdminDtos {
 			/** Storefront order (smaller first); null = after the others on create, unchanged on update */
 			@Min(value = 0, message = "Thứ tự không được âm") @Max(value = 100_000, message = "Thứ tự quá lớn") Integer sortOrder) {
 
+		public ProductRequest {
+			shortDescription = blankToNull(shortDescription);
+		}
+
 		Product.Details details() {
-			return new Product.Details(name.trim(), description.trim(), blankToNull(origin), price == null ? 0 : price,
+			return new Product.Details(name.trim(), shortDescription, description.trim(), blankToNull(origin), price == null ? 0 : price,
 					weightGrams, calories, protein, fat, carbs, fiber, lowStockThreshold == null ? 10 : lowStockThreshold,
 					sortOrder);
 		}

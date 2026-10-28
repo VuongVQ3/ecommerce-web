@@ -141,6 +141,8 @@ export interface ProductInput {
   /** Empty: generated from the name. */
   slug: string
   categoryId: number
+  /** At most 160 characters; empty = none (the storefront derives one from the description) */
+  shortDescription: string
   description: string
   origin: string
   /** null = no price yet (only for a hidden product) */
@@ -157,8 +159,10 @@ export interface ProductInput {
   sortOrder: number | null
 }
 
-export interface AdminProduct extends Omit<ProductInput, 'origin' | 'price' | 'sortOrder'> {
+export interface AdminProduct extends Omit<ProductInput, 'shortDescription' | 'origin' | 'price' | 'sortOrder'> {
   id: number
+  /** null = none typed */
+  shortDescription: string | null
   origin: string | null
   /** 0 = no price yet */
   price: number

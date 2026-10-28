@@ -96,6 +96,21 @@ class SiteE2ETest {
 	}
 
 	@Test
+	void productMetaDescriptionIsTheShortDescriptionOrTheFirstParagraph() throws Exception {
+		String slug = "mac-ca-" + UUID.randomUUID();
+		long id = productOnSale("Mắc ca thử", slug);
+		try {
+			assertThat(html("/san-pham/" + slug)).contains("<meta name=\"description\" content=\"Mắc ca nguyên vỏ.\" />");
+			jdbc.update("UPDATE products SET short_description = 'Mắc ca Đắk Lắk, nứt vỏ sẵn.' WHERE id = ?", id);
+			assertThat(html("/san-pham/" + slug))
+				.contains("<meta name=\"description\" content=\"Mắc ca Đắk Lắk, nứt vỏ sẵn.\" />");
+		}
+		finally {
+			jdbc.update("DELETE FROM products WHERE id = ?", id);
+		}
+	}
+
+	@Test
 	void missingAndHiddenProductsAreReal404s() throws Exception {
 		mvc.perform(get("/san-pham/khong-co-san-pham-nay"))
 			.andExpect(status().isNotFound())

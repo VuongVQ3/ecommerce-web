@@ -80,7 +80,8 @@ export default function ProductDetailPage() {
   const current = product?.slug === slug ? product : null
   usePageMeta(
     current && `${current.name} ${formatWeight(current.weightGrams)} – ${formatPrice(current.price)} | ${BRAND}`,
-    current?.description.slice(0, 155),
+    // Same as the server-rendered tag: typed, or derived from the description (≤ 160 characters)
+    current?.shortDescription,
   )
 
   if (error instanceof ApiError && error.status === 404) return <NotFoundPage />

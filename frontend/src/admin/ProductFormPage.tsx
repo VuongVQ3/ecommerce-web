@@ -14,7 +14,17 @@ import { slugify } from '../lib/slug'
 import { useAsync } from '../lib/useAsync'
 import NotFoundPage from '../pages/NotFoundPage'
 import MoneyInput from './MoneyInput'
-import { EMPTY_PRODUCT, isBigPriceChange, priceChangePercent, productSchemaFor, toForm, toInput, type ProductForm } from './productSchema'
+import {
+  EMPTY_PRODUCT,
+  isBigPriceChange,
+  priceChangePercent,
+  productSchemaFor,
+  SHORT_DESCRIPTION_MAX,
+  SHORT_DESCRIPTION_TOO_LONG,
+  toForm,
+  toInput,
+  type ProductForm,
+} from './productSchema'
 import { VisibilityDialog } from './ProductsPage'
 import { btn, card, input } from './styles'
 import { Dialog, PageHeader, UnsavedChangesGuard } from './ui'
@@ -245,6 +255,10 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
   }, [saved, form])
   const priceText = form.watch('price')
   const priceValue = /^\d+$/.test(priceText) ? Number(priceText) : null
+  // Counted like the server (spaces around do not count). Typing or pasting past the limit is allowed (a maxLength
+  // would cut a paste silently): the counter turns red, the error shows at once and saving waits.
+  const shortDescriptionLength = (form.watch('shortDescription') ?? '').trim().length
+  const shortDescriptionTooLong = shortDescriptionLength > SHORT_DESCRIPTION_MAX
 
   const nameField = register('name')
   const slugField = register('slug')
@@ -378,6 +392,35 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
           {num('sortOrder', 'Thứ tự hiển thị', 'Số nhỏ hiện trước trên cửa hàng; để trống = xếp sau cùng', false)}
         </div>
         <div>
+          <div className="flex items-baseline justify-between gap-3">
+            <label htmlFor="shortDescription" className="text-sm font-medium text-stone-700">
+              Mô tả ngắn
+            </label>
+            <span
+              id="shortDescription-count"
+              className={`text-sm tabular-nums ${shortDescriptionTooLong ? 'font-semibold text-danger' : 'text-muted'}`}
+            >
+              {shortDescriptionLength}/{SHORT_DESCRIPTION_MAX}
+            </span>
+          </div>
+          <textarea
+            id="shortDescription"
+            rows={3}
+            className={`${input} mt-1`}
+            aria-invalid={shortDescriptionTooLong || errors.shortDescription ? true : undefined}
+            aria-describedby="shortDescription-error shortDescription-help shortDescription-count"
+            {...register('shortDescription')}
+          />
+          {(shortDescriptionTooLong || errors.shortDescription) && (
+            <p id="shortDescription-error" className="mt-1 text-sm text-danger">
+              {shortDescriptionTooLong ? SHORT_DESCRIPTION_TOO_LONG : errors.shortDescription?.message}
+            </p>
+          )}
+          <p id="shortDescription-help" className="mt-1 text-sm text-muted">
+            Hiển thị ở xem nhanh và kết quả tìm kiếm Google.
+          </p>
+        </div>
+        <div>
           <label htmlFor="description" className="text-sm font-medium text-stone-700">
             Mô tả
           </label>
@@ -411,7 +454,7 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
           <Link to="/admin/san-pham" className={btn.secondary}>
             Huỷ
           </Link>
-          <button type="submit" className={btn.primary} disabled={pending} aria-busy={pending}>
+          <button type="submit" className={btn.primary} disabled={pending || shortDescriptionTooLong} aria-busy={pending}>
             {pending ? 'Đang lưu...' : current ? 'Lưu thay đổi' : 'Tạo sản phẩm'}
           </button>
         </div>

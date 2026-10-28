@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import AddToCartButton from '../cart/AddToCartButton'
 import { useCart } from '../cart/CartContext'
@@ -149,17 +149,26 @@ export function NutritionChips({ nutrition, className = 'mt-6' }: { nutrition: N
 /**
  * Quantity picker + add button: the quantity is what will be added, bounded by what the cart can still take
  * (maxPurchasable minus what is already in it). Shows how many are already in the cart. Discontinued products get a
- * notice instead.
+ * notice instead. `aside` (e.g. a link) ends the button's row from md up when it fits, and goes under it otherwise.
+ * `quickview`: below md it is the quick view's buy bar, quantity and button on one row (the button takes the rest);
+ * `aside` and the notes are left out there (the quick view shows them above the bar).
  */
 export function AddToCartControl({
   product,
   className = 'mt-8',
   onAdded,
+  aside,
+  variant = 'page',
 }: {
   product: Pick<ProductDetail, 'id' | 'name' | 'active' | 'maxPurchasable' | 'stockStatus'>
   className?: string
   onAdded?: (quantity: number) => void
+  aside?: ReactNode
+  variant?: 'page' | 'quickview'
 }) {
+  const bar = variant === 'quickview'
+  // Below md in the quick view: shown above the buy bar instead
+  const belowBar = bar ? 'max-md:hidden' : ''
   const [quantity, setQuantity] = useState(1)
   const { getQuantity } = useCart()
   const inCart = getQuantity(product.id)
@@ -168,25 +177,36 @@ export function AddToCartControl({
   const chosen = Math.max(Math.min(quantity, room), 1)
 
   if (!product.active) {
-    return (
-      <p className={`${className} rounded-xl bg-stone-100 px-4 py-3 text-sm text-stone-700`} role="note">
+    const note = (
+      <p className={`${aside ? '' : className} rounded-xl bg-stone-100 px-4 py-3 text-sm text-stone-700`} role="note">
         Sản phẩm này đã ngừng kinh doanh.
       </p>
+    )
+    return aside ? (
+      <div className={className}>
+        {note}
+        <div className={`mt-3 ${belowBar}`}>{aside}</div>
+      </div>
+    ) : (
+      note
     )
   }
 
   const ref = { id: product.id, name: product.name, maxPurchasable: product.maxPurchasable }
   return (
-    <div className={`${className} flex flex-wrap items-center gap-3`}>
+    <div className={`${className} flex items-center gap-3 ${bar ? 'md:flex-wrap' : 'flex-wrap'}`}>
       {product.maxPurchasable > 0 && (
         <QuantityStepper value={chosen} max={Math.max(room, 1)} onChange={setQuantity} label={product.name} disabled={full} />
       )}
-      <div className="w-full sm:w-auto sm:flex-1">
+      {/* Quick view: the button grows into the free room but never shrinks below its one-line label (basis auto, so
+          a row too narrow wraps the link under it instead of squeezing the button), filling its slot (! beats the
+          button's own sm:w-auto); below md it fills the bar */}
+      <div className={bar ? 'flex-[1_0_auto] *:w-full! max-md:*:px-4' : 'w-full sm:w-auto sm:flex-1'}>
         {full ? (
           <button
             type="button"
             disabled
-            className="w-full cursor-not-allowed rounded-full bg-stone-200 px-6 py-3 font-semibold text-stone-600 sm:w-auto"
+            className="w-full cursor-not-allowed rounded-full bg-stone-200 px-6 py-3 font-semibold whitespace-nowrap text-stone-600 sm:w-auto"
           >
             Đã đạt số lượng tối đa
           </button>
@@ -202,8 +222,10 @@ export function AddToCartControl({
           />
         )}
       </div>
+      {/* At the row's end when it fits (the button takes the room before it), else on the next line, left-aligned */}
+      {aside && <div className={`w-full md:w-auto ${belowBar}`}>{aside}</div>}
       {inCart > 0 && (
-        <p className="w-full text-sm text-stone-700" aria-live="polite">
+        <p className={`w-full text-sm text-stone-700 ${belowBar}`} aria-live="polite">
           <span className="font-semibold text-success">✓ Đã có {inCart} trong giỏ</span>
           {' · '}
           <Link to="/gio-hang" className="font-semibold text-brand-700 underline hover:text-brand-800">
@@ -212,7 +234,7 @@ export function AddToCartControl({
         </p>
       )}
       {product.maxPurchasable > 0 && product.stockStatus.status === 'IN_STOCK' && (
-        <p className="w-full text-sm text-muted">Tối đa {product.maxPurchasable} sản phẩm cho mỗi đơn.</p>
+        <p className={`w-full text-sm text-muted ${belowBar}`}>Tối đa {product.maxPurchasable} sản phẩm cho mỗi đơn.</p>
       )}
     </div>
   )

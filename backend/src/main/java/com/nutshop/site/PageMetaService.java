@@ -4,6 +4,7 @@ import com.nutshop.product.Category;
 import com.nutshop.product.PricingService;
 import com.nutshop.product.Product;
 import com.nutshop.product.ProductImage;
+import com.nutshop.product.ShortDescription;
 
 import org.springframework.stereotype.Service;
 
@@ -81,7 +82,7 @@ public class PageMetaService {
 	}
 
 	/**
-	 * "Hạnh nhân sấy 500g – 189.000₫ | Hạt Lành", the description cut to 155 characters, the primary image and
+	 * "Hạnh nhân sấy 500g – 189.000₫ | Hạt Lành", the short description (typed or derived, see ShortDescription), the primary image and
 	 * schema.org Product + BreadcrumbList.
 	 */
 	public PageMeta product(Product p, List<ProductImage> images, PricingService.Price current) {
@@ -118,7 +119,7 @@ public class PageMetaService {
 
 		Map<String, Object> breadcrumb = breadcrumb(List.of(crumb("Trang chủ", "/"), crumb("Sản phẩm", "/san-pham"),
 				crumb(p.getCategory().getName(), "/danh-muc/" + p.getCategory().getSlug()), crumb(p.getName(), path)));
-		return new PageMeta(title, truncate(p.getDescription()), path, image, "product", false,
+		return new PageMeta(title, ShortDescription.of(p), path, image, "product", false,
 				List.of(product, breadcrumb));
 	}
 

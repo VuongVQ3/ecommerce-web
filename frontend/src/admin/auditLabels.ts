@@ -70,6 +70,7 @@ export const FIELD_LABEL: Record<string, string> = {
   name: 'Tên',
   slug: 'Đường dẫn',
   categoryId: 'Danh mục',
+  shortDescription: 'Mô tả ngắn',
   description: 'Mô tả',
   origin: 'Xuất xứ',
   weightGrams: 'Khối lượng',

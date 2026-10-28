@@ -10,6 +10,7 @@ const product = (id: number, protein: number | null, calories: number | null): P
   id,
   name: `Sản phẩm ${id}`,
   slug: `san-pham-${id}`,
+  shortDescription: null,
   price: 150_000,
   regularPrice: 150_000,
   discountPercent: null,

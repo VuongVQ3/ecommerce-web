@@ -12,6 +12,7 @@ const base: ProductSummary = {
   id: 1,
   name: 'Hạnh nhân rang mộc',
   slug: 'hanh-nhan-rang-moc',
+  shortDescription: null,
   price: 189_000,
   regularPrice: 189_000,
   discountPercent: null,

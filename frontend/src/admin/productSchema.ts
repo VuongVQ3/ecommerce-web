@@ -33,6 +33,10 @@ const optionalWhole = (label: string, min: number, max: number) =>
       return n >= min && n <= max
     }, `Trong khoảng ${min.toLocaleString('vi-VN')} – ${max.toLocaleString('vi-VN')}`)
 
+/** Longest short description (the server and the database allow the same) */
+export const SHORT_DESCRIPTION_MAX = 160
+export const SHORT_DESCRIPTION_TOO_LONG = `Mô tả ngắn tối đa ${SHORT_DESCRIPTION_MAX} ký tự`
+
 export const NUTRIENTS = ['calories', 'protein', 'fat', 'carbs', 'fiber'] as const
 export const NUTRITION_INCOMPLETE = 'Nhập đủ 5 chỉ số hoặc để trống cả 5'
 export const PRICE_REQUIRED = 'Nhập giá bán trước khi hiện sản phẩm'
@@ -45,6 +49,8 @@ const fields = z.object({
     .max(200, 'Tối đa 200 ký tự')
     .refine((v) => v === '' || SLUG_PATTERN.test(v), 'Chỉ chữ thường không dấu, số và dấu "-" (VD: hat-dieu-rang)'),
   categoryId: z.string().min(1, 'Vui lòng chọn danh mục'),
+  // Optional: without it the storefront uses the description's first paragraph
+  shortDescription: z.string().trim().max(SHORT_DESCRIPTION_MAX, SHORT_DESCRIPTION_TOO_LONG),
   description: z.string().trim().min(1, 'Vui lòng nhập mô tả').max(2000, 'Tối đa 2000 ký tự'),
   origin: z.string().trim().max(100, 'Tối đa 100 ký tự'),
   // Empty while the product is being prepared (hidden); see productSchemaFor
@@ -82,6 +88,7 @@ export const EMPTY_PRODUCT: ProductForm = {
   name: '',
   slug: '',
   categoryId: '',
+  shortDescription: '',
   description: '',
   origin: '',
   price: '',
@@ -105,6 +112,7 @@ export function toInput(f: ProductForm): ProductInput {
     name: f.name.trim(),
     slug: f.slug.trim(),
     categoryId: Number(f.categoryId),
+    shortDescription: f.shortDescription.trim(),
     description: f.description.trim(),
     origin: f.origin.trim(),
     price: intOrNull(f.price),
@@ -126,6 +134,7 @@ export function toForm(p: AdminProduct): ProductForm {
     name: p.name,
     slug: p.slug,
     categoryId: String(p.categoryId),
+    shortDescription: p.shortDescription ?? '',
     description: p.description,
     origin: p.origin ?? '',
     // 0 = no price yet

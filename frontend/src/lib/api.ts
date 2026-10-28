@@ -39,6 +39,8 @@ export interface ProductSummary extends Pricing {
   id: number
   name: string
   slug: string
+  /** Typed in the back office, or the description's first paragraph cut to 160 (server-side); null if both blank */
+  shortDescription: string | null
   weightGrams: number
   imageUrl: string | null
   /** Per 100g; null until the product's nutrition facts are known */
@@ -77,6 +79,8 @@ export interface ProductDetail extends Pricing {
   id: number
   name: string
   slug: string
+  /** Quick view and <meta name="description">: typed, or derived from the description (at most 160 characters) */
+  shortDescription: string | null
   description: string
   origin: string | null
   weightGrams: number

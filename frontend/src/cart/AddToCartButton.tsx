@@ -53,7 +53,8 @@ export default function AddToCartButton({ product, quantity = 1, variant = 'card
   const soldOut = product.maxPurchasable <= 0
   const base =
     variant === 'page'
-      ? 'w-full rounded-full px-6 py-3 font-semibold sm:w-auto'
+      ? // One line always: never narrower than its label
+        'w-full rounded-full px-6 py-3 font-semibold whitespace-nowrap sm:w-auto'
       : // A size container: the label shortens to an icon + "Thêm" when the full one would not fit on one line
         '@container h-10 w-full rounded-full px-4 text-sm font-semibold whitespace-nowrap'
 

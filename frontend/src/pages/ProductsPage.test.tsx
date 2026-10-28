@@ -12,6 +12,7 @@ const product = (id: number, name: string, slug: string): ProductSummary => ({
   id,
   name,
   slug,
+  shortDescription: null,
   price: 189_000,
   regularPrice: 189_000,
   discountPercent: null,

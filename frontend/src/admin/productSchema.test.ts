@@ -16,6 +16,17 @@ const valid = {
 }
 
 describe('productSchema', () => {
+  it('takes a short description of up to 160 characters, trimmed; empty is allowed', () => {
+    expect(toInput(productSchema.parse({ ...valid, shortDescription: '  Giòn, bùi.  ' })).shortDescription).toBe('Giòn, bùi.')
+    expect(toInput(productSchema.parse({ ...valid, shortDescription: '   ' })).shortDescription).toBe('')
+    expect(productSchema.safeParse({ ...valid, shortDescription: 'đ'.repeat(160) }).success).toBe(true)
+    // Spaces around do not count
+    expect(productSchema.safeParse({ ...valid, shortDescription: ` ${'đ'.repeat(160)} ` }).success).toBe(true)
+    const tooLong = productSchema.safeParse({ ...valid, shortDescription: 'đ'.repeat(161) })
+    expect(tooLong.success).toBe(false)
+    expect(tooLong.error!.issues).toEqual([expect.objectContaining({ path: ['shortDescription'], message: 'Mô tả ngắn tối đa 160 ký tự' })])
+  })
+
   it('accepts Vietnamese number formats and converts them', () => {
     const parsed = productSchema.parse(valid)
     const input = toInput(parsed)

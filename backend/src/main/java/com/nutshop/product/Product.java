@@ -26,6 +26,10 @@ public class Product {
 	@Column(nullable = false, length = 2000)
 	private String description;
 
+	/** Typed in the back office; null = derived from the description when shown (see ShortDescription). */
+	@Column(name = "short_description", length = ShortDescription.MAX)
+	private String shortDescription;
+
 	private String origin;
 
 	/** Price in VND. */
@@ -85,10 +89,12 @@ public class Product {
 	/**
 	 * Editable fields of a product (stock is managed separately through inventory movements).
 	 *
+	 * @param shortDescription null = none typed (derived from the description when shown)
 	 * @param price 0 = no price yet (the product cannot be shown until it has one)
 	 * @param sortOrder null = keep the current one
 	 */
-	public record Details(String name, String description, String origin, long price, int weightGrams,
+	public record Details(String name, String shortDescription, String description, String origin, long price,
+			int weightGrams,
 			BigDecimal calories, BigDecimal protein, BigDecimal fat, BigDecimal carbs, BigDecimal fiber,
 			int lowStockThreshold, Integer sortOrder) {
 	}
@@ -108,6 +114,7 @@ public class Product {
 
 	private void apply(Details d) {
 		this.name = d.name();
+		this.shortDescription = d.shortDescription();
 		this.description = d.description();
 		this.origin = d.origin();
 		this.price = d.price();
@@ -189,6 +196,10 @@ public class Product {
 
 	public String getDescription() {
 		return description;
+	}
+
+	public String getShortDescription() {
+		return shortDescription;
 	}
 
 	public String getOrigin() {

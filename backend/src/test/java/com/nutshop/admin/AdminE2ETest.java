@@ -287,6 +287,51 @@ class AdminE2ETest {
 			.andExpect(jsonPath("$.code").value("PRICE_REQUIRED"));
 	}
 
+	/** Typed short description: trimmed, blank = none, at most 160; without one the storefront derives it. */
+	@Test
+	void shortDescriptionIsTrimmedCappedAndOtherwiseDerivedFromTheDescription() throws Exception {
+		Cookie admin = as("ADMIN");
+		String slug = "mo-ta-ngan-" + UUID.randomUUID();
+		String base = productJson("Mô tả ngắn thử", slug, 120_000).replace("\"description\":\"Mô tả test\"",
+				"\"description\":\"Giới thiệu:\\nHạt điều rang muối giòn tan.\\n\\nBảo quản:\\nNơi khô ráo.\"");
+		String created = mvc.perform(json(post("/api/admin/products"),
+				base.replace("\"categoryId\"", "\"shortDescription\":\"  Giòn, bùi, không dầu.  \",\"categoryId\"")).cookie(admin))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.shortDescription").value("Giòn, bùi, không dầu."))
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		long id = Long.parseLong(created.replaceAll("(?s).*?\"id\":(\\d+).*", "$1"));
+		createdProducts.add(id);
+		jdbc.update("UPDATE products SET active = true WHERE id = ?", id);
+		mvc.perform(get("/api/products/" + slug)).andExpect(jsonPath("$.shortDescription").value("Giòn, bùi, không dầu."));
+
+		// 160 characters fit (spaces around do not count), 161 do not
+		String max = "đ".repeat(com.nutshop.product.ShortDescription.MAX);
+		mvc.perform(json(put("/api/admin/products/" + id),
+				base.replace("\"categoryId\"", "\"shortDescription\":\" " + max + " \",\"categoryId\"")).cookie(admin))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.shortDescription").value(max));
+		mvc.perform(json(put("/api/admin/products/" + id),
+				base.replace("\"categoryId\"", "\"shortDescription\":\"" + max + "x\",\"categoryId\"")).cookie(admin))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.shortDescription").value("Mô tả ngắn tối đa 160 ký tự"));
+		assertThat(jdbc.queryForObject("SELECT short_description FROM products WHERE id = ?", String.class, id))
+			.isEqualTo(max);
+
+		// Blank is stored as null; the storefront then shows the first paragraph (heading skipped), never stored
+		mvc.perform(json(put("/api/admin/products/" + id),
+				base.replace("\"categoryId\"", "\"shortDescription\":\"   \",\"categoryId\"")).cookie(admin))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.shortDescription").isEmpty());
+		assertThat(jdbc.queryForObject("SELECT short_description FROM products WHERE id = ?", String.class, id)).isNull();
+		mvc.perform(get("/api/products/" + slug))
+			.andExpect(jsonPath("$.shortDescription").value("Hạt điều rang muối giòn tan."));
+		mvc.perform(get("/api/products").param("q", "Mô tả ngắn thử"))
+			.andExpect(jsonPath("$.items[?(@.slug == '" + slug + "')].shortDescription", hasItem("Hạt điều rang muối giòn tan.")));
+		assertThat(jdbc.queryForObject("SELECT short_description FROM products WHERE id = ?", String.class, id)).isNull();
+	}
+
 	/** The storefront follows sort_order by default (not the name, not the id); the admin can change it. */
 	@Test
 	void storefrontOrderFollowsTheSortOrderSetInTheBackOffice() throws Exception {

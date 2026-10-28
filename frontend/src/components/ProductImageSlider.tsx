@@ -18,8 +18,10 @@ interface Props {
    * a frosted pill, plus the thumbnail row from 768px
    */
   nav: 'dots' | 'thumbnails' | 'quickview'
-  /** Rounded corners of the square frame */
+  /** Rounded corners of the frame */
   rounded?: string
+  /** Shape of the frame (photos cover it) */
+  frame?: string
   /** Emoji size of the placeholder */
   placeholderClass?: string
 }
@@ -45,6 +47,7 @@ export default function ProductImageSlider({
   categorySlug,
   nav,
   rounded = 'rounded-3xl',
+  frame = 'aspect-square',
   placeholderClass = '[&>span]:text-8xl',
 }: Props) {
   const urls = (images.length > 0 ? images.map((i) => i.url) : fallbackUrl ? [fallbackUrl] : []).slice(0, MAX_SLIDES)
@@ -96,7 +99,7 @@ export default function ProductImageSlider({
 
   return (
     <div>
-      <div className={`relative aspect-square w-full overflow-hidden bg-white ${rounded}`}>
+      <div className={`relative w-full overflow-hidden bg-white ${frame} ${rounded}`}>
         <div
           ref={track}
           tabIndex={count > 1 ? 0 : -1}

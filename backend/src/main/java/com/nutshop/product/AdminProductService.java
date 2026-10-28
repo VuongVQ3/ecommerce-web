@@ -58,19 +58,22 @@ public class AdminProductService {
 		}
 	}
 
-	public record ProductAdminDetail(Long id, String name, String slug, Long categoryId, String description,
+	public record ProductAdminDetail(Long id, String name, String slug, Long categoryId, String shortDescription,
+			String description,
 			String origin, long price, int weightGrams, BigDecimal calories, BigDecimal protein, BigDecimal fat,
 			BigDecimal carbs, BigDecimal fiber, int lowStockThreshold, boolean active, int onHand, int reserved,
 			int available, List<ImageRow> images, Instant priceLockedUntil, int sortOrder) {
 	}
 
 	/** What the audit log stores for a product (editable fields only). */
-	private record AuditView(String name, String slug, Long categoryId, String description, String origin, long price,
+	private record AuditView(String name, String slug, Long categoryId, String shortDescription, String description,
+			String origin, long price,
 			int weightGrams, BigDecimal calories, BigDecimal protein, BigDecimal fat, BigDecimal carbs,
 			BigDecimal fiber, int lowStockThreshold, boolean active) {
 
 		static AuditView of(Product p) {
-			return new AuditView(p.getName(), p.getSlug(), p.getCategory().getId(), p.getDescription(), p.getOrigin(),
+			return new AuditView(p.getName(), p.getSlug(), p.getCategory().getId(), p.getShortDescription(),
+					p.getDescription(), p.getOrigin(),
 					p.getPrice(), p.getWeightGrams(), p.getCalories(), p.getProtein(), p.getFat(), p.getCarbs(),
 					p.getFiber(), p.getLowStockThreshold(), p.isActive());
 		}
@@ -338,7 +341,8 @@ public class AdminProductService {
 	// ---- helpers ----------------------------------------------------------------------------------------------
 
 	private ProductAdminDetail detail(Product p) {
-		return new ProductAdminDetail(p.getId(), p.getName(), p.getSlug(), p.getCategory().getId(), p.getDescription(),
+		return new ProductAdminDetail(p.getId(), p.getName(), p.getSlug(), p.getCategory().getId(),
+				p.getShortDescription(), p.getDescription(),
 				p.getOrigin(), p.getPrice(), p.getWeightGrams(), p.getCalories(), p.getProtein(), p.getFat(),
 				p.getCarbs(), p.getFiber(), p.getLowStockThreshold(), p.isActive(), p.getOnHand(), p.getReserved(),
 				p.availableQuantity(),

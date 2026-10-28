@@ -26,6 +26,12 @@
   --color-brand-900: #1b3518;
 }
 
+/*
+ * Desktop windows tall enough for the whole quick view (QuickView.tsx) without scrolling; the short description is
+ * clamped to five lines there as a safety net. Lower windows may scroll inside the quick view and clamp nothing.
+ */
+@custom-variant qv-full (@media (min-width: 48rem) and (min-height: 47rem));
+
 body {
   @apply bg-cream font-sans text-stone-800 antialiased;
 }

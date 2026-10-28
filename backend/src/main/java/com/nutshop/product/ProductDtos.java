@@ -68,15 +68,16 @@ public final class ProductDtos {
 	 * @param regularPrice the usual price; equal to price when not discounted
 	 * @param discountPercent null when not discounted
 	 * @param promotionEndsAt null when not discounted
+	 * @param shortDescription typed, or derived from the description (see ShortDescription); null when both are blank
 	 */
-	public record ProductSummary(Long id, String name, String slug, Long price, Long regularPrice,
+	public record ProductSummary(Long id, String name, String slug, String shortDescription, Long price, Long regularPrice,
 			Integer discountPercent, Instant promotionEndsAt, Integer weightGrams, String imageUrl,
 			BigDecimal calories, BigDecimal protein, StockStatus stockStatus, int maxPurchasable,
 			CategoryResponse category) {
 
 		static ProductSummary from(Product p, int maxQtyPerItem, PricingService.Price price) {
-			return new ProductSummary(p.getId(), p.getName(), p.getSlug(), price.price(), price.regularPrice(),
-					price.discountPercent(), price.promotionEndsAt(), p.getWeightGrams(), p.getImageUrl(),
+			return new ProductSummary(p.getId(), p.getName(), p.getSlug(), ShortDescription.of(p), price.price(),
+					price.regularPrice(), price.discountPercent(), price.promotionEndsAt(), p.getWeightGrams(), p.getImageUrl(),
 					p.getCalories(), p.getProtein(), StockStatus.of(p), softMax(p, maxQtyPerItem),
 					CategoryResponse.from(p.getCategory()));
 		}
@@ -93,8 +94,9 @@ public final class ProductDtos {
 	 * @param active false when discontinued (page stays reachable, cannot be bought)
 	 * @param images primary first; empty = emoji placeholder
 	 * @param nutritionPer100g null when not known yet
+	 * @param shortDescription typed, or derived from the description (see ShortDescription)
 	 */
-	public record ProductDetail(Long id, String name, String slug, String description, String origin, Long price,
+	public record ProductDetail(Long id, String name, String slug, String shortDescription, String description, String origin, Long price,
 			Long regularPrice, Integer discountPercent, Instant promotionEndsAt, Integer weightGrams, boolean active,
 			StockStatus stockStatus, int maxPurchasable, String imageUrl, List<ImageResponse> images,
 			Nutrition nutritionPer100g, CategoryResponse category,
@@ -102,8 +104,8 @@ public final class ProductDtos {
 			@JsonInclude(JsonInclude.Include.NON_NULL) String redirectTo) {
 
 		static ProductDetail from(Product p, int maxQtyPerItem, List<ProductImage> images, PricingService.Price price) {
-			return new ProductDetail(p.getId(), p.getName(), p.getSlug(), p.getDescription(), p.getOrigin(),
-					price.price(), price.regularPrice(), price.discountPercent(), price.promotionEndsAt(),
+			return new ProductDetail(p.getId(), p.getName(), p.getSlug(), ShortDescription.of(p), p.getDescription(),
+					p.getOrigin(), price.price(), price.regularPrice(), price.discountPercent(), price.promotionEndsAt(),
 					p.getWeightGrams(), p.isActive(), StockStatus.of(p), softMax(p, maxQtyPerItem),
 					p.getImageUrl(),
 					images.stream().map(i -> new ImageResponse(i.getUrl(), i.getWidth(), i.getHeight())).toList(),
@@ -114,7 +116,7 @@ public final class ProductDtos {
 		}
 
 		ProductDetail redirectedFrom() {
-			return new ProductDetail(id, name, slug, description, origin, price, regularPrice, discountPercent,
+			return new ProductDetail(id, name, slug, shortDescription, description, origin, price, regularPrice, discountPercent,
 					promotionEndsAt, weightGrams, active, stockStatus, maxPurchasable, imageUrl, images, nutritionPer100g,
 					category, slug);
 		}
