@@ -10,6 +10,12 @@ describe('cloudinaryUrl', () => {
     expect(cloudinaryUrl('https://res.cloudinary.com/demo/image/upload/a.png', 320, 180)).toContain('w_320,h_180/a.png')
   })
 
+  it('limit: the whole photo scaled to fit, not cropped (uploads are not always square)', () => {
+    expect(cloudinaryUrl('https://res.cloudinary.com/demo/image/upload/v1/a.jpg', 1200, 1200, 'limit')).toBe(
+      'https://res.cloudinary.com/demo/image/upload/f_auto,q_auto,c_limit,w_1200,h_1200/v1/a.jpg',
+    )
+  })
+
   it('leaves other URLs untouched', () => {
     expect(cloudinaryUrl('https://example.com/image/upload/a.png', 400)).toBe('https://example.com/image/upload/a.png')
     expect(cloudinaryUrl('/images/a.png', 400)).toBe('/images/a.png')

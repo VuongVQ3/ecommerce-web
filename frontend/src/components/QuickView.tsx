@@ -148,9 +148,9 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
         {/* Phones: one scrolling column (photo, then details). Desktop: `contents`, the columns are grid cells. */}
         <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto overscroll-contain md:contents">
           {/* Desktop: a cream column with padding, the square photo with rounded corners and thumbnails under it;
-              one photo or none is centred vertically. Phones: 4:3 edge to edge (at most 40% of the screen), dots and
-              counter inside it. The slider marks the shown photo as the one "Thêm vào giỏ hàng" flies to the cart;
-              key: another product starts at its first photo. */}
+              one photo or none is centred vertically. Phones: a 4:3 cream band (at most 40% of the screen) with the
+              whole photo in it, the dots and the counter in a strip under the photo. The slider marks the shown
+              photo as the one "Thêm vào giỏ hàng" flies to the cart; key: another product starts at its first photo. */}
           <div
             className={`bg-cream md:row-span-2 md:flex md:min-h-0 md:flex-col md:overflow-y-auto md:p-6 ${
               photoCount > 1 ? 'md:justify-start' : 'md:justify-center'
@@ -164,7 +164,7 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
                 fallbackUrl={product.imageUrl}
                 categorySlug={product.category.slug}
                 nav="quickview"
-                frame="aspect-[4/3] max-h-[40vh] md:aspect-square md:max-h-none"
+                frame="aspect-[4/3] max-h-[40vh] bg-cream md:aspect-square md:max-h-none md:bg-white"
                 rounded="rounded-none md:rounded-2xl"
               />
             ) : (

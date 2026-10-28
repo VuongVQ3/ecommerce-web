@@ -11,13 +11,32 @@ interface Props {
   className?: string
   /** The photo the visitor sees first: load it at once (others wait until near the viewport) */
   eager?: boolean
+  /** How the photo fills its box (object-cover: cropped to it) */
+  fit?: string
+  /**
+   * Below md, load the whole photo (Cloudinary `limit`, uploads are not always square) instead of the square crop;
+   * from md the usual square copy is loaded, unchanged
+   */
+  wholeBelowMd?: boolean
 }
 
+/** Same breakpoint as Tailwind's md */
+const BELOW_MD = '(max-width: 767.98px)'
+
 /** Product photo (resized by Cloudinary), or a category-themed placeholder when missing or broken. */
-export default function ProductImage({ name, imageUrl, categorySlug, size = 400, className = '', eager = false }: Props) {
+export default function ProductImage({
+  name,
+  imageUrl,
+  categorySlug,
+  size = 400,
+  className = '',
+  eager = false,
+  fit = 'object-cover',
+  wholeBelowMd = false,
+}: Props) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
   if (imageUrl && failedUrl !== imageUrl) {
-    return (
+    const img = (
       <img
         src={cloudinaryUrl(imageUrl, size * 2)}
         alt={name}
@@ -27,8 +46,16 @@ export default function ProductImage({ name, imageUrl, categorySlug, size = 400,
         fetchPriority={eager ? 'high' : undefined}
         decoding="async"
         onError={() => setFailedUrl(imageUrl)}
-        className={`object-cover ${className}`}
+        className={`${fit} ${className}`}
       />
+    )
+    if (!wholeBelowMd) return img
+    // `contents`: the picture element takes no box, the img sizes itself as without it
+    return (
+      <picture className="contents">
+        <source media={BELOW_MD} srcSet={cloudinaryUrl(imageUrl, size * 3, size * 3, 'limit')} />
+        {img}
+      </picture>
     )
   }
   const style = categoryStyle(categorySlug)

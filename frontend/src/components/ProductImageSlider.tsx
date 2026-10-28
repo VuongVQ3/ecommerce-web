@@ -20,7 +20,7 @@ interface Props {
   nav: 'dots' | 'thumbnails' | 'quickview'
   /** Rounded corners of the frame */
   rounded?: string
-  /** Shape of the frame (photos cover it) */
+  /** Shape and background of the frame */
   frame?: string
   /** Emoji size of the placeholder */
   placeholderClass?: string
@@ -47,7 +47,7 @@ export default function ProductImageSlider({
   categorySlug,
   nav,
   rounded = 'rounded-3xl',
-  frame = 'aspect-square',
+  frame = 'aspect-square bg-white',
   placeholderClass = '[&>span]:text-8xl',
 }: Props) {
   const urls = (images.length > 0 ? images.map((i) => i.url) : fallbackUrl ? [fallbackUrl] : []).slice(0, MAX_SLIDES)
@@ -56,6 +56,7 @@ export default function ProductImageSlider({
   const count = slides.length
   const [index, setIndex] = useState(0)
   const track = useRef<HTMLDivElement>(null)
+  const quick = nav === 'quickview'
   const reduced = usePrefersReducedMotion()
 
   // The scroll position decides which photo is shown (swipes, arrows and keys all scroll)
@@ -99,7 +100,7 @@ export default function ProductImageSlider({
 
   return (
     <div>
-      <div className={`relative w-full overflow-hidden bg-white ${frame} ${rounded}`}>
+      <div className={`relative w-full overflow-hidden ${frame} ${rounded}`}>
         <div
           ref={track}
           tabIndex={count > 1 ? 0 : -1}
@@ -117,14 +118,19 @@ export default function ProductImageSlider({
               aria-label={`${i + 1} / ${count}`}
               aria-hidden={i !== index}
               data-fly-source={i === index ? '' : undefined}
-              className="size-full shrink-0 snap-center snap-always"
+              // Quick view below md: a strip under the photo for the dots and the counter, so they never cover it
+              className={`size-full shrink-0 snap-center snap-always ${quick ? 'max-md:pb-8' : ''}`}
             >
+              {/* Quick view below md: the whole photo (uploads are not always square), contained in the 4:3 frame;
+                  from md the square frame is covered as everywhere else */}
               <ProductImage
                 name={count > 1 ? `${name} – ảnh ${i + 1}` : name}
                 imageUrl={url}
                 categorySlug={categorySlug}
                 size={400}
                 eager={i === 0}
+                fit={quick ? 'max-md:object-contain md:object-cover' : undefined}
+                wholeBelowMd={quick}
                 className={`size-full ${placeholderClass}`}
               />
             </div>
@@ -138,14 +144,17 @@ export default function ProductImageSlider({
             <button type="button" onClick={() => goTo(index + 1)} disabled={index === count - 1} aria-label="Ảnh sau" className={`${arrow} right-3`}>
               <Chevron dir="next" />
             </button>
-            <p aria-live="polite" className="absolute right-3 bottom-3 rounded-full bg-stone-900/60 px-2.5 py-0.5 text-xs font-semibold text-white tabular-nums">
+            <p
+              aria-live="polite"
+              className={`absolute right-3 ${quick ? 'bottom-1.5 md:bottom-3' : 'bottom-3'} rounded-full bg-stone-900/60 px-2.5 py-0.5 text-xs font-semibold text-white tabular-nums`}
+            >
               {index + 1}/{count}
             </p>
             {nav === 'quickview' && (
               <div
                 role="group"
                 aria-label="Chọn ảnh"
-                className="absolute bottom-3 left-1/2 flex -translate-x-1/2 rounded-full bg-stone-900/35 px-1 backdrop-blur-sm"
+                className="absolute bottom-1 left-1/2 flex -translate-x-1/2 rounded-full bg-stone-900/35 px-1 backdrop-blur-sm md:bottom-3"
               >
                 {slides.map((url, i) => (
                   <button
