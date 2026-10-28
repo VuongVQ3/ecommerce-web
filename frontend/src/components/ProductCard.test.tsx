@@ -57,10 +57,40 @@ describe('ProductCard', () => {
     expect(screen.getByText('-30%')).toBeTruthy()
   })
 
-  it('shows no nutrition chips while the figures are not known', () => {
-    renderCard({ ...base, name: 'Mật ong hoa cà phê', calories: null, protein: null })
+  it('shows the nutrition in short English as a two-colour pill on phones and as two chips from sm, rounded', () => {
+    // Older figures may still have decimals: shown as whole numbers
+    renderCard({ ...base, protein: 20.5, calories: 584.6 })
+    const [pill, proteinChip] = screen.getAllByTitle('Protein 21g · 585 kcal / 100g')
+    expect(pill.lang).toBe('en')
+    // One line of fixed height, never wider than the card
+    for (const c of ['flex', 'h-5', 'max-w-full', 'whitespace-nowrap', 'sm:hidden']) expect(pill.className.split(' ')).toContain(c)
+    const [protein, comma, kcal] = pill.children
+    // Protein half: the protein chip's colours, rounded on the left, the one cut with an ellipsis when too long
+    expect(protein.textContent).toBe('Protein 21g')
+    for (const c of ['bg-brand-50', 'text-brand-700', 'rounded-l-full', 'min-w-0', 'truncate']) {
+      expect(protein.className.split(' ')).toContain(c)
+    }
+    // Kcal half: the kcal chip's colours, rounded on the right, always shown in full
+    expect(kcal.textContent).toBe('585 kcal')
+    for (const c of ['bg-nut-light', 'text-nut', 'rounded-r-full', 'shrink-0']) expect(kcal.className.split(' ')).toContain(c)
+    // No dot; screen readers hear "Protein 21g, 585 kcal"
+    expect(comma.className).toBe('sr-only')
+    expect(pill.textContent).toBe('Protein 21g, 585 kcal')
+
+    const chips = proteinChip.parentElement!
+    expect(chips.className).toContain('max-sm:hidden')
+    expect([...chips.children].map((c) => c.textContent)).toEqual(['Protein 21g', '585 kcal'])
+    expect(screen.queryByText(/đạm/)).toBeNull()
+  })
+
+  it('shows no nutrition facts while the figures are not known, but keeps the line on phones', () => {
+    const { container } = renderCard({ ...base, name: 'Mật ong hoa cà phê', calories: null, protein: null })
     expect(screen.queryByText(/kcal/)).toBeNull()
-    expect(screen.queryByText(/protein|đạm/)).toBeNull()
+    expect(screen.queryByText(/protein|đạm/i)).toBeNull()
     expect(screen.getByText('/ 500g')).toBeTruthy()
+    // An empty line as tall as the chip, so prices and buttons line up with cards that have the facts
+    const spacer = container.querySelector('h3 + div')!
+    expect(spacer.getAttribute('aria-hidden')).toBe('true')
+    expect(spacer.className).toBe('h-5 sm:hidden')
   })
 })

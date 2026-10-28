@@ -119,18 +119,21 @@ export function NutritionTable({
 const CHIPS: { key: keyof Nutrition; label: (v: number) => string }[] = [
   { key: 'calories', label: (v) => `${v} kcal` },
   { key: 'protein', label: (v) => `Protein ${v}g` },
-  { key: 'fat', label: (v) => `Béo ${v}g` },
-  { key: 'carbs', label: (v) => `Carb ${v}g` },
-  { key: 'fiber', label: (v) => `Xơ ${v}g` },
+  { key: 'fat', label: (v) => `Fat ${v}g` },
+  { key: 'carbs', label: (v) => `Carbs ${v}g` },
+  { key: 'fiber', label: (v) => `Fiber ${v}g` },
 ]
 
-/** Compact per-100g figures as small chips (quick view); nothing while the figures are not known. */
+/**
+ * Compact per-100g figures as small chips (quick view), short English labels and whole numbers (older figures may
+ * still have decimals); nothing while the figures are not known. The product page table keeps both languages.
+ */
 export function NutritionChips({ nutrition, className = 'mt-6' }: { nutrition: Nutrition | null; className?: string }) {
   if (!nutrition) return null
   return (
-    <section className={className} aria-labelledby="nutrition-chips-title">
+    <section lang="en" className={className} aria-labelledby="nutrition-chips-title">
       <h3 id="nutrition-chips-title" className="text-sm font-semibold text-stone-900">
-        Dinh dưỡng <span className="font-normal text-muted">/ 100g</span>
+        Nutrition <span className="font-normal text-muted">/ 100g</span>
       </h3>
       <ul className="mt-2 flex flex-wrap gap-2">
         {CHIPS.map((c) => (
@@ -138,7 +141,7 @@ export function NutritionChips({ nutrition, className = 'mt-6' }: { nutrition: N
             key={c.key}
             className="rounded-full border border-stone-200 bg-white px-3 py-1 text-sm font-medium text-stone-800 tabular-nums"
           >
-            {c.label(nutrition[c.key])}
+            {c.label(Math.round(nutrition[c.key]))}
           </li>
         ))}
       </ul>

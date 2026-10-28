@@ -7,6 +7,7 @@ import com.nutshop.product.Product;
 import com.nutshop.product.ShortDescription;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -76,12 +77,18 @@ public final class AdminDtos {
 			// Optional while the product is hidden (being prepared); required to show it
 			@Min(value = 1000, message = "Giá tối thiểu 1.000₫") @Max(value = 100_000_000L, message = "Giá quá lớn") Long price,
 			@NotNull(message = "Vui lòng nhập khối lượng") @Min(value = 1, message = "Khối lượng phải lớn hơn 0") @Max(value = 100_000, message = "Khối lượng quá lớn") Integer weightGrams,
-			// Nutrition per 100g: optional, but all five or none (checked by AdminProductService)
-			@DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "1000", message = "Giá trị quá lớn") BigDecimal calories,
-			@DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal protein,
-			@DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal fat,
-			@DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal carbs,
-			@DecimalMin(value = "0", message = "Không được âm") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal fiber,
+			// Nutrition per 100g: optional, but all five or none (checked by AdminProductService); whole numbers above 0.
+			// The columns keep decimals: older figures may still have some (shown rounded on the storefront).
+			@Digits(integer = 4, fraction = 0, message = "Năng lượng: chỉ nhập số nguyên, không có phần lẻ")
+			@DecimalMin(value = "1", message = "Năng lượng phải lớn hơn 0") @DecimalMax(value = "1000", message = "Giá trị quá lớn") BigDecimal calories,
+			@Digits(integer = 4, fraction = 0, message = "Chất đạm: chỉ nhập số nguyên, không có phần lẻ")
+			@DecimalMin(value = "1", message = "Chất đạm phải lớn hơn 0") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal protein,
+			@Digits(integer = 4, fraction = 0, message = "Chất béo: chỉ nhập số nguyên, không có phần lẻ")
+			@DecimalMin(value = "1", message = "Chất béo phải lớn hơn 0") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal fat,
+			@Digits(integer = 4, fraction = 0, message = "Chất bột đường: chỉ nhập số nguyên, không có phần lẻ")
+			@DecimalMin(value = "1", message = "Chất bột đường phải lớn hơn 0") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal carbs,
+			@Digits(integer = 4, fraction = 0, message = "Chất xơ: chỉ nhập số nguyên, không có phần lẻ")
+			@DecimalMin(value = "1", message = "Chất xơ phải lớn hơn 0") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal fiber,
 			@Min(value = 0, message = "Ngưỡng không được âm") @Max(value = 100_000, message = "Ngưỡng quá lớn") Integer lowStockThreshold,
 			/** Storefront order (smaller first); null = after the others on create, unchanged on update */
 			@Min(value = 0, message = "Thứ tự không được âm") @Max(value = 100_000, message = "Thứ tự quá lớn") Integer sortOrder) {

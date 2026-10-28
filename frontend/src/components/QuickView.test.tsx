@@ -77,6 +77,20 @@ describe('QuickView', () => {
     expect(alwaysClamped(summary)).toEqual([])
   })
 
+  it('shows the nutrition in short English, as whole numbers (older figures may have decimals)', async () => {
+    open(detail({ nutritionPer100g: { calories: 718.4, protein: 20.5, fat: 75.8, carbs: 13.8, fiber: 8.6 } }))
+    const heading = await screen.findByRole('heading', { name: 'Nutrition / 100g' })
+    const section = heading.closest('section')!
+    expect(section.lang).toBe('en')
+    expect([...section.querySelectorAll('li')].map((li) => li.textContent)).toEqual([
+      '718 kcal',
+      'Protein 21g',
+      'Fat 76g',
+      'Carbs 14g',
+      'Fiber 9g',
+    ])
+  })
+
   it('fits its content up to the screen height; desktop: the button under the nutrition, the link on its row', async () => {
     // An over-long short description (a stale answer) is clamped on a tall desktop window; elsewhere it may scroll
     open(detail({ shortDescription: 'Rất dài '.repeat(200).trim() }))
@@ -91,7 +105,7 @@ describe('QuickView', () => {
 
     // Reading order: nutrition, then the button; desktop: the bar is the details column's last cell, no border,
     // the link ends the button's row (hidden below md, where it sits above the bar)
-    const nutrition = screen.getByRole('heading', { name: /Dinh dưỡng/ })
+    const nutrition = screen.getByRole('heading', { name: /Nutrition/ })
     expect(nutrition.compareDocumentPosition(addToCart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const bar = addToCart.closest('.shrink-0')!
     expect(bar.className).toContain('md:col-start-2')

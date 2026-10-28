@@ -22,10 +22,19 @@ function EyeIcon({ className }: { className: string }) {
  * inside a link is invalid HTML and confuses keyboard and screen-reader users). Quick view: a labelled button at the
  * bottom of the image on hover/focus with a mouse, an always-visible eye icon on touch screens.
  */
+/** The card's figures as whole numbers (older ones may still have decimals); null while they are not known */
+function cardNutrition({ protein, calories }: ProductSummary) {
+  if (protein == null || calories == null) return null
+  const p = Math.round(protein)
+  const c = Math.round(calories)
+  return { protein: p, calories: c, title: `Protein ${p}g · ${c} kcal / 100g` }
+}
+
 export default function ProductCard({ product }: { product: ProductSummary }) {
   const href = `/san-pham/${product.slug}`
   const openQuickView = useOpenQuickView()
   const card = useRef<HTMLElement>(null)
+  const nutrition = cardNutrition(product)
 
   useEffect(() => {
     const el = card.current
@@ -89,22 +98,34 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
           </Link>
         </h3>
         {/*
-          Phones: chips never truncate; they wrap to a second line when they do not fit, and the row always reserves
-          two lines so cards in a row keep the same height. Wider screens: one line as before. No row at all while
-          the product's nutrition facts are not known.
+          Short English labels, whole numbers (older figures may still have decimals). Phones: one pill of two
+          halves in the colours of the wider screens' two chips, 11px and tight so the longest usual figures
+          ("Protein 99g", "999 kcal") fit a 375px screen; past that the protein half is cut with an ellipsis, the
+          kcal half always shows (full text in the title). Every card keeps that line, empty while the product's
+          nutrition facts are not known, so prices and buttons line up across a row. Wider screens: two chips on
+          one line; no row at all without the facts.
         */}
-        {product.protein != null && product.calories != null && (
-          <div className="flex min-w-0 flex-wrap content-start gap-1 text-xs whitespace-nowrap max-sm:min-h-[2.75rem] sm:flex-nowrap sm:gap-1.5 sm:overflow-hidden">
-            {/* "đạm" on phones so the two chips usually fit side by side */}
-            <span
-              title={`${product.protein}g protein / 100g`}
-              className="shrink-0 rounded-full bg-brand-50 px-1.5 py-0.5 text-brand-700 sm:min-w-0 sm:shrink sm:truncate sm:px-2"
+        {nutrition ? (
+          <>
+            <p
+              lang="en"
+              title={nutrition.title}
+              className="flex h-5 max-w-full self-start text-[11px] leading-4 tracking-tight whitespace-nowrap sm:hidden"
             >
-              {product.protein}g <span className="sm:hidden">đạm</span>
-              <span className="max-sm:hidden">protein</span>
-            </span>
-            <span className="shrink-0 rounded-full bg-nut-light px-1.5 py-0.5 text-nut sm:min-w-0 sm:truncate sm:px-2">{product.calories} kcal</span>
-          </div>
+              <span className="min-w-0 truncate rounded-l-full bg-brand-50 py-0.5 pr-1 pl-1.5 text-brand-700">Protein {nutrition.protein}g</span>
+              {/* Read as "Protein 21g, 585 kcal" */}
+              <span className="sr-only">, </span>
+              <span className="shrink-0 rounded-r-full bg-nut-light py-0.5 pr-1.5 pl-1 text-nut">{nutrition.calories} kcal</span>
+            </p>
+            <div lang="en" className="flex min-w-0 gap-1.5 overflow-hidden text-xs whitespace-nowrap max-sm:hidden">
+              <span title={nutrition.title} className="min-w-0 truncate rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">
+                Protein {nutrition.protein}g
+              </span>
+              <span className="min-w-0 shrink-0 truncate rounded-full bg-nut-light px-2 py-0.5 text-nut">{nutrition.calories} kcal</span>
+            </div>
+          </>
+        ) : (
+          <div aria-hidden="true" className="h-5 sm:hidden" />
         )}
         <div className="mt-auto flex flex-wrap items-baseline justify-between gap-x-2 pt-2">
           <PriceTag price={product.price} regularPrice={product.regularPrice} />
