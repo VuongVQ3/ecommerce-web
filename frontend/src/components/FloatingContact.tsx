@@ -113,22 +113,23 @@ function CloseIcon({ className }: { className: string }) {
  * Contact icons fixed in the bottom right corner of every storefront page (they stay put while the shopper
  * navigates), always shown (see itemsOf). Not in the back office. Sits under modals and
  * drawers (z-30).
- * - From 640px: a column of icons, always visible.
- * - Phones: one 48px chat button; tapping it opens the channels in a column above it (Esc or a tap outside closes).
+ * - From 1280px: a column of icons, always visible.
+ * - Under 1280px (phones, tablets, small laptops: the column covered the product cards): one 48px chat button;
+ *   tapping it opens the channels in a column above it, with their names (Esc or a tap outside closes).
  * The "Lên đầu trang" button (BackToTop) shares the corner: under the column, on phones right above the chat button;
- * it stays there even with no channel to show.
+ * it stays there even with no channel to show. The column only fits in the margin beside the content from 1280px.
  * Motion: CSS in index.css (.fc-*).
  */
 export default function FloatingContact() {
   const site = useSiteInfo()
   const { pathname } = useLocation()
   const desktop = useMediaQuery(FINE_POINTER)
-  const wide = useMediaQuery('(min-width: 640px)')
+  const wide = useMediaQuery('(min-width: 1280px)')
   const listId = useId()
   const root = useRef<HTMLElement>(null)
   const toggle = useRef<HTMLButtonElement>(null)
   const column = useRef<HTMLUListElement>(null)
-  // Phones: open on the page where it was opened only (following a link closes it)
+  // Compact mode: open on the page where it was opened only (following a link closes it)
   const [openOn, setOpenOn] = useState<string | null>(null)
   const open = !wide && openOn === pathname
 
@@ -141,7 +142,7 @@ export default function FloatingContact() {
     if (returnFocus) toggle.current?.focus()
   }, [])
 
-  // Phones, list open: focus the first channel; Esc or a tap outside closes
+  // Compact mode, list open: focus the first channel; Esc or a tap outside closes
   useEffect(() => {
     if (!open) return
     column.current?.querySelector<HTMLElement>('a')?.focus()

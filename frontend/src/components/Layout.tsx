@@ -298,8 +298,8 @@ function Footer() {
   const hasLegal = Boolean(b.ownerName || b.registrationNumber || b.moitUrl)
   return (
     <footer className="mt-16 border-t border-stone-200 bg-white pb-[env(safe-area-inset-bottom)]">
-      {/* Phones: 64px clear on the right for the floating chat / back-to-top buttons */}
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 pt-10 pb-8 pr-16 text-sm text-stone-600 sm:grid-cols-2 sm:pr-4 lg:grid-cols-4">
+      {/* Under 1280px: 64px clear on the right for the floating chat / back-to-top buttons */}
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 pt-10 pb-8 pr-16 text-sm text-stone-600 sm:grid-cols-2 xl:pr-4 lg:grid-cols-4">
         <div>
           <p className="text-base font-bold text-brand-800">
             <span aria-hidden="true">🌰 </span>Hạt Lành

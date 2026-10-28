@@ -10,11 +10,11 @@ vi.mock('../lib/siteInfo', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/siteInfo')>()),
   useSiteInfo: () => site.info,
 }))
-// Phone or wide screen (min-width: 640px)
+// Compact or wide screen (min-width: 1280px)
 const screenSize = vi.hoisted(() => ({ wide: true }))
 vi.mock('../lib/media', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/media')>()),
-  useMediaQuery: (query: string) => (query === '(min-width: 640px)' ? screenSize.wide : false),
+  useMediaQuery: (query: string) => (query === '(min-width: 1280px)' ? screenSize.wide : false),
 }))
 
 const FULL: SiteInfo = {
