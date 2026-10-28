@@ -34,19 +34,10 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 	@Query("SELECT COALESCE(MAX(p.sortOrder), 0) FROM Product p")
 	int maxSortOrder();
 
-	/**
-	 * Search-as-you-type: products on sale whose name, folded (no case, no accents, see TextFold), contains
-	 * {@code contains}; names starting with the term first, then the shop's order.
-	 */
-	@Query("""
-			SELECT p FROM Product p
-			WHERE p.active = true AND p.price > 0
-			  AND lower(function('translate', p.name, :accented, :plain)) LIKE :contains ESCAPE '\\'
-			ORDER BY CASE WHEN lower(function('translate', p.name, :accented, :plain)) LIKE :prefix ESCAPE '\\'
-			              THEN 0 ELSE 1 END,
-			         p.sortOrder, p.id""")
-	List<Product> suggest(@Param("accented") String accented, @Param("plain") String plain,
-			@Param("contains") String contains, @Param("prefix") String prefix, Pageable page);
+	/** Search-as-you-type index: every product on sale, in the shop's order (the browser filters it). */
+	@EntityGraph(attributePaths = "category")
+	@Query("SELECT p FROM Product p WHERE p.active = true AND p.price > 0 ORDER BY p.sortOrder, p.id")
+	List<Product> findOnSaleInShopOrder(Pageable page);
 
 	/** One query for a whole cart (avoids N+1 when enriching cart lines). */
 	@EntityGraph(attributePaths = "category")

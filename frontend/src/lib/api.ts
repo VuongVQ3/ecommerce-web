@@ -467,9 +467,8 @@ function toQueryString(query: ProductQuery): string {
 }
 
 export const api = {
-  /** Search as you type: up to 8 products on sale, no case/accents; fewer than 2 characters → [] */
-  suggest: (q: string, signal?: AbortSignal) =>
-    apiRequest<ProductSuggestion[]>(`/api/products/suggest?q=${encodeURIComponent(q)}&limit=8`, { signal }),
+  /** Search as you type: every product on sale, compact, in the shop's order (filtered in the browser) */
+  suggestionIndex: (signal?: AbortSignal) => apiRequest<ProductSuggestion[]>('/api/products/suggestions', { signal }),
   categories: (signal?: AbortSignal) => apiRequest<CategoryListing[]>('/api/categories', { signal }),
   /** Any category, also one with nothing on sale (productCount 0); 404 when there is no such category */
   category: (slug: string, signal?: AbortSignal) =>

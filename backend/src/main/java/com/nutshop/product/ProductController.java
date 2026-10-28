@@ -25,11 +25,10 @@ public class ProductController {
 		return productService.listCategories();
 	}
 
-	/** Header search suggestions (search as you type); fewer than 2 characters → []. */
-	@GetMapping("/products/suggest")
-	public List<ProductSuggestion> suggest(@RequestParam(defaultValue = "") String q,
-			@RequestParam(defaultValue = "8") int limit) {
-		return productService.suggest(q, limit);
+	/** Header search suggestions: every product on sale, compact; the browser filters it as the user types. */
+	@GetMapping("/products/suggestions")
+	public List<ProductSuggestion> suggestions() {
+		return productService.suggestionIndex();
 	}
 
 	@GetMapping("/categories/{slug}")

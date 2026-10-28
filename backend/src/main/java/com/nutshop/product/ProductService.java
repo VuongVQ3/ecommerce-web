@@ -3,7 +3,6 @@ package com.nutshop.product;
 import com.nutshop.cart.CartProperties;
 import com.nutshop.common.NotFoundException;
 import com.nutshop.common.PageResponse;
-import com.nutshop.common.TextFold;
 import com.nutshop.product.ProductDtos.CategoryListing;
 import com.nutshop.product.ProductDtos.ProductSuggestion;
 import com.nutshop.product.ProductDtos.ProductDetail;
@@ -56,22 +55,15 @@ public class ProductService {
 		return new CategoryListing(c.getId(), c.getName(), c.getSlug(), categories.countOnSale(c.getId()));
 	}
 
-	/** Below this many characters the header search suggests nothing */
-	public static final int SUGGEST_MIN_LENGTH = 2;
-	public static final int SUGGEST_MAX = 8;
+	/** Upper bound on the suggestion index (the catalogue is far smaller; this only bounds the response) */
+	public static final int SUGGESTION_INDEX_MAX = 1000;
 
 	/**
-	 * Header search suggestions: up to {@code limit} (at most 8) products on sale whose name contains the term,
-	 * without case or accents, those starting with it first. Fewer than 2 characters → nothing.
+	 * Header search suggestions: every product on sale in the shop's order, compact (id, name, slug, price,
+	 * picture). The browser loads it once and matches/ranks the typed term itself.
 	 */
-	public List<ProductSuggestion> suggest(String q, int limit) {
-		String term = TextFold.fold(q == null ? "" : q.strip()).replaceAll("\\s+", " ");
-		if (term.length() < SUGGEST_MIN_LENGTH) {
-			return List.of();
-		}
-		String like = TextFold.escapeLike(term);
-		List<Product> found = products.suggest(TextFold.ACCENTED, TextFold.PLAIN, "%" + like + "%", like + "%",
-				PageRequest.of(0, Math.clamp(limit, 1, SUGGEST_MAX)));
+	public List<ProductSuggestion> suggestionIndex() {
+		List<Product> found = products.findOnSaleInShopOrder(PageRequest.of(0, SUGGESTION_INDEX_MAX));
 		var prices = pricing.pricesOf(found);
 		return found.stream()
 			.map(p -> new ProductSuggestion(p.getId(), p.getName(), p.getSlug(), prices.get(p.getId()).price(),

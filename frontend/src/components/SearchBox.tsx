@@ -1,8 +1,9 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router'
-import { api, type ProductSuggestion } from '../lib/api'
+import type { ProductSuggestion } from '../lib/api'
 import { formatPrice } from '../lib/format'
 import { usePrefersReducedMotion } from '../lib/motion'
+import { cachedSuggestionIndex, loadSuggestionIndex, rankSuggestions } from '../lib/searchSuggestions'
 import { foldTerm, matchRange } from '../lib/textFold'
 import { useTypewriterPlaceholder } from '../lib/useTypewriterPlaceholder'
 import ProductImage from './ProductImage'
@@ -16,11 +17,6 @@ const SEARCH_HINTS = [
   'Tìm mật ong hoa cà phê...',
 ] as const
 const SEARCH_PLACEHOLDER = 'Tìm kiếm sản phẩm...'
-
-/** Wait this long after the last keystroke before asking the server */
-const SUGGEST_DEBOUNCE_MS = 300
-/** The server answers [] below this many characters (same rule here, so no request is sent) */
-const MIN_CHARS = 2
 
 /** The product name with the part that matches the term (ignoring case and accents) in bold. */
 function Highlighted({ text, term }: { text: string; term: string }) {
@@ -39,8 +35,9 @@ function Highlighted({ text, term }: { text: string; term: string }) {
  * Header search (desktop header and the phone search row).
  * - Empty and not focused: types example searches with a blinking caret (an aria-hidden layer over the field);
  *   focused, filled in, or with reduced motion: the static placeholder.
- * - Typing: suggestions 300 ms after the last keystroke (an older request is aborted), up to 8 products under the
- *   field (ARIA combobox): picture, name with the match in bold, price; then "Xem tất cả kết quả cho '…'".
+ * - The first focus fetches every product on sale once (shared, see searchSuggestions); typing filters it right away
+ *   from the first character, without case or accents (rankSuggestions), up to 6 products under the field (ARIA
+ *   combobox): picture, name with the match in bold, price; then "Xem tất cả kết quả cho '…'".
  *   ↑/↓ pick, Enter opens the picked product (or the search page), Esc closes; a click outside closes, focusing the
  *   field again reopens what was found.
  */
@@ -49,8 +46,8 @@ export default function SearchBox({ className = '', autoFocus = false }: { class
   const [q, setQ] = useState('')
   const [focused, setFocused] = useState(autoFocus)
   const [open, setOpen] = useState(false)
-  // Suggestions and the folded term they are for (a newer term keeps the old list until its answer arrives)
-  const [found, setFound] = useState<{ term: string; items: ProductSuggestion[] } | null>(null)
+  // Every product on sale (null until fetched)
+  const [index, setIndex] = useState<ProductSuggestion[] | null>(cachedSuggestionIndex)
   const [active, setActive] = useState(-1)
   const form = useRef<HTMLFormElement>(null)
   const listId = useId()
@@ -60,35 +57,30 @@ export default function SearchBox({ className = '', autoFocus = false }: { class
   const hint = useTypewriterPlaceholder(SEARCH_HINTS, { active: typing })
 
   const term = foldTerm(q)
-  const searchable = term.length >= MIN_CHARS
-  const loading = searchable && found?.term !== term
-  const items = searchable && found ? found.items : []
+  const searchable = term !== ''
+  const loading = searchable && index === null
+  const items = useMemo(() => (searchable && index ? rankSuggestions(index, term) : []), [index, term, searchable])
   const showList = open && searchable
   // The rows ↑/↓ move through: the products, then "Xem tất cả"
-  const rowCount = loading && items.length === 0 ? 0 : items.length > 0 ? items.length + 1 : 0
+  const rowCount = items.length > 0 ? items.length + 1 : 0
 
-  // Debounced request; the previous one is aborted when the term changes again
+  // The product list, fetched on the first focus (cached; a failed fetch is tried again on the next focus)
   useEffect(() => {
-    if (!searchable) return
-    const controller = new AbortController()
-    const timer = window.setTimeout(() => {
-      api.suggest(q.trim(), controller.signal).then(
-        (result) => setFound({ term, items: result }),
-        (err: unknown) => {
-          if (!controller.signal.aborted) {
-            // Not critical: the list shows "nothing found", the search page still works
-            setFound({ term, items: [] })
-            if (import.meta.env.DEV) console.warn('Search suggestions failed', err)
-          }
-        },
-      )
-    }, SUGGEST_DEBOUNCE_MS)
+    if (!focused) return
+    let live = true
+    loadSuggestionIndex().then(
+      (list) => live && setIndex(list),
+      (err: unknown) => {
+        if (!live) return
+        // Not critical: the list shows "nothing found", the search page still works
+        setIndex((old) => old ?? [])
+        if (import.meta.env.DEV) console.warn('Search suggestions failed', err)
+      },
+    )
     return () => {
-      window.clearTimeout(timer)
-      controller.abort()
+      live = false
     }
-    // q only matters through its folded term (same term → same request)
-  }, [term, searchable]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [focused])
 
   // A click/tap outside closes the list
   useEffect(() => {
@@ -196,8 +188,7 @@ export default function SearchBox({ className = '', autoFocus = false }: { class
               Không tìm thấy sản phẩm phù hợp
             </p>
           ) : null}
-          {/* aria-busy: an older list is still shown while the new term is being looked up */}
-          <ul id={listId} role="listbox" aria-label="Gợi ý sản phẩm" aria-busy={loading || undefined} className={loading ? 'opacity-70' : ''}>
+          <ul id={listId} role="listbox" aria-label="Gợi ý sản phẩm" aria-busy={loading || undefined}>
             {items.map((p, i) => (
               <li
                 key={p.id}

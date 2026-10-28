@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, type ProductSuggestion } from '../lib/api'
+import { forgetSuggestionIndex } from '../lib/searchSuggestions'
 import SearchBox from './SearchBox'
 
 const item = (id: number, name: string): ProductSuggestion => ({
@@ -33,56 +34,67 @@ function renderBox() {
   return screen.getByRole('combobox', { name: 'Tìm sản phẩm' }) as HTMLInputElement
 }
 
-/** Lets the debounce run and the (mocked) request resolve */
-async function wait(ms: number) {
-  await act(async () => {
-    vi.advanceTimersByTime(ms)
-  })
-}
+/** Lets the (mocked) list fetch resolve */
+const settle = () => act(async () => {})
 
 const where = () => screen.getByTestId('where').textContent
+const productNames = () => screen.getAllByRole('option').slice(0, -1).map((o) => o.querySelector('.truncate')?.textContent)
 
-beforeEach(() => vi.useFakeTimers())
+beforeEach(() => forgetSuggestionIndex())
 afterEach(() => {
   cleanup()
-  vi.useRealTimers()
   vi.restoreAllMocks()
 })
 
 describe('SearchBox suggestions', () => {
-  it('asks once, 300 ms after the last keystroke, and aborts the older request', async () => {
-    const suggest = vi.spyOn(api, 'suggest').mockResolvedValue(ITEMS)
+  it('fetches the product list once, on the first focus, and filters it as the user types', async () => {
+    const load = vi.spyOn(api, 'suggestionIndex').mockResolvedValue(ITEMS)
+    const input = renderBox()
+    expect(load).not.toHaveBeenCalled()
+    fireEvent.focus(input)
+    await settle()
+    expect(load).toHaveBeenCalledTimes(1)
+
+    for (const value of ['h', 'ha', 'hat dieu', 'mac ca']) fireEvent.change(input, { target: { value } })
+    fireEvent.blur(input)
+    fireEvent.focus(input)
+    await settle()
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(productNames()).toEqual(['Bánh thuyền hạt điều – mắc ca'])
+  })
+
+  it('suggests from one character, nothing for spaces only', async () => {
+    vi.spyOn(api, 'suggestionIndex').mockResolvedValue(ITEMS)
     const input = renderBox()
     fireEvent.focus(input)
-    fireEvent.change(input, { target: { value: 'h' } })
-    await wait(1000)
-    expect(suggest).not.toHaveBeenCalled() // under 2 characters
+    await settle()
+    fireEvent.change(input, { target: { value: '   ' } })
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(input.getAttribute('aria-expanded')).toBe('false')
 
-    fireEvent.change(input, { target: { value: 'ha' } })
-    await wait(200)
-    fireEvent.change(input, { target: { value: 'hat dieu' } })
-    await wait(299)
-    expect(suggest).not.toHaveBeenCalled()
-    await wait(1)
-    expect(suggest).toHaveBeenCalledTimes(1)
-    expect(suggest).toHaveBeenCalledWith('hat dieu', expect.any(AbortSignal))
+    fireEvent.change(input, { target: { value: 'đ' } })
+    const options = screen.getAllByRole('option')
+    expect(options).toHaveLength(3)
+    expect(options[0].querySelector('strong')?.textContent).toBe('đ')
+  })
 
-    // A new term while a request is out: the old one is aborted
-    suggest.mockImplementation(() => new Promise(() => {}))
-    fireEvent.change(input, { target: { value: 'hat dieu r' } })
-    await wait(300)
-    const first = suggest.mock.calls[1][1] as AbortSignal
-    fireEvent.change(input, { target: { value: 'hat dieu ra' } })
-    await wait(300)
-    expect(first.aborted).toBe(true)
+  it('puts names starting with the term first and shows at most 6', async () => {
+    const many = [item(1, 'Bánh hạt điều'), ...Array.from({ length: 7 }, (_, i) => item(i + 2, `Điều loại ${i + 1}`))]
+    vi.spyOn(api, 'suggestionIndex').mockResolvedValue(many)
+    const input = renderBox()
+    fireEvent.focus(input)
+    await settle()
+    fireEvent.change(input, { target: { value: 'DIEU' } })
+    expect(screen.getAllByRole('option')).toHaveLength(7) // 6 products + "Xem tất cả"
+    expect(productNames()).toEqual(Array.from({ length: 6 }, (_, i) => `Điều loại ${i + 1}`))
   })
 
   it('lists products with the match in bold and the price, then "Xem tất cả"; Enter opens the picked one', async () => {
-    vi.spyOn(api, 'suggest').mockResolvedValue(ITEMS)
+    vi.spyOn(api, 'suggestionIndex').mockResolvedValue(ITEMS)
     const input = renderBox()
     fireEvent.focus(input)
+    await settle()
     fireEvent.change(input, { target: { value: 'hat dieu' } })
-    await wait(300)
 
     const options = screen.getAllByRole('option')
     expect(options).toHaveLength(3)
@@ -102,11 +114,11 @@ describe('SearchBox suggestions', () => {
   })
 
   it('Enter without a pick goes to the search page; so does the last row', async () => {
-    vi.spyOn(api, 'suggest').mockResolvedValue(ITEMS)
+    vi.spyOn(api, 'suggestionIndex').mockResolvedValue(ITEMS)
     const input = renderBox()
     fireEvent.focus(input)
+    await settle()
     fireEvent.change(input, { target: { value: 'hạt điều' } })
-    await wait(300)
     fireEvent.submit(input.form!)
     expect(where()).toBe(`/san-pham?q=${encodeURIComponent('hạt điều')}`)
 
@@ -118,11 +130,11 @@ describe('SearchBox suggestions', () => {
   })
 
   it('Esc and a click outside close it; focusing the field again reopens it', async () => {
-    vi.spyOn(api, 'suggest').mockResolvedValue(ITEMS)
+    vi.spyOn(api, 'suggestionIndex').mockResolvedValue(ITEMS)
     const input = renderBox()
     fireEvent.focus(input)
+    await settle()
     fireEvent.change(input, { target: { value: 'dieu' } })
-    await wait(300)
     expect(screen.getByRole('listbox')).toBeTruthy()
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(screen.queryByRole('listbox')).toBeNull()
@@ -135,26 +147,41 @@ describe('SearchBox suggestions', () => {
     expect(screen.getByRole('listbox')).toBeTruthy()
   })
 
-  it('shows a spinner while looking and "Không tìm thấy" when nothing matches', async () => {
+  it('shows a spinner until the list is there and "Không tìm thấy" when nothing matches', async () => {
     let answer: (v: ProductSuggestion[]) => void = () => {}
-    vi.spyOn(api, 'suggest').mockImplementation(() => new Promise((r) => (answer = r)))
+    vi.spyOn(api, 'suggestionIndex').mockImplementation(() => new Promise((r) => (answer = r)))
     const input = renderBox()
     fireEvent.focus(input)
     fireEvent.change(input, { target: { value: 'xyz' } })
     expect(screen.getByRole('status').textContent).toContain('Đang tìm...')
-    await wait(300)
-    await act(async () => answer([]))
+    await act(async () => answer(ITEMS))
     expect(screen.getByRole('status').textContent).toBe('Không tìm thấy sản phẩm phù hợp')
     expect(screen.queryAllByRole('option')).toHaveLength(0)
   })
 
-  it('a click on a product opens it and closes the list', async () => {
-    vi.spyOn(api, 'suggest').mockResolvedValue(ITEMS)
+  it('a failed fetch shows "Không tìm thấy" and is tried again on the next focus', async () => {
+    const load = vi.spyOn(api, 'suggestionIndex').mockRejectedValueOnce(new Error('offline')).mockResolvedValue(ITEMS)
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
     const input = renderBox()
     fireEvent.focus(input)
+    await settle()
+    fireEvent.change(input, { target: { value: 'dieu' } })
+    expect(screen.getByRole('status').textContent).toBe('Không tìm thấy sản phẩm phù hợp')
+
+    fireEvent.blur(input)
+    fireEvent.focus(input)
+    await settle()
+    expect(load).toHaveBeenCalledTimes(2)
+    expect(screen.getAllByRole('option')).toHaveLength(3)
+  })
+
+  it('a click on a product opens it and closes the list', async () => {
+    vi.spyOn(api, 'suggestionIndex').mockResolvedValue(ITEMS)
+    const input = renderBox()
+    fireEvent.focus(input)
+    await settle()
     fireEvent.change(input, { target: { value: 'mac ca' } })
-    await wait(300)
-    fireEvent.click(screen.getAllByRole('option')[1])
+    fireEvent.click(screen.getAllByRole('option')[0])
     expect(where()).toBe('/san-pham/sp-2')
     expect(screen.queryByRole('listbox')).toBeNull()
     expect(input.value).toBe('')

@@ -189,53 +189,28 @@ class BackendApplicationTests {
 	}
 
 	@Test
-	void suggestionsIgnoreCaseAndAccentsAndPutNamesStartingWithTheTermFirst() throws Exception {
+	void suggestionIndexListsProductsOnSaleInShopOrderWithTheirPrice() throws Exception {
 		String cat = category();
-		// A token no other product has, so the shared database does not get in the way
 		String tok = "Kx" + UUID.randomUUID().toString().replaceAll("[^a-z]", "").substring(0, 4);
-		String inside = product(cat, "Bánh thuyền hạt điều " + tok, 1, null, null);
-		String starts = product(cat, "Hạt điều " + tok + " rang muối", 2, null, null);
-		product(cat, "Mắc ca " + tok, 3, null, null);
+		String first = product(cat, "Bánh thuyền hạt điều " + tok, 1, null, null);
+		String second = product(cat, "Hạt điều " + tok + " rang muối", 2, null, null);
+		String hidden = "hidden-" + UUID.randomUUID();
 		jdbc.update("""
 				INSERT INTO products (category_id, name, slug, description, price, weight_grams, active)
 				VALUES ((SELECT id FROM categories WHERE slug = ?), ?, ?, 'Mô tả', 0, 500, false)""", cat,
-				"Hạt điều chưa bán " + tok, "hidden-" + UUID.randomUUID());
+				"Hạt điều chưa bán " + tok, hidden);
 
-		for (String q : List.of("hat dieu", "HẠT ĐIỀU", "  hạt   điều ")) {
-			mvc.perform(get("/api/products/suggest").param("q", q + " " + tok.toLowerCase()).param("limit", "8"))
-				.andExpect(status().isOk())
-				// Both contain the term; the one starting with it comes first although the shop lists it later
-				.andExpect(jsonPath("$[*].slug").value(org.hamcrest.Matchers.contains(starts, inside)))
-				.andExpect(jsonPath("$[0].price").value(150000))
-				.andExpect(jsonPath("$[0].categorySlug").value(cat));
-		}
-		// Prefix match first, then the shop's order
-		mvc.perform(get("/api/products/suggest").param("q", "hat dieu"))
-			.andExpect(jsonPath("$[*].slug", hasItem(starts)));
-		mvc.perform(get("/api/products/suggest").param("q", tok))
-			.andExpect(jsonPath("$[*].slug").value(org.hamcrest.Matchers.contains(inside, starts,
-					jdbc.queryForObject("SELECT slug FROM products WHERE name = ?", String.class, "Mắc ca " + tok))));
-		mvc.perform(get("/api/products/suggest").param("q", "rang muối"))
-			.andExpect(jsonPath("$[*].slug", hasItem(starts)));
-		mvc.perform(get("/api/products/suggest").param("q", "điều " + tok))
-			.andExpect(jsonPath("$[*].slug").value(org.hamcrest.Matchers.contains(inside, starts)));
-		// The search page matches the same way
+		mvc.perform(get("/api/products/suggestions"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[*].slug", hasItem(first)))
+			.andExpect(jsonPath("$[*].slug", org.hamcrest.Matchers.not(hasItem(hidden))))
+			// The shop's order (the browser keeps it inside each ranking group)
+			.andExpect(jsonPath("$[?(@.name =~ /.*" + tok + ".*/)].slug").value(org.hamcrest.Matchers.contains(first, second)))
+			.andExpect(jsonPath("$[?(@.slug == '" + second + "')].price").value(org.hamcrest.Matchers.contains(150000)))
+			.andExpect(jsonPath("$[?(@.slug == '" + second + "')].categorySlug").value(org.hamcrest.Matchers.contains(cat)));
+		// The search page still matches without case or accents
 		mvc.perform(get("/api/products").param("q", "hat dieu " + tok.toLowerCase()))
 			.andExpect(jsonPath("$.totalItems").value(2));
-	}
-
-	@Test
-	void suggestionsNeedTwoCharactersAndStopAtEight() throws Exception {
-		mvc.perform(get("/api/products/suggest").param("q", "h")).andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(0)));
-		mvc.perform(get("/api/products/suggest")).andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(0)));
-		mvc.perform(get("/api/products/suggest").param("q", "%%")).andExpect(jsonPath("$", hasSize(0)));
-		String cat = category();
-		String tok = "Qz" + UUID.randomUUID().toString().replaceAll("[^a-z]", "").substring(0, 4);
-		for (int i = 0; i < 10; i++) {
-			product(cat, "Hạt " + tok + " " + i, i, null, null);
-		}
-		mvc.perform(get("/api/products/suggest").param("q", tok).param("limit", "50")).andExpect(jsonPath("$", hasSize(8)));
-		mvc.perform(get("/api/products/suggest").param("q", tok).param("limit", "3")).andExpect(jsonPath("$", hasSize(3)));
 	}
 
 	@Test
