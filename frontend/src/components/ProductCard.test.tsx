@@ -64,16 +64,23 @@ describe('ProductCard', () => {
     expect(pill.lang).toBe('en')
     // One line of fixed height, never wider than the card
     for (const c of ['flex', 'h-5', 'max-w-full', 'whitespace-nowrap', 'sm:hidden']) expect(pill.className.split(' ')).toContain(c)
+    // Too narrow for both halves: they wrap in reverse (kcal first), the second line (protein) is hidden, and the
+    // left rounding of the box makes the kcal half a whole pill (measured in Chrome, jsdom has no layout)
+    for (const c of ['flex-row-reverse', 'flex-wrap', 'justify-end', 'overflow-hidden', 'rounded-l-full']) {
+      expect(pill.className.split(' ')).toContain(c)
+    }
     const [protein, comma, kcal] = pill.children
-    // Protein half: the protein chip's colours, rounded on the left, the one cut with an ellipsis when too long
+    // Protein half: the protein chip's colours, rounded on the left
     expect(protein.textContent).toBe('Protein 21g')
     for (const c of ['bg-brand-50', 'text-brand-700', 'rounded-l-full', 'min-w-0', 'truncate']) {
       expect(protein.className.split(' ')).toContain(c)
     }
-    // Kcal half: the kcal chip's colours, rounded on the right, always shown in full
+    // Kcal half: the kcal chip's colours, rounded on the right, first in the wrapping order, always shown in full
     expect(kcal.textContent).toBe('585 kcal')
-    for (const c of ['bg-nut-light', 'text-nut', 'rounded-r-full', 'shrink-0']) expect(kcal.className.split(' ')).toContain(c)
-    // No dot; screen readers hear "Protein 21g, 585 kcal"
+    for (const c of ['bg-nut-light', 'text-nut', 'rounded-r-full', 'shrink-0', 'order-first']) {
+      expect(kcal.className.split(' ')).toContain(c)
+    }
+    // No dot; screen readers hear "Protein 21g, 585 kcal" (document order, not the reversed one)
     expect(comma.className).toBe('sr-only')
     expect(pill.textContent).toBe('Protein 21g, 585 kcal')
 

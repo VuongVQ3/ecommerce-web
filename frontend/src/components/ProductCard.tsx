@@ -100,8 +100,10 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
         {/*
           Short English labels, whole numbers (older figures may still have decimals). Phones: one pill of two
           halves in the colours of the wider screens' two chips, 11px and tight so the longest usual figures
-          ("Protein 99g", "999 kcal") fit a 375px screen; past that the protein half is cut with an ellipsis, the
-          kcal half always shows (full text in the title). Every card keeps that line, empty while the product's
+          ("Protein 99g", "999 kcal") fit a 375px screen. When the two do not fit (narrower phones, wider fonts) the
+          protein half is dropped and the kcal half shows alone, a whole pill (full text in the title): the halves
+          wrap in reverse (kcal first) and the one-line box hides the second line, so it follows the real text
+          width, no breakpoint. Every card keeps that line, empty while the product's
           nutrition facts are not known, so prices and buttons line up across a row. Wider screens: two chips on
           one line; no row at all without the facts.
         */}
@@ -110,12 +112,13 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
             <p
               lang="en"
               title={nutrition.title}
-              className="flex h-5 max-w-full self-start text-[11px] leading-4 tracking-tight whitespace-nowrap sm:hidden"
+              className="flex h-5 max-w-full flex-row-reverse flex-wrap content-start justify-end self-start overflow-hidden rounded-l-full text-[11px] leading-4 tracking-tight whitespace-nowrap sm:hidden"
             >
               <span className="min-w-0 truncate rounded-l-full bg-brand-50 py-0.5 pr-1 pl-1.5 text-brand-700">Protein {nutrition.protein}g</span>
               {/* Read as "Protein 21g, 585 kcal" */}
               <span className="sr-only">, </span>
-              <span className="shrink-0 rounded-r-full bg-nut-light py-0.5 pr-1.5 pl-1 text-nut">{nutrition.calories} kcal</span>
+              {/* First in the reversed row: shown on the right of the protein half, and the one kept on the line */}
+              <span className="order-first shrink-0 rounded-r-full bg-nut-light py-0.5 pr-1.5 pl-1 text-nut">{nutrition.calories} kcal</span>
             </p>
             <div lang="en" className="flex min-w-0 gap-1.5 overflow-hidden text-xs whitespace-nowrap max-sm:hidden">
               <span title={nutrition.title} className="min-w-0 truncate rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">
