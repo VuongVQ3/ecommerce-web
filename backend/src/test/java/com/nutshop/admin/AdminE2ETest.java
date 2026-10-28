@@ -332,6 +332,37 @@ class AdminE2ETest {
 		assertThat(jdbc.queryForObject("SELECT short_description FROM products WHERE id = ?", String.class, id)).isNull();
 	}
 
+	/** Nutrition figures are whole numbers above 0: 20.5, 0 and -3 are refused (Vietnamese message), 21 is saved. */
+	@Test
+	void nutritionFiguresAreWholeNumbersAboveZero() throws Exception {
+		Cookie admin = as("ADMIN");
+		String slug = "dinh-duong-nguyen-" + UUID.randomUUID();
+		String base = productJson("Dinh dưỡng số nguyên", slug, 120_000);
+		long id = createProduct(admin, "Dinh dưỡng số nguyên", slug);
+
+		mvc.perform(json(put("/api/admin/products/" + id), base.replace("\"protein\":20", "\"protein\":20.5")).cookie(admin))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.protein").value("Chất đạm: chỉ nhập số nguyên, không có phần lẻ"));
+		mvc.perform(json(put("/api/admin/products/" + id), base.replace("\"fiber\":8", "\"fiber\":0")).cookie(admin))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.fiber").value("Chất xơ phải lớn hơn 0"));
+		mvc.perform(json(put("/api/admin/products/" + id), base.replace("\"calories\":550", "\"calories\":-3")).cookie(admin))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.calories").value("Năng lượng phải lớn hơn 0"));
+		mvc.perform(json(post("/api/admin/products"),
+				productJson("Dinh dưỡng lẻ", null, 120_000).replace("\"carbs\":25", "\"carbs\":25.5")).cookie(admin))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.carbs").value("Chất bột đường: chỉ nhập số nguyên, không có phần lẻ"));
+		assertThat(jdbc.queryForObject("SELECT protein FROM products WHERE id = ?", java.math.BigDecimal.class, id))
+			.isEqualByComparingTo("20");
+
+		mvc.perform(json(put("/api/admin/products/" + id), base.replace("\"protein\":20", "\"protein\":21")).cookie(admin))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.protein").value(21));
+		assertThat(jdbc.queryForObject("SELECT protein FROM products WHERE id = ?", java.math.BigDecimal.class, id))
+			.isEqualByComparingTo("21");
+	}
+
 	/** The storefront follows sort_order by default (not the name, not the id); the admin can change it. */
 	@Test
 	void storefrontOrderFollowsTheSortOrderSetInTheBackOffice() throws Exception {

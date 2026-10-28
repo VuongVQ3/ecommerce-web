@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { EMPTY_PRODUCT, NUTRITION_INCOMPLETE, PRICE_REQUIRED, productSchema, productSchemaFor, toInput } from './productSchema'
+import {
+  EMPTY_PRODUCT,
+  NUTRIENT_NOT_POSITIVE,
+  NUTRIENT_NOT_WHOLE,
+  NUTRITION_INCOMPLETE,
+  PRICE_REQUIRED,
+  productSchema,
+  productSchemaFor,
+  toInput,
+} from './productSchema'
 
 const valid = {
   ...EMPTY_PRODUCT,
@@ -9,10 +18,10 @@ const valid = {
   price: '185.000',
   weightGrams: '500',
   calories: '553',
-  protein: '18,2',
+  protein: '18',
   fat: '44',
   carbs: '30',
-  fiber: '3.3',
+  fiber: '3',
 }
 
 describe('productSchema', () => {
@@ -31,8 +40,8 @@ describe('productSchema', () => {
     const parsed = productSchema.parse(valid)
     const input = toInput(parsed)
     expect(input.price).toBe(185000)
-    expect(input.protein).toBe(18.2)
-    expect(input.fiber).toBe(3.3)
+    expect(input.protein).toBe(18)
+    expect(input.fiber).toBe(3)
     expect(input.lowStockThreshold).toBe(10)
     expect(input.categoryId).toBe(1)
     expect(input.slug).toBe('')
@@ -44,6 +53,19 @@ describe('productSchema', () => {
     const fields = result.error!.issues.map((i) => i.path[0])
     expect(fields).toEqual(expect.arrayContaining(['slug', 'price', 'description', 'categoryId']))
     expect(productSchema.safeParse({ ...valid, protein: '120' }).success).toBe(false)
+  })
+
+  it('takes nutrition figures as whole numbers above 0 only', () => {
+    // The message the form shows: the first one on the field
+    const shown = (value: string) =>
+      productSchema.safeParse({ ...valid, protein: value }).error?.issues.find((i) => i.path[0] === 'protein')?.message
+    expect(shown('20.5')).toBe(NUTRIENT_NOT_WHOLE)
+    expect(shown('20,5')).toBe(NUTRIENT_NOT_WHOLE)
+    expect(shown('0')).toBe(NUTRIENT_NOT_POSITIVE)
+    expect(shown('-3')).toBe(NUTRIENT_NOT_POSITIVE)
+    expect(shown('101')).toBe('Tối đa 100')
+    expect(shown('abc')).toBe('Số không hợp lệ')
+    expect(toInput(productSchema.parse({ ...valid, protein: ' 21 ' })).protein).toBe(21)
   })
 
   it('lets a hidden product wait for its price and nutrition, but not with half a nutrition table', () => {

@@ -13,13 +13,18 @@ const whole = (label: string, min: number, max: number) =>
       return n >= min && n <= max
     }, `Trong khoảng ${min.toLocaleString('vi-VN')} – ${max.toLocaleString('vi-VN')}`)
 
-/** Optional nutrition figure: empty, or a number up to `max` */
-const decimal = (max: number) =>
+export const NUTRIENT_NOT_WHOLE = 'Chỉ nhập số nguyên, không có phần lẻ'
+export const NUTRIENT_NOT_POSITIVE = 'Phải lớn hơn 0'
+
+/** Optional nutrition figure: empty, or a whole number from 1 to `max` (the first failing rule is shown) */
+const positiveWhole = (max: number) =>
   z
     .string()
     .trim()
-    .refine((v) => v === '' || /^\d+([.,]\d+)?$/.test(v), 'Số không hợp lệ')
-    .refine((v) => v === '' || Number(v.replace(',', '.')) <= max, `Tối đa ${max}`)
+    .refine((v) => v === '' || /^-?\d+([.,]\d+)?$/.test(v), 'Số không hợp lệ')
+    .refine((v) => v === '' || !/[.,]/.test(v), NUTRIENT_NOT_WHOLE)
+    .refine((v) => v === '' || Number(v) > 0, NUTRIENT_NOT_POSITIVE)
+    .refine((v) => v === '' || Number(v) <= max, `Tối đa ${max}`)
 
 /** Empty, or what `whole` accepts (same messages) */
 const optionalWhole = (label: string, min: number, max: number) =>
@@ -56,11 +61,11 @@ const fields = z.object({
   // Empty while the product is being prepared (hidden); see productSchemaFor
   price: optionalWhole('giá', 1000, 100_000_000),
   weightGrams: whole('khối lượng', 1, 100_000),
-  calories: decimal(1000),
-  protein: decimal(100),
-  fat: decimal(100),
-  carbs: decimal(100),
-  fiber: decimal(100),
+  calories: positiveWhole(1000),
+  protein: positiveWhole(100),
+  fat: positiveWhole(100),
+  carbs: positiveWhole(100),
+  fiber: positiveWhole(100),
   lowStockThreshold: whole('ngưỡng', 0, 100_000),
   // Storefront order, smaller first; empty = after the others
   sortOrder: optionalWhole('thứ tự', 0, 100_000),
@@ -104,7 +109,7 @@ export const EMPTY_PRODUCT: ProductForm = {
 }
 
 const int = (v: string) => Number(v.replace(/[.\s]/g, ''))
-const dec = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')))
+const dec = (v: string) => (v.trim() === '' ? null : Number(v))
 const intOrNull = (v: string) => (v.trim() === '' ? null : int(v))
 
 export function toInput(f: ProductForm): ProductInput {
