@@ -229,7 +229,7 @@ body {
   transition: opacity 180ms ease-out var(--fc-open-delay, 0ms), transform 180ms ease-out var(--fc-open-delay, 0ms), visibility 0s;
 }
 .fc[data-compact] .fc-item .fc-link, .fc[data-compact] .fc-item .fc-dot::after { animation: none; }
-.fc[data-compact] .fc-label { opacity: 1; transform: none; }
+.fc[data-compact] .fc-item .fc-label { opacity: 1; transform: none; }
 .fc[data-open] .fc-toggle, .fc[data-open] .fc-toggle .fc-dot::after { animation-play-state: paused; }
 .fc-icon { transition: transform 200ms ease-out, opacity 200ms ease-out; }
 .fc-icon-close { opacity: 0; transform: rotate(-90deg); }
