@@ -950,15 +950,12 @@ class AdminE2ETest {
 	}
 
 	/**
-	 * Moves renumber the whole catalogue 1..N in the admin list's order, which the storefront follows. The other
+	 * Moves renumber the products on sale 1..N in the admin list's order, which the storefront follows. The other
 	 * tests share the database (and check the seeded numbers): every sort_order is put back afterwards.
 	 */
 	@Test
 	void productsAreReorderedByMovingOneBeforeOrAfterAnother() throws Exception {
-		Map<Long, Integer> saved = new HashMap<>();
-		jdbc.query("SELECT id, sort_order FROM products", rs -> {
-			saved.put(rs.getLong(1), rs.getInt(2));
-		});
+		Map<Long, Integer> saved = saveSortOrders();
 		try {
 			Cookie admin = as("ADMIN");
 			Cookie staff = as("STAFF");
@@ -974,13 +971,13 @@ class AdminE2ETest {
 			move(admin, c, "{\"beforeId\":" + b + "}").andExpect(status().isOk());
 			assertOrder(admin, tag, c, b, a);
 			assertThat(jdbc.queryForObject("""
-					SELECT COUNT(*) FROM (SELECT sort_order, row_number() OVER (ORDER BY sort_order, name, id) AS n
-					                      FROM products) t
+					SELECT COUNT(*) FROM (SELECT sort_order, row_number() OVER (ORDER BY sort_order, name COLLATE "vi-x-icu", id) AS n
+					                      FROM products WHERE active) t
 					WHERE sort_order <> n""", Integer.class)).isZero();
 			assertThat(audits("PRODUCT_MOVED", a)).isEqualTo(1);
 			assertThat(audits("PRODUCT_MOVED", c)).isEqualTo(1);
-			// Recorded as positions (1-based), the last three of the catalogue here
-			int total = jdbc.queryForObject("SELECT COUNT(*) FROM products", Integer.class);
+			// Recorded as positions (1-based) among the products on sale, the last three here
+			int total = jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE active", Integer.class);
 			assertThat(jdbc.queryForObject("""
 					SELECT before::text || ' -> ' || after::text FROM audit_logs
 					WHERE action = 'PRODUCT_MOVED' AND entity_id = ?""", String.class, String.valueOf(a)))
@@ -1004,10 +1001,118 @@ class AdminE2ETest {
 			assertOrder(admin, tag, c, b, a);
 		}
 		finally {
-			jdbc.batchUpdate("UPDATE products SET sort_order = ? WHERE id = ?",
-					saved.entrySet().stream().map(e -> new Object[] { e.getValue(), e.getKey() }).toList());
+			restoreSortOrders(saved);
 		}
 	}
+
+	private Map<Long, Integer> saveSortOrders() {
+		Map<Long, Integer> saved = new HashMap<>();
+		jdbc.query("SELECT id, sort_order FROM products", rs -> {
+			saved.put(rs.getLong(1), rs.getInt(2));
+		});
+		return saved;
+	}
+
+	private void restoreSortOrders(Map<Long, Integer> saved) {
+		jdbc.batchUpdate("UPDATE products SET sort_order = ? WHERE id = ?",
+				saved.entrySet().stream().map(e -> new Object[] { e.getValue(), e.getKey() }).toList());
+	}
+
+	private ResultActions adminList(Cookie admin, String tag, String... more) throws Exception {
+		var request = get("/api/admin/products").param("q", tag);
+		for (int i = 0; i < more.length; i += 2) {
+			request = request.param(more[i], more[i + 1]);
+		}
+		return call(request, admin);
+	}
+
+	/**
+	 * Back office: products on sale first in their dragged order, hidden ones after them by name in Vietnamese order
+	 * (Á by A, Đ after D, not after Z), on every filter and across pages. Hidden products cannot be moved nor be
+	 * a target; showing one puts it at the end of the products on sale.
+	 */
+	@Test
+	void hiddenProductsComeLastByNameAndStayOutOfTheManualOrder() throws Exception {
+		Map<Long, Integer> saved = saveSortOrders();
+		try {
+			Cookie admin = as("ADMIN");
+			// ASCII tag: the search lower-cases the text, which the test database does not do for accented capitals
+			String tag = "Sap xep " + UUID.randomUUID().toString().substring(0, 8);
+			long ze = createProduct(admin, tag + " Zê", null);
+			long an = createProduct(admin, tag + " An", null);
+			long dau = createProduct(admin, tag + " Đậu", null);
+			long dua = createProduct(admin, tag + " Dừa", null);
+			long anh = createProduct(admin, tag + " Ánh", null);
+			long bo = createProduct(admin, tag + " Bơ", null);
+			for (long hidden : new long[] { dau, dua, anh, bo }) {
+				mvc.perform(json(patch("/api/admin/products/" + hidden + "/active"), "{\"active\":false}").cookie(admin))
+					.andExpect(status().isOk());
+			}
+			Map<Long, Integer> hiddenOrders = Map.of(dau, sortOrder(dau), dua, sortOrder(dua), anh, sortOrder(anh), bo,
+					sortOrder(bo));
+
+			adminList(admin, tag).andExpect(jsonPath("$.items[*].id").value(ids(ze, an, anh, bo, dua, dau)));
+			adminList(admin, tag, "active", "true").andExpect(jsonPath("$.items[*].id").value(ids(ze, an)));
+			adminList(admin, tag, "active", "false").andExpect(jsonPath("$.items[*].id").value(ids(anh, bo, dua, dau)));
+			adminList(admin, tag, "notReady", "true").andExpect(jsonPath("$.items[*].id").value(ids(ze, an, anh, bo, dua, dau)));
+			// Pages follow the same order; the count is not thrown off by the ordering
+			adminList(admin, tag, "size", "2", "page", "1").andExpect(jsonPath("$.items[*].id").value(ids(anh, bo)))
+				.andExpect(jsonPath("$.totalItems").value(6))
+				.andExpect(jsonPath("$.totalPages").value(3));
+			// The storefront only lists products on sale, by their number
+			mvc.perform(get("/api/products").param("q", tag)).andExpect(jsonPath("$.items[*].id").value(ids(ze, an)));
+
+			move(admin, anh, "{}").andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("PRODUCT_HIDDEN"))
+				.andExpect(jsonPath("$.detail").value("Hiện sản phẩm trước rồi mới sắp xếp"));
+			move(admin, ze, "{\"beforeId\":" + bo + "}").andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("MOVE_TARGET_GONE"));
+
+			// Only the products on sale are renumbered 1..N; hidden ones keep their numbers
+			move(admin, ze, "{\"afterId\":" + an + "}").andExpect(status().isOk());
+			adminList(admin, tag).andExpect(jsonPath("$.items[*].id").value(ids(an, ze, anh, bo, dua, dau)));
+			assertThat(jdbc.queryForObject("""
+					SELECT COUNT(*) FROM (SELECT sort_order, row_number() OVER (ORDER BY sort_order, name COLLATE "vi-x-icu", id) AS n
+					                      FROM products WHERE active) t
+					WHERE sort_order <> n""", Integer.class)).isZero();
+			hiddenOrders.forEach((id, order) -> assertThat(sortOrder(id)).isEqualTo(order));
+
+			// Shown again: last of the products on sale (a new number, recorded with the change)
+			int lastOnSale = jdbc.queryForObject("SELECT MAX(sort_order) FROM products WHERE active", Integer.class);
+			mvc.perform(json(patch("/api/admin/products/" + dua + "/active"), "{\"active\":true}").cookie(admin))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.sortOrder").value(lastOnSale + 1));
+			adminList(admin, tag).andExpect(jsonPath("$.items[*].id").value(ids(an, ze, dua, anh, bo, dau)));
+			assertThat(jdbc.queryForObject("""
+					SELECT after::text FROM audit_logs WHERE action = 'PRODUCT_SHOWN' AND entity_id = ?""", String.class,
+					String.valueOf(dua))).contains("\"sortOrder\": " + (lastOnSale + 1));
+			// Hiding keeps the number
+			mvc.perform(json(patch("/api/admin/products/" + dua + "/active"), "{\"active\":false}").cookie(admin))
+				.andExpect(status().isOk());
+			assertThat(sortOrder(dua)).isEqualTo(lastOnSale + 1);
+		}
+		finally {
+			restoreSortOrders(saved);
+		}
+	}
+
+	/** A new product on sale goes after the others on sale, not after the hidden samples (sort_order 1000) */
+	@Test
+	void aNewProductOnSaleGoesLastOfTheProductsOnSale() throws Exception {
+		Cookie admin = as("ADMIN");
+		long id = createProduct(admin, "Hạt mới đang bán", null);
+		assertThat(sortOrder(id)).isEqualTo(
+				jdbc.queryForObject("SELECT COALESCE(MAX(sort_order), 0) FROM products WHERE active AND id <> ?", Integer.class, id) + 1);
+	}
+
+	private int sortOrder(long id) {
+		return jdbc.queryForObject("SELECT sort_order FROM products WHERE id = ?", Integer.class, id);
+	}
+
+	private static org.hamcrest.Matcher<Iterable<? extends Object>> ids(long... ids) {
+		return org.hamcrest.Matchers.contains(java.util.Arrays.stream(ids).mapToInt(id -> (int) id).boxed().toArray());
+	}
+
 
 	// ---- first admin ----------------------------------------------------------------------------------------
 

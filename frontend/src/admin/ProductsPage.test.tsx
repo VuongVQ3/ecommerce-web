@@ -103,11 +103,11 @@ const page = (items: AdminProductRow[]): Page<AdminProductRow> => ({
 
 const PRODUCTS = [row(1, 'Mắc ca', { onHand: 5 }), row(2, 'Hạt điều'), row(3, 'Óc chó')]
 
-function renderPage() {
+function renderPage(items = PRODUCTS, url = '/admin/san-pham') {
   // A fresh page object on every load, as the network would give
-  const products = vi.spyOn(adminApi, 'products').mockImplementation(async () => page(PRODUCTS))
+  const products = vi.spyOn(adminApi, 'products').mockImplementation(async () => page(items))
   const router = createMemoryRouter([{ path: '/admin/san-pham', element: <ProductsPage /> }], {
-    initialEntries: ['/admin/san-pham'],
+    initialEntries: [url],
   })
   render(<RouterProvider router={router} />)
   return { products }
@@ -119,6 +119,16 @@ const tableOrder = () =>
     .getAllByRole('link')
     .map((a) => a.textContent)
     .filter((t) => t !== 'Sửa')
+
+/** Two on sale, then two hidden (the server's order: hidden ones last, by name) */
+const MIXED = [row(1, 'Mắc ca'), row(2, 'Hạt điều'), row(3, 'Ánh dương', { active: false }), row(4, 'Đậu đỏ', { active: false })]
+
+/** First cell of each body row: a handle, an empty slot, or the divider */
+const tableRows = () =>
+  within(screen.getByRole('table'))
+    .getAllByRole('row')
+    .slice(1)
+    .map((tr) => tr.querySelector('button[aria-label^="Đổi thứ tự"]') ? 'kéo' : (tr.querySelector('a')?.textContent ?? tr.textContent))
 
 const handle = (name: string) => within(screen.getByRole('table')).getByRole('button', { name: `Đổi thứ tự: ${name}` })
 
@@ -159,12 +169,13 @@ describe('products page', () => {
 
     fireEvent.pointerDown(handle('Mắc ca'), { button: 0, clientY: 30, pointerId: 1 })
     fireEvent.pointerMove(handle('Mắc ca'), { clientY: 230, pointerId: 1 })
-    // Preview while dragging, rows kept in place in the DOM: the dragged one follows the pointer, the others make room
+    // Preview while dragging, rows kept in place in the DOM: the dragged one follows the pointer (down to the last
+    // row, 120px), the others make room
     const transforms = within(screen.getByRole('table'))
       .getAllByRole('row')
       .slice(1)
       .map((tr) => tr.style.transform)
-    expect(transforms).toEqual(['translateY(200px)', 'translateY(-60px)', 'translateY(-60px)'])
+    expect(transforms).toEqual(['translateY(120px)', 'translateY(-60px)', 'translateY(-60px)'])
     expect(tableOrder()).toEqual(['Mắc ca', 'Hạt điều', 'Óc chó'])
     expect(move).not.toHaveBeenCalled()
     fireEvent.pointerUp(handle('Mắc ca'), { clientY: 230, pointerId: 1 })
@@ -232,5 +243,74 @@ describe('products page', () => {
     expect(screen.queryByRole('button', { name: 'Xoá vĩnh viễn' })).toBeNull()
     fireEvent.click(hide)
     expect(screen.getByRole('dialog').textContent).toContain('Ẩn "Hạt điều"?')
+  })
+
+  it('lists hidden products after a divider, without a handle', async () => {
+    renderPage(MIXED)
+    await screen.findByRole('table')
+
+    expect(tableRows()).toEqual(['kéo', 'kéo', 'Đang ẩn · xếp theo tên A→Z', 'Ánh dương', 'Đậu đỏ'])
+    expect(screen.queryByRole('button', { name: 'Đổi thứ tự: Ánh dương' })).toBeNull()
+    // Phone cards: same divider, before the first hidden product
+    const cards = screen.getAllByRole('listitem').map((li) => li.querySelector('a')?.textContent ?? li.textContent)
+    expect(cards.slice(-3)).toEqual(['Đang ẩn · xếp theo tên A→Z', 'Ánh dương', 'Đậu đỏ'])
+    expect(screen.getByText(/Kéo tay nắm/)).toBeTruthy()
+  })
+
+  it('does nothing on ↓ from the last product on sale', async () => {
+    const move = vi.spyOn(adminApi, 'moveProduct').mockResolvedValue(MIXED[0])
+    renderPage(MIXED)
+    await screen.findByRole('table')
+
+    fireEvent.keyDown(handle('Hạt điều'), { key: 'ArrowDown' })
+    await new Promise((r) => setTimeout(r, 20))
+    expect(move).not.toHaveBeenCalled()
+    expect(tableOrder()).toEqual(['Mắc ca', 'Hạt điều', 'Ánh dương', 'Đậu đỏ'])
+  })
+
+  it('cannot drag a product on sale into the hidden ones', async () => {
+    const move = vi.spyOn(adminApi, 'moveProduct').mockResolvedValue(MIXED[0])
+    renderPage(MIXED)
+    await screen.findByRole('table')
+    within(screen.getByRole('table'))
+      .getAllByRole('row')
+      .slice(1)
+      .forEach((tr, i) => {
+        tr.getBoundingClientRect = () => ({ top: i * 60, height: 60, bottom: i * 60 + 60, left: 0, right: 0, width: 0, x: 0, y: i * 60, toJSON: () => ({}) })
+      })
+
+    // Far below the last row (a hidden one)
+    fireEvent.pointerDown(handle('Mắc ca'), { button: 0, clientY: 30, pointerId: 1 })
+    fireEvent.pointerMove(handle('Mắc ca'), { clientY: 600, pointerId: 1 })
+    // The row stops at the last product on sale (one row down), not over the hidden ones
+    expect(within(screen.getByRole('table')).getAllByRole('row')[1].style.transform).toBe('translateY(60px)')
+    fireEvent.pointerUp(handle('Mắc ca'), { clientY: 600, pointerId: 1 })
+
+    await waitFor(() => expect(move).toHaveBeenCalledWith(1, { afterId: 2 }))
+    expect(tableOrder()).toEqual(['Hạt điều', 'Mắc ca', 'Ánh dương', 'Đậu đỏ'])
+  })
+
+  it('explains the order on the "Đang ẩn" filter, with no handle and no divider', async () => {
+    renderPage(MIXED.filter((p) => !p.active), '/admin/san-pham?active=false')
+    await screen.findByRole('table')
+
+    expect(screen.getByText('Sản phẩm đang ẩn được xếp theo tên. Hiện sản phẩm để sắp xếp lại.')).toBeTruthy()
+    expect(screen.queryByText(/Kéo tay nắm/)).toBeNull()
+    expect(screen.queryByText('Đang ẩn · xếp theo tên A→Z')).toBeNull()
+    expect(screen.queryAllByRole('button', { name: /Đổi thứ tự/ })).toHaveLength(0)
+  })
+
+  it('says where a product shown again goes', async () => {
+    vi.spyOn(adminApi, 'setActive').mockResolvedValue({} as never)
+    const { products } = renderPage(MIXED)
+    await screen.findByRole('table')
+
+    fireEvent.click(within(screen.getByRole('table')).getAllByRole('button', { name: 'Hiện' })[0])
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Hiện sản phẩm' }))
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith({ message: 'Đã hiện sản phẩm · xếp ở cuối danh sách đang bán', tone: 'success' }),
+    )
+    await waitFor(() => expect(products).toHaveBeenCalledTimes(2))
   })
 })

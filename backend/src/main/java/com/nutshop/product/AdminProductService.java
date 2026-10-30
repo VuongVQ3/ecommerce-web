@@ -118,7 +118,12 @@ public class AdminProductService {
 
 	// ---- products ---------------------------------------------------------------------------------------------
 
-	/** @param notReady only products that cannot be sold yet: no price, or no stock */
+	/**
+	 * Products on sale first, in their storefront order; hidden ones after them by name (see
+	 * {@link ProductSpecs#adminListOrder()}), whatever the filter.
+	 *
+	 * @param notReady only products that cannot be sold yet: no price, or no stock
+	 */
 	@Transactional(readOnly = true)
 	public PageResponse<ProductRow> list(String q, Boolean active, boolean notReady, int page, int size) {
 		Specification<Product> spec = (root, query, cb) -> {
@@ -135,9 +140,9 @@ public class AdminProductService {
 			}
 			return cb.and(where.toArray(Predicate[]::new));
 		};
-		// Same order as the storefront
-		var pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 100), Sort.by("sortOrder", "name", "id"));
-		return PageResponse.from(products.findAll(spec, pageable).map(ProductRow::from));
+		// Unsorted: the order comes from the specification (a Sort would replace it)
+		var pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 100));
+		return PageResponse.from(products.findAll(spec.and(ProductSpecs.adminListOrder()), pageable).map(ProductRow::from));
 	}
 
 	@Transactional(readOnly = true)
@@ -145,17 +150,20 @@ public class AdminProductService {
 		return detail(products.findById(id).orElseThrow(AdminProductService::productNotFound));
 	}
 
-	/** A product without a price is created hidden; without a sort order it goes after the others. */
+	/**
+	 * A product without a price is created hidden. Without a sort order it goes at the end: of the products on sale
+	 * when it is shown, of all of them when hidden.
+	 */
 	@Transactional
 	public ProductAdminDetail create(Long categoryId, String requestedSlug, Product.Details details, UUID actorId) {
 		checkNutrition(details);
 		Category category = category(categoryId);
 		Product draft = new Product(category, slugFor(requestedSlug, details.name(), null), details);
-		if (details.sortOrder() == null) {
-			draft.setSortOrder(products.maxSortOrder() + 1);
-		}
 		if (details.price() <= 0) {
 			draft.setActive(false);
+		}
+		if (details.sortOrder() == null) {
+			draft.setSortOrder((draft.isActive() ? products.maxActiveSortOrder() : products.maxSortOrder()) + 1);
 		}
 		Product product = products.save(draft);
 		audit.entry("PRODUCT_CREATED", "PRODUCT", product.getId(), product.getName())
@@ -187,7 +195,8 @@ public class AdminProductService {
 
 	/**
 	 * Hide/show: how to stop selling a product that was ordered (it cannot be deleted). Showing needs a price
-	 * (products of the real catalogue start at 0 until the owner prices them).
+	 * (products of the real catalogue start at 0 until the owner prices them) and puts the product at the end of the
+	 * ones on sale (the admin drags it elsewhere if needed); hiding keeps its number.
 	 */
 	@Transactional
 	public ProductAdminDetail setActive(long id, boolean active, UUID actorId) {
@@ -195,11 +204,24 @@ public class AdminProductService {
 		if (active && !product.hasPrice()) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, PRICE_REQUIRED, PRICE_REQUIRED_MESSAGE);
 		}
-		if (product.isActive() != active) {
-			product.setActive(active);
-			audit.entry(active ? "PRODUCT_SHOWN" : "PRODUCT_HIDDEN", "PRODUCT", id, product.getName())
+		if (product.isActive() == active) {
+			return detail(product);
+		}
+		if (active) {
+			int oldOrder = product.getSortOrder();
+			product.setSortOrder(products.maxActiveSortOrder() + 1);
+			product.setActive(true);
+			audit.entry("PRODUCT_SHOWN", "PRODUCT", id, product.getName())
 				.by(actorId)
-				.changes(Map.of("active", !active), Map.of("active", active))
+				.changes(Map.of("active", false, "sortOrder", oldOrder),
+						Map.of("active", true, "sortOrder", product.getSortOrder()))
+				.record();
+		}
+		else {
+			product.setActive(false);
+			audit.entry("PRODUCT_HIDDEN", "PRODUCT", id, product.getName())
+				.by(actorId)
+				.changes(Map.of("active", true), Map.of("active", false))
 				.record();
 		}
 		return detail(product);
@@ -244,27 +266,31 @@ public class AdminProductService {
 	}
 
 	/**
-	 * Drag-to-reorder: puts the product just before {@code beforeId}, just after {@code afterId}, or (neither) at
-	 * the end, then numbers the whole catalogue 1, 2, 3… in the admin list's order (rows locked meanwhile, so two
-	 * moves cannot interleave). Audited only when the position really changes, as positions (not the old numbers:
-	 * several products may share one, e.g. the samples at 1000).
+	 * Drag-to-reorder, among the products on sale only (hidden ones are listed by name and keep their numbers): puts
+	 * the product just before {@code beforeId}, just after {@code afterId}, or (neither) at the end, then numbers the
+	 * products on sale 1, 2, 3… in the admin list's order (rows locked meanwhile, so two moves cannot interleave).
+	 * Audited only when the position really changes, as positions (not the old numbers: several products may share
+	 * one).
 	 */
 	@Transactional
 	public ProductRow move(long id, Long beforeId, Long afterId, UUID actorId) {
 		if (beforeId != null && afterId != null || Objects.equals(beforeId, id) || Objects.equals(afterId, id)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_MOVE", "Vị trí mới không hợp lệ");
 		}
-		List<long[]> rows = jdbc.query("SELECT id, sort_order FROM products ORDER BY sort_order, name, id FOR UPDATE",
-				(rs, n) -> new long[] { rs.getLong(1), rs.getInt(2) });
+		// Same order as the admin list (name in the same collation)
+		List<long[]> rows = jdbc.query("SELECT id, sort_order FROM products WHERE active ORDER BY sort_order, name COLLATE "
+				+ ProductSpecs.VIETNAMESE + ", id FOR UPDATE", (rs, n) -> new long[] { rs.getLong(1), rs.getInt(2) });
 		List<Long> ids = new ArrayList<>(rows.stream().map(r -> r[0]).toList());
 		int from = ids.indexOf(id);
 		if (from < 0) {
-			throw productNotFound();
+			throw products.existsById(id)
+					? new ApiException(HttpStatus.CONFLICT, "PRODUCT_HIDDEN", "Hiện sản phẩm trước rồi mới sắp xếp")
+					: productNotFound();
 		}
 		Long target = beforeId != null ? beforeId : afterId;
 		if (target != null && !ids.contains(target)) {
 			throw new ApiException(HttpStatus.CONFLICT, "MOVE_TARGET_GONE",
-					"Sản phẩm dùng làm mốc không còn nữa. Tải lại danh sách rồi thử lại.");
+					"Sản phẩm dùng làm mốc không còn trong danh sách đang bán. Tải lại danh sách rồi thử lại.");
 		}
 		ids.remove(from);
 		int to = beforeId != null ? ids.indexOf(beforeId) : afterId != null ? ids.indexOf(afterId) + 1 : ids.size();

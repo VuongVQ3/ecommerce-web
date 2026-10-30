@@ -113,7 +113,12 @@ export function useDragReorder<T>(
     const ref = register(rows.current, `${list}:${id}`)
     if (drag?.list !== list) return { ref }
     if (drag.id === id) {
-      const style: CSSProperties = { transform: `translateY(${drag.dy}px)`, position: 'relative', zIndex: 10 }
+      // Kept within the draggable rows: it cannot be dropped past them (e.g. among hidden products listed after)
+      const first = drag.slots[0]
+      const last = drag.slots[drag.slots.length - 1]
+      const own = drag.slots[drag.from]
+      const dy = Math.min(Math.max(drag.dy, first.top - own.top), last.top + last.height - own.top - own.height)
+      const style: CSSProperties = { transform: `translateY(${dy}px)`, position: 'relative', zIndex: 10 }
       return { ref, style, 'data-dragging': true }
     }
     const style: CSSProperties = {

@@ -16,6 +16,7 @@ import { useDragReorder } from './useDragReorder'
 /** The whole catalogue fits one page, so a product can be dragged anywhere (the server allows up to 100) */
 const PAGE_SIZE = 100
 const REORDER_HELP_ID = 'reorder-help'
+const HIDDEN_DIVIDER = 'Đang ẩn · xếp theo tên A→Z'
 
 /** notReady: cannot be sold yet (no price, or no stock): what the owner still has to fill in */
 const FILTERS = [
@@ -207,29 +208,33 @@ export default function ProductsPage() {
     [q, active, filter, page],
   )
 
-  // Order shown after a move, before the server confirms it; tied to the data it was made from, so fresh data wins
+  // Order of the products on sale shown after a move, before the server confirms it; tied to the data it was made
+  // from, so fresh data wins
   const [moved, setMoved] = useState<{ source: Page<AdminProductRow>; ids: number[] } | null>(null)
   const [announcement, setAnnouncement] = useState('')
   // Moves are sent one after another, in the order they were made; a failure drops the ones still waiting
   const queue = useRef(Promise.resolve())
   const generation = useRef(0)
-  const items = !data
+  // The server lists the products on sale first (in their dragged order), then the hidden ones by name: only the
+  // first part can be dragged
+  const onSale = !data
     ? []
     : moved?.source === data
       ? moved.ids.map((id) => data.items.find((p) => p.id === id)!)
-      : data.items
+      : data.items.filter((p) => p.active)
+  const hidden = data ? data.items.filter((p) => !p.active) : []
 
   const onMove = (id: number, from: number, to: number) => {
     if (!data) return
     const ids = arrayMove(
-      items.map((p) => p.id),
+      onSale.map((p) => p.id),
       from,
       to,
     )
     const anchor = dropAnchor(ids, id)
     if (!anchor) return
     setMoved({ source: data, ids })
-    setAnnouncement(`Đã chuyển "${items[from].name}" tới vị trí ${to + 1} trên ${ids.length}`)
+    setAnnouncement(`Đã chuyển "${onSale[from].name}" tới vị trí ${to + 1} trên ${ids.length}`)
     const gen = generation.current
     queue.current = queue.current
       .then(() => (gen === generation.current ? adminApi.moveProduct(id, anchor) : undefined))
@@ -245,7 +250,96 @@ export default function ProductsPage() {
         },
       )
   }
-  const { dragging, rowProps, handleProps } = useDragReorder(items, (p) => p.id, onMove)
+  const { dragging, rowProps, handleProps } = useDragReorder(onSale, (p) => p.id, onMove)
+  const showDivider = onSale.length > 0 && hidden.length > 0
+
+  /** index: position among the products on sale; null for a hidden product (no handle, an empty slot instead) */
+  const card = (p: AdminProductRow, index: number | null) => (
+    <li
+      key={p.id}
+      {...(index === null ? {} : rowProps('cards', p.id, index))}
+      className={`flex items-start gap-2 rounded-2xl border border-stone-200 p-3 pl-1.5 ${p.active ? 'bg-white' : 'bg-stone-50'} ${
+        dragging === p.id ? 'shadow-lg ring-2 ring-brand-500' : ''
+      }`}
+    >
+      {index === null ? (
+        <span aria-hidden className="size-10 shrink-0" />
+      ) : (
+        <DragHandle name={p.name} active={dragging === p.id} {...handleProps('cards', p.id, index)} />
+      )}
+      <Thumb url={p.imageUrl} categorySlug={p.categorySlug} />
+      <div className="min-w-0 flex-1 text-sm">
+        <Link to={`/admin/san-pham/${p.id}`} className="font-medium break-words text-stone-900 hover:text-brand-700 hover:underline">
+          {p.name}
+        </Link>
+        <p className="text-xs text-muted">{p.categoryName}</p>
+        <p className="mt-1 tabular-nums">
+          <span className="font-semibold">
+            <PriceCell price={p.price} />
+          </span>
+          <span className={`text-muted ${p.lowStock ? 'font-semibold text-amber-900' : ''}`}> · còn {p.available}</span>
+        </p>
+        <div className="mt-1.5">
+          <ActiveBadge active={p.active} />
+        </div>
+      </div>
+      <ActionMenu
+        label={`Thao tác với ${p.name}`}
+        items={[
+          { label: 'Sửa', onSelect: () => navigate(`/admin/san-pham/${p.id}`) },
+          { label: p.active ? 'Ẩn sản phẩm' : 'Hiện sản phẩm', onSelect: () => setToggle(p), danger: p.active },
+          { label: 'Xoá sản phẩm', onSelect: () => setRemove(p), danger: true },
+        ]}
+      />
+    </li>
+  )
+
+  const tableRow = (p: AdminProductRow, index: number | null) => (
+    <tr
+      key={p.id}
+      {...(index === null ? {} : rowProps('table', p.id, index))}
+      className={`${p.active ? 'bg-white' : 'bg-stone-50 text-stone-500'} ${dragging === p.id ? 'shadow-lg outline-2 -outline-offset-2 outline-brand-500' : ''}`}
+    >
+      <td className={`${table.td} w-12 pr-0`}>
+        {index === null ? (
+          <span aria-hidden className="block size-10" />
+        ) : (
+          <DragHandle name={p.name} active={dragging === p.id} {...handleProps('table', p.id, index)} />
+        )}
+      </td>
+      <td className={table.td}>
+        <div className="flex items-center gap-3">
+          <Thumb url={p.imageUrl} categorySlug={p.categorySlug} />
+          <div className="min-w-0">
+            <Link to={`/admin/san-pham/${p.id}`} className="font-medium text-stone-900 hover:text-brand-700 hover:underline">
+              {p.name}
+            </Link>
+            <div className="text-xs text-muted">{p.categoryName}</div>
+          </div>
+        </div>
+      </td>
+      <td className={`${table.td} text-right tabular-nums`}>
+        <PriceCell price={p.price} />
+      </td>
+      <td className={`${table.td} text-right tabular-nums ${p.lowStock ? 'font-semibold text-amber-900' : ''}`}>{p.available}</td>
+      <td className={table.td}>
+        <ActiveBadge active={p.active} />
+      </td>
+      <td className={`${table.td} text-right`}>
+        <div className="flex justify-end gap-2">
+          <Link to={`/admin/san-pham/${p.id}`} className={btn.secondary}>
+            Sửa
+          </Link>
+          <button type="button" className={btn.secondary} onClick={() => setToggle(p)}>
+            {p.active ? 'Ẩn' : 'Hiện'}
+          </button>
+          <button type="button" className={`${btn.secondary} text-danger`} onClick={() => setRemove(p)}>
+            Xoá
+          </button>
+        </div>
+      </td>
+    </tr>
+  )
 
   const update = (changes: Record<string, string>) => {
     const next = new URLSearchParams(params)
@@ -314,48 +408,26 @@ export default function ProductsPage() {
       ) : (
         <div aria-busy={loading}>
           <p id={REORDER_HELP_ID} className="mb-3 text-sm text-muted">
-            Kéo tay nắm <span aria-hidden>⠿</span> để đổi thứ tự hiển thị trên cửa hàng, hoặc chọn tay nắm rồi bấm phím ↑/↓.
-            {data.totalPages > 1 && <span className="font-medium text-amber-900"> Chỉ kéo được trong trang đang xem.</span>}
+            {onSale.length > 0 ? (
+              <>
+                Kéo tay nắm <span aria-hidden>⠿</span> để đổi thứ tự hiển thị trên cửa hàng, hoặc chọn tay nắm rồi bấm phím ↑/↓.
+                {data.totalPages > 1 && <span className="font-medium text-amber-900"> Chỉ kéo được trong trang đang xem.</span>}
+              </>
+            ) : (
+              'Sản phẩm đang ẩn được xếp theo tên. Hiện sản phẩm để sắp xếp lại.'
+            )}
           </p>
           <p aria-live="polite" className="sr-only">
             {announcement}
           </p>
           <ul className="space-y-3 md:hidden">
-            {items.map((p, i) => (
-              <li
-                key={p.id}
-                {...rowProps('cards', p.id, i)}
-                className={`flex items-start gap-2 rounded-2xl border border-stone-200 p-3 pl-1.5 ${p.active ? 'bg-white' : 'bg-stone-50'} ${
-                  dragging === p.id ? 'shadow-lg ring-2 ring-brand-500' : ''
-                }`}
-              >
-                <DragHandle name={p.name} active={dragging === p.id} {...handleProps('cards', p.id, i)} />
-                <Thumb url={p.imageUrl} categorySlug={p.categorySlug} />
-                <div className="min-w-0 flex-1 text-sm">
-                  <Link to={`/admin/san-pham/${p.id}`} className="font-medium break-words text-stone-900 hover:text-brand-700 hover:underline">
-                    {p.name}
-                  </Link>
-                  <p className="text-xs text-muted">{p.categoryName}</p>
-                  <p className="mt-1 tabular-nums">
-                    <span className="font-semibold">
-                      <PriceCell price={p.price} />
-                    </span>
-                    <span className={`text-muted ${p.lowStock ? 'font-semibold text-amber-900' : ''}`}> · còn {p.available}</span>
-                  </p>
-                  <div className="mt-1.5">
-                    <ActiveBadge active={p.active} />
-                  </div>
-                </div>
-                <ActionMenu
-                  label={`Thao tác với ${p.name}`}
-                  items={[
-                    { label: 'Sửa', onSelect: () => navigate(`/admin/san-pham/${p.id}`) },
-                    { label: p.active ? 'Ẩn sản phẩm' : 'Hiện sản phẩm', onSelect: () => setToggle(p), danger: p.active },
-                    { label: 'Xoá sản phẩm', onSelect: () => setRemove(p), danger: true },
-                  ]}
-                />
+            {onSale.map((p, i) => card(p, i))}
+            {showDivider && (
+              <li key="hidden-divider" className="px-1 pt-3 text-sm font-semibold text-stone-600">
+                {HIDDEN_DIVIDER}
               </li>
-            ))}
+            )}
+            {hidden.map((p) => card(p, null))}
           </ul>
           <div className={`${table.wrap} hidden md:block`}>
             <table className="w-full text-left text-sm">
@@ -374,50 +446,15 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((p, i) => (
-                  <tr
-                    key={p.id}
-                    {...rowProps('table', p.id, i)}
-                    className={`${p.active ? 'bg-white' : 'bg-stone-50 text-stone-500'} ${dragging === p.id ? 'shadow-lg outline-2 -outline-offset-2 outline-brand-500' : ''}`}
-                  >
-                    <td className={`${table.td} w-12 pr-0`}>
-                      <DragHandle name={p.name} active={dragging === p.id} {...handleProps('table', p.id, i)} />
-                    </td>
-                    <td className={table.td}>
-                      <div className="flex items-center gap-3">
-                        <Thumb url={p.imageUrl} categorySlug={p.categorySlug} />
-                        <div className="min-w-0">
-                          <Link to={`/admin/san-pham/${p.id}`} className="font-medium text-stone-900 hover:text-brand-700 hover:underline">
-                            {p.name}
-                          </Link>
-                          <div className="text-xs text-muted">{p.categoryName}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className={`${table.td} text-right tabular-nums`}>
-                      <PriceCell price={p.price} />
-                    </td>
-                    <td className={`${table.td} text-right tabular-nums ${p.lowStock ? 'font-semibold text-amber-900' : ''}`}>
-                      {p.available}
-                    </td>
-                    <td className={table.td}>
-                      <ActiveBadge active={p.active} />
-                    </td>
-                    <td className={`${table.td} text-right`}>
-                      <div className="flex justify-end gap-2">
-                        <Link to={`/admin/san-pham/${p.id}`} className={btn.secondary}>
-                          Sửa
-                        </Link>
-                        <button type="button" className={btn.secondary} onClick={() => setToggle(p)}>
-                          {p.active ? 'Ẩn' : 'Hiện'}
-                        </button>
-                        <button type="button" className={`${btn.secondary} text-danger`} onClick={() => setRemove(p)}>
-                          Xoá
-                        </button>
-                      </div>
+                {onSale.map((p, i) => tableRow(p, i))}
+                {showDivider && (
+                  <tr key="hidden-divider">
+                    <td colSpan={6} className="border-t border-stone-200 bg-stone-100 px-4 py-2 text-xs font-semibold text-stone-600">
+                      {HIDDEN_DIVIDER}
                     </td>
                   </tr>
-                ))}
+                )}
+                {hidden.map((p) => tableRow(p, null))}
               </tbody>
             </table>
           </div>
@@ -446,7 +483,7 @@ export default function ProductsPage() {
           product={toggle}
           onClose={() => setToggle(null)}
           onDone={() => {
-            toast({ message: toggle.active ? 'Đã ẩn sản phẩm' : 'Đã hiện sản phẩm', tone: 'success' })
+            toast({ message: toggle.active ? 'Đã ẩn sản phẩm' : 'Đã hiện sản phẩm · xếp ở cuối danh sách đang bán', tone: 'success' })
             setToggle(null)
             reload()
           }}

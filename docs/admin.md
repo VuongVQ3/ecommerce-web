@@ -151,20 +151,34 @@ ngược lại là giới hạn mỗi sản phẩm trong giỏ (10); giỏ hàng
 - **Slug**: để trống thì tự tạo từ tên (bỏ dấu, `đ → d`), trùng thì thêm `-2`, `-3`…; tự nhập thì phải đúng dạng
   `chu-thuong-khong-dau` (400 `INVALID_SLUG`) và chưa ai dùng (409 `SLUG_EXISTS`).
 - **Ẩn/Hiện** (`PATCH /products/{id}/active`), có hộp xác nhận: cách ngừng bán thông thường. Sản phẩm ẩn biến mất
-  khỏi danh sách/tìm kiếm và không mua được; đơn cũ không bị ảnh hưởng; hiện lại được bất cứ lúc nào.
+  khỏi danh sách/tìm kiếm và không mua được; đơn cũ không bị ảnh hưởng; hiện lại được bất cứ lúc nào. Hiện lại thì
+  sản phẩm xếp **cuối danh sách đang bán** (`sort_order` = lớn nhất của các sản phẩm đang bán + 1, ghi vào nhật ký
+  `PRODUCT_SHOWN`); ẩn thì giữ nguyên số.
 - **Xoá** (`DELETE /products/{id}` → 204, nút "Xoá" trên bảng, "Xoá sản phẩm" trong menu ⋯ trên điện thoại): xoá hẳn
   cùng ảnh (file Cloudinary xoá sau khi commit), slug cũ, lịch sử kho, khuyến mại và các dòng trong giỏ của khách;
   không khôi phục được. Hộp xác nhận "Xoá vĩnh viễn" cảnh báo nếu trong kho còn hàng. Chỉ xoá được sản phẩm **chưa
   từng có trong đơn hàng** (đơn cũ phải giữ thông tin sản phẩm): ngược lại trả 409 `PRODUCT_HAS_ORDERS`, hộp thoại
   ẩn nút xoá và gợi ý "Ẩn sản phẩm thay vì xoá". Ghi nhật ký `PRODUCT_DELETED` (kèm thông tin sản phẩm trước khi xoá).
-- **Thứ tự hiển thị**: kéo tay nắm ⠿ ở đầu mỗi dòng (chuột hoặc cảm ứng; Esc huỷ; trang tự cuộn khi kéo gần mép), hoặc
-  chọn tay nắm rồi bấm ↑/↓. Danh sách tải tới 100 sản phẩm một trang nên kéo được khắp danh mục (nhiều hơn thì chỉ kéo
-  trong trang đang xem). Thứ tự đổi ngay trên màn hình rồi gửi `POST /products/{id}/move` với `{beforeId}` (đặt ngay
-  trước), `{afterId}` (đặt ngay sau) hoặc `{}` (cuối); lỗi thì báo và tải lại thứ tự thật. Server đánh số lại cả danh
-  mục 1, 2, 3… theo thứ tự của danh sách admin (cũng là thứ tự cửa hàng); 400 `INVALID_MOVE` (có cả hai, hoặc trỏ vào
-  chính nó), 409 `MOVE_TARGET_GONE` (sản phẩm làm mốc đã bị xoá). Nhật ký `PRODUCT_MOVED` ghi vị trí cũ → mới, chỉ khi
-  vị trí thực sự đổi. Form sửa sản phẩm không còn ô "Thứ tự hiển thị" (trường `sortOrder` của API vẫn nhận, để trống
-  thì giữ nguyên).
+- **Thứ tự trong danh sách admin** (mọi bộ lọc và tìm kiếm, cả khi chia trang): sản phẩm **đang bán** trước, theo
+  thứ tự sắp xếp tay (`sort_order`, cũng là thứ tự cửa hàng); sản phẩm **đang ẩn** xuống cuối, sau dòng "Đang ẩn · xếp
+  theo tên A→Z", xếp theo tên và không kéo được. Bộ lọc "Đang ẩn" chỉ có sản phẩm ẩn: không có tay nắm, dòng hướng
+  dẫn đổi thành "Sản phẩm đang ẩn được xếp theo tên. Hiện sản phẩm để sắp xếp lại.". Sản phẩm mới đang bán xếp cuối
+  danh sách đang bán; sản phẩm mới chưa có giá (bị ẩn) xếp sau tất cả.
+- **Tên xếp theo tiếng Việt** nhờ collation ICU `vi-x-icu` của PostgreSQL (Á, Ạ cạnh A; Đ ngay sau D), dùng cả ở
+  danh sách lẫn câu khoá của `move`. Không dựa vào collation mặc định của database: image `postgres:17-alpine`
+  (local, test) mặc định so theo byte nên Á, Đ bị đẩy xuống sau Z. Cần PostgreSQL build kèm ICU (image chính thức có);
+  thiếu thì danh sách admin lỗi "collation does not exist". Kiểm tra database production một lần:
+  `SELECT 'Đậu' < 'Dừa' COLLATE "vi-x-icu";` phải trả `false` (Đ sau D).
+- **Kéo thả** (chỉ sản phẩm đang bán): kéo tay nắm ⠿ ở đầu dòng (chuột hoặc cảm ứng; Esc huỷ; trang tự cuộn khi kéo
+  gần mép), hoặc chọn tay nắm rồi bấm ↑/↓. Không thả được vào vùng sản phẩm ẩn; ↓ ở dòng đang bán cuối không làm gì.
+  Danh sách tải tới 100 sản phẩm một trang nên kéo được khắp danh mục (nhiều hơn thì chỉ kéo trong trang đang xem).
+  Thứ tự đổi ngay trên màn hình rồi gửi `POST /products/{id}/move` với `{beforeId}` (đặt ngay trước), `{afterId}`
+  (đặt ngay sau) hoặc `{}` (cuối danh sách đang bán); lỗi thì báo và tải lại thứ tự thật. Server đánh số lại các sản
+  phẩm đang bán 1, 2, 3… (sản phẩm ẩn giữ nguyên số); 400 `INVALID_MOVE` (có cả hai, hoặc trỏ vào chính nó), 409
+  `PRODUCT_HIDDEN` (sản phẩm cần chuyển đang ẩn: "Hiện sản phẩm trước rồi mới sắp xếp"), 409 `MOVE_TARGET_GONE`
+  (sản phẩm làm mốc đã bị xoá hoặc đang ẩn). Nhật ký `PRODUCT_MOVED` ghi vị trí cũ → mới trong danh sách đang bán,
+  chỉ khi vị trí thực sự đổi. Form sửa sản phẩm không có ô "Thứ tự hiển thị" (trường `sortOrder` của API vẫn nhận,
+  để trống thì giữ nguyên).
 - Danh mục: thêm và đổi tên (kèm slug). Không có chức năng xoá.
 
 ### Ảnh (Cloudinary)
