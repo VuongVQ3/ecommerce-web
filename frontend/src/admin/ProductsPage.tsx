@@ -180,10 +180,10 @@ function Thumb({ url, categorySlug }: { url: string | null; categorySlug: string
  * The price, or "Chưa có giá" for a product still being prepared (price 0). During a promotion: the sale price in red,
  * the regular price struck through and the discount, as on the storefront.
  */
-function PriceCell({ price, promotion }: { price: number; promotion?: PromotionRow }) {
+function PriceCell({ price, promotion, inline = false }: { price: number; promotion?: PromotionRow; inline?: boolean }) {
   if (price > 0 && promotion && promotion.salePrice < price)
     return (
-      <span className="inline-flex flex-col items-end">
+      <span className={`inline-flex ${inline ? 'flex-wrap items-baseline gap-x-2' : 'flex-col items-end'}`}>
         <PriceTag price={promotion.salePrice} regularPrice={price} className="font-semibold" regularClassName="text-xs text-muted" />
         <span className="mt-0.5 rounded-full bg-red-700 px-1.5 text-xs font-bold text-white">
           <span className="sr-only">Giảm </span>-{promotion.discountPercent}%
@@ -305,7 +305,7 @@ export default function ProductsPage() {
         <p className="text-xs text-muted">{p.categoryName}</p>
         <p className="mt-1 tabular-nums">
           <span className="font-semibold">
-            <PriceCell price={p.price} promotion={runningPromotion.get(p.id)} />
+            <PriceCell price={p.price} promotion={runningPromotion.get(p.id)} inline />
           </span>
           <span className={`text-muted ${p.lowStock ? 'font-semibold text-amber-900' : ''}`}> · còn {p.available}</span>
         </p>

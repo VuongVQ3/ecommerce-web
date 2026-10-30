@@ -238,7 +238,7 @@ function RevenueChart({ days, selected, min, onSelect }: { days: DashboardDay['l
       </p>
       <div ref={scroller} className="-mx-1 mt-1 overflow-x-auto px-1 pb-1">
         {/* pt-12 leaves room for the tooltip of the tallest column */}
-        <div className="flex min-w-[24rem] gap-2 pt-12">
+        <div className="flex min-w-[18rem] gap-1.5 pt-12 sm:gap-2">
           <div aria-hidden className="relative h-44 w-9 shrink-0 text-right text-xs text-muted tabular-nums">
             {ticks.map((t) => (
               <span key={t} className="absolute right-0 translate-y-1/2 leading-none" style={{ bottom: pct(t) }}>
@@ -256,7 +256,7 @@ function RevenueChart({ days, selected, min, onSelect }: { days: DashboardDay['l
                 />
               ))}
             </div>
-            <ol className="relative flex gap-2" aria-label="Biểu đồ doanh thu 7 ngày" onPointerLeave={() => setPointed(null)}>
+            <ol className="relative flex gap-1 sm:gap-2" aria-label="Biểu đồ doanh thu 7 ngày" onPointerLeave={() => setPointed(null)}>
               {days.map((d, i) => {
                 const active = d.date === selected
                 return (
@@ -298,8 +298,15 @@ function RevenueChart({ days, selected, min, onSelect }: { days: DashboardDay['l
                           </span>
                         )}
                       </span>
-                      <span aria-hidden className={`text-xs whitespace-nowrap tabular-nums ${active ? 'font-bold text-stone-900' : 'text-stone-600'}`}>
-                        {shortWeekday(d.date)} {dayMonth(d.date)}
+                      {/* Weekday over the date on phones, side by side from 640px */}
+                      <span
+                        aria-hidden
+                        className={`flex flex-col items-center text-xs leading-tight whitespace-nowrap tabular-nums sm:flex-row sm:gap-1 ${
+                          active ? 'font-bold text-stone-900' : 'text-stone-600'
+                        }`}
+                      >
+                        <span>{shortWeekday(d.date)}</span>
+                        <span>{dayMonth(d.date)}</span>
                       </span>
                     </button>
                   </li>
