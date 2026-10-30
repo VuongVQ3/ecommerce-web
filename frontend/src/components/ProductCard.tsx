@@ -20,7 +20,8 @@ function EyeIcon({ className }: { className: string }) {
 /**
  * Image and name link to the product page; the add-to-cart and quick view buttons sit outside the links (a button
  * inside a link is invalid HTML and confuses keyboard and screen-reader users). Quick view: a labelled button at the
- * bottom of the image on hover/focus with a mouse, an always-visible eye icon on touch screens.
+ * bottom of the image on hover/focus with a mouse, an always-visible eye icon in its bottom right corner on touch
+ * screens (the top right corner holds the discount and stock labels).
  */
 /** The card's figures as whole numbers (older ones may still have decimals); null while they are not known */
 function cardNutrition({ protein, calories }: ProductSummary) {
@@ -62,7 +63,9 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
             className="aspect-square size-full transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.12]"
           />
         </Link>
-        <div className="pointer-events-none absolute top-3 left-3 flex flex-col items-start gap-1.5">
+        {/* Top right, never top left: the product photos carry the Hạt Lành logo there */}
+        <div className="pointer-events-none absolute top-3 right-3 flex flex-col items-end gap-1">
+          <DiscountBadge percent={product.discountPercent} />
           {product.stockStatus.status !== 'IN_STOCK' && (
             <span
               className={`rounded-full px-2.5 py-1 text-xs font-medium text-white ${
@@ -72,14 +75,13 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
               {stockLabel(product.stockStatus)}
             </span>
           )}
-          <DiscountBadge percent={product.discountPercent} />
         </div>
         <button
           type="button"
           onClick={() => openQuickView(product)}
           aria-label={`Xem nhanh ${product.name}`}
           aria-haspopup="dialog"
-          className="absolute flex items-center justify-center gap-1.5 bg-white/95 font-semibold text-stone-800 shadow-md hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 [@media(hover:hover)]:bottom-3 [@media(hover:hover)]:left-1/2 [@media(hover:hover)]:-translate-x-1/2 [@media(hover:hover)]:rounded-full [@media(hover:hover)]:px-4 [@media(hover:hover)]:py-2 [@media(hover:hover)]:text-sm [@media(hover:hover)]:whitespace-nowrap [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:transition-opacity [@media(hover:hover)]:focus-visible:opacity-100 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:top-1.5 [@media(hover:none)]:right-1.5 [@media(hover:none)]:size-11 [@media(hover:none)]:rounded-full"
+          className="absolute flex items-center justify-center gap-1.5 bg-white/95 font-semibold text-stone-800 shadow-md hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 [@media(hover:hover)]:bottom-3 [@media(hover:hover)]:left-1/2 [@media(hover:hover)]:-translate-x-1/2 [@media(hover:hover)]:rounded-full [@media(hover:hover)]:px-4 [@media(hover:hover)]:py-2 [@media(hover:hover)]:text-sm [@media(hover:hover)]:whitespace-nowrap [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:transition-opacity [@media(hover:hover)]:focus-visible:opacity-100 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:right-1.5 [@media(hover:none)]:bottom-1.5 [@media(hover:none)]:size-11 [@media(hover:none)]:rounded-full"
         >
           <EyeIcon className="size-5 shrink-0" />
           <span className="[@media(hover:none)]:sr-only" aria-hidden="true">
