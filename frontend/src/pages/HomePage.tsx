@@ -1,7 +1,9 @@
+import { type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { sharedRequest } from '../lib/sharedRequest'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { CountUp, Marquee, ParallaxArea, Reveal, ScrollProgress, TiltCard } from '../components/landing/Motion'
+import { CashewIcon, DriedMangoIcon, HoneyJarIcon, PumpkinSeedsIcon, SproutIcon, WalnutIcon } from '../components/landing/MastheadIcons'
 import NutritionChart from '../components/landing/NutritionChart'
 import ProductCard from '../components/ProductCard'
 import QuickViewHost from '../components/QuickView'
@@ -15,14 +17,29 @@ const HEADLINE = ['Hạt', 'dinh', 'dưỡng', '&', 'đặc', 'sản', 'chọn',
 /** Drawn with the moving gradient */
 const HIGHLIGHT = new Set(['đặc', 'sản'])
 
-/** Decorative nuts floating around the hero bowl; each layer moves with the pointer at its own depth. */
-const FLOATERS = [
-  { emoji: '🌰', className: 'top-[6%] left-[8%] text-5xl', depth: '22px', delay: '0s' },
-  { emoji: '🥜', className: 'top-[2%] right-[14%] text-4xl', depth: '-16px', delay: '1.2s' },
-  { emoji: '🌱', className: 'bottom-[18%] left-[0%] text-4xl', depth: '-26px', delay: '0.6s' },
-  { emoji: '🥣', className: 'bottom-[4%] right-[6%] text-5xl', depth: '18px', delay: '2s' },
-  { emoji: '🫘', className: 'top-[44%] -right-[2%] text-3xl', depth: '30px', delay: '1.6s' },
+/**
+ * Decorative products floating around the hero logo, one every 60° (angle counted anticlockwise from the right).
+ * Each sits clear of the outer ring (radius 38% of the box) by 14px plus half its `span` (in rem; the sprout keeps
+ * the wider span of the emoji it replaced, so it stays where it was); the lower ones also by the 14px the float lifts
+ * them towards the ring. Each layer moves with the pointer at its own depth.
+ */
+const FLOATERS: { id: string; icon: ReactNode; size: string; span: number; angle: number; depth: string; delay: string }[] = [
+  { id: 'walnut', icon: <WalnutIcon />, size: 'text-5xl', span: 3, angle: 120, depth: '22px', delay: '0s' },
+  { id: 'cashew', icon: <CashewIcon />, size: 'text-4xl', span: 2.25, angle: 60, depth: '-16px', delay: '1.2s' },
+  { id: 'pumpkin-seeds', icon: <PumpkinSeedsIcon />, size: 'text-3xl', span: 1.875, angle: 0, depth: '30px', delay: '1.6s' },
+  { id: 'mango', icon: <DriedMangoIcon />, size: 'text-5xl', span: 3, angle: 300, depth: '18px', delay: '2s' },
+  { id: 'sprout', icon: <SproutIcon />, size: 'text-4xl', span: 3, angle: 240, depth: '-26px', delay: '0.6s' },
+  { id: 'honey', icon: <HoneyJarIcon />, size: 'text-4xl', span: 2.25, angle: 180, depth: '-20px', delay: '0.9s' },
 ]
+
+function floaterPosition({ span, angle }: { span: number; angle: number }): CSSProperties {
+  const rad = (angle * Math.PI) / 180
+  const lift = Math.max(0, -Math.sin(rad)) * 14
+  const radius = `(38% + ${span / 2}rem + ${(14 + lift).toFixed(1)}px)`
+  const x = Math.cos(rad).toFixed(3)
+  const y = (-Math.sin(rad)).toFixed(3)
+  return { left: `calc(50% + ${x} * ${radius})`, top: `calc(50% + ${y} * ${radius})` }
+}
 
 const BENEFITS = [
   { icon: '🔎', title: 'Chọn lọc kỹ', text: 'Hạt đều, chắc, không sâu mọt.' },
@@ -109,9 +126,13 @@ function Hero({ productCount }: { productCount?: number }) {
             />
           </div>
           {FLOATERS.map((f) => (
-            <div key={f.emoji} className={`parallax absolute ${f.className}`} style={{ ['--depth' as string]: f.depth }}>
+            <div
+              key={f.id}
+              className={`parallax absolute -translate-x-1/2 -translate-y-1/2 leading-none ${f.size}`}
+              style={{ ...floaterPosition(f), ['--depth' as string]: f.depth }}
+            >
               <span className="floaty inline-block drop-shadow-md" style={{ animationDelay: f.delay }}>
-                {f.emoji}
+                {f.icon}
               </span>
             </div>
           ))}
