@@ -22,7 +22,7 @@ import {
 import { btn, card, input, table } from './styles'
 import { DateField } from './DateField'
 import MoneyInput from './MoneyInput'
-import { Dialog, EmptyState, Field, PageHeader } from './ui'
+import { Dialog, EmptyState, Field, PageHeader, Pagination } from './ui'
 
 const TABS: { key: 'running' | 'upcoming' | 'ended'; label: string; statuses: PromotionStatus[] }[] = [
   { key: 'running', label: 'Đang chạy', statuses: ['RUNNING'] },
@@ -36,6 +36,9 @@ const STATUS_LABEL: Record<PromotionStatus, string> = {
   ENDED: 'Đã kết thúc',
   CANCELLED: 'Đã huỷ',
 }
+
+/** The API returns every promotion: the table shows them this many at a time */
+const PAGE_SIZE = 20
 
 const dmy = (day: string) => day.split('-').reverse().join('/')
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
@@ -353,6 +356,7 @@ function EndDialog({ row, onClose, onDone }: { row: PromotionRow; onClose: () =>
 export default function PromotionsPage() {
   const toast = useToast()
   const [tab, setTab] = useState<(typeof TABS)[number]['key']>('running')
+  const [page, setPage] = useState(0)
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<PromotionRow | null>(null)
   const [ending, setEnding] = useState<PromotionRow | null>(null)
@@ -368,6 +372,9 @@ export default function PromotionsPage() {
     [list.data],
   )
   const rows = (list.data ?? []).filter((r) => TABS.find((t) => t.key === tab)!.statuses.includes(r.status))
+  const totalPages = Math.ceil(rows.length / PAGE_SIZE)
+  // A reload can leave fewer pages than the one shown
+  const shownPage = Math.min(page, Math.max(0, totalPages - 1))
   const maxDays = usage.data?.maxDaysPerYear ?? 120
 
   return (
@@ -396,7 +403,10 @@ export default function PromotionsPage() {
             key={t.key}
             type="button"
             aria-pressed={tab === t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => {
+              setTab(t.key)
+              setPage(0)
+            }}
             className={`rounded-full px-3.5 py-1.5 text-sm font-medium whitespace-nowrap ${
               tab === t.key ? 'bg-stone-900 text-white' : 'border border-stone-300 bg-white text-stone-700'
             }`}
@@ -413,6 +423,7 @@ export default function PromotionsPage() {
       ) : rows.length === 0 ? (
         <EmptyState title="Không có khuyến mại nào." />
       ) : (
+        <>
         <div className={table.wrap}>
           <table className={table.table}>
             <thead>
@@ -427,10 +438,12 @@ export default function PromotionsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {rows.slice(shownPage * PAGE_SIZE, (shownPage + 1) * PAGE_SIZE).map((r) => (
                 <tr key={r.id}>
                   <td className={table.td}>
-                    <div className="font-medium text-stone-900">{r.productName}</div>
+                    <div className="max-w-72 truncate font-medium text-stone-900" title={r.productName}>
+                      {r.productName}
+                    </div>
                     <div className="text-xs text-muted">{STATUS_LABEL[r.status]}</div>
                   </td>
                   <td className={`${table.td} text-right tabular-nums`}>
@@ -464,6 +477,8 @@ export default function PromotionsPage() {
             </tbody>
           </table>
         </div>
+        <Pagination page={shownPage} totalPages={totalPages} onChange={setPage} />
+        </>
       )}
 
       {editing && (

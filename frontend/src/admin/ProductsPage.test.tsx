@@ -130,6 +130,12 @@ const tableRows = () =>
     .slice(1)
     .map((tr) => tr.querySelector('button[aria-label^="Đổi thứ tự"]') ? 'kéo' : (tr.querySelector('a')?.textContent ?? tr.textContent))
 
+/** Picks an entry of a table row's "⋯" menu */
+const rowAction = (name: string, item: string) => {
+  fireEvent.click(within(screen.getByRole('table')).getByRole('button', { name: `Thao tác khác với ${name}` }))
+  fireEvent.click(screen.getByRole('menuitem', { name: item }))
+}
+
 const handle = (name: string) => within(screen.getByRole('table')).getByRole('button', { name: `Đổi thứ tự: ${name}` })
 
 describe('products page', () => {
@@ -217,7 +223,7 @@ describe('products page', () => {
     const { products } = renderPage()
     await screen.findByRole('table')
 
-    fireEvent.click(within(screen.getByRole('table')).getAllByRole('button', { name: 'Xoá' })[0])
+    rowAction('Mắc ca', 'Xoá sản phẩm')
     const dialog = screen.getByRole('dialog')
     expect(dialog.textContent).toContain('Trong kho vẫn còn 5 sản phẩm')
     expect(dialog.textContent).toContain('Chỉ muốn ngừng bán? Hãy ẩn')
@@ -235,7 +241,7 @@ describe('products page', () => {
     renderPage()
     await screen.findByRole('table')
 
-    fireEvent.click(within(screen.getByRole('table')).getAllByRole('button', { name: 'Xoá' })[1])
+    rowAction('Hạt điều', 'Xoá sản phẩm')
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xoá vĩnh viễn' }))
 
     const hide = await screen.findByRole('button', { name: 'Ẩn sản phẩm thay vì xoá' })
@@ -305,7 +311,7 @@ describe('products page', () => {
     const { products } = renderPage(MIXED)
     await screen.findByRole('table')
 
-    fireEvent.click(within(screen.getByRole('table')).getAllByRole('button', { name: 'Hiện' })[0])
+    rowAction('Ánh dương', 'Hiện sản phẩm')
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Hiện sản phẩm' }))
 
     await waitFor(() =>

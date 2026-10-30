@@ -18,8 +18,8 @@ import {
   type ValueContext,
 } from './auditLabels'
 import { DateRangeFilter } from './DateField'
-import { btn, input } from './styles'
-import { EmptyState, PageHeader } from './ui'
+import { btn, filterInput } from './styles'
+import { EmptyState, FilterBar, PageHeader } from './ui'
 
 const PAGE_SIZE = 50
 
@@ -179,8 +179,8 @@ export default function AuditLogPage() {
   return (
     <>
       <PageHeader title="Nhật ký thao tác" />
-      <div className="mb-4 grid gap-3 md:grid-cols-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.6fr)]">
-        <select aria-label="Người thao tác" value={actorId} onChange={(e) => update({ actor: e.target.value })} className={input}>
+      <FilterBar>
+        <select aria-label="Người thao tác" value={actorId} onChange={(e) => update({ actor: e.target.value })} className={`${filterInput} md:w-52`}>
           <option value="">Mọi người thao tác</option>
           {actors.data?.map((a) => (
             <option key={a.id} value={a.id}>
@@ -188,7 +188,7 @@ export default function AuditLogPage() {
             </option>
           ))}
         </select>
-        <select aria-label="Loại đối tượng" value={entityType} onChange={(e) => update({ entityType: e.target.value })} className={input}>
+        <select aria-label="Loại đối tượng" value={entityType} onChange={(e) => update({ entityType: e.target.value })} className={`${filterInput} md:w-44`}>
           <option value="">Mọi đối tượng</option>
           {Object.entries(ENTITY_LABEL).map(([value, label]) => (
             <option key={value} value={value}>
@@ -196,7 +196,7 @@ export default function AuditLogPage() {
             </option>
           ))}
         </select>
-        <select aria-label="Loại thao tác" value={action} onChange={(e) => update({ action: e.target.value })} className={input}>
+        <select aria-label="Loại thao tác" value={action} onChange={(e) => update({ action: e.target.value })} className={`${filterInput} md:w-52`}>
           <option value="">Mọi thao tác</option>
           {Object.entries(ACTION_LABEL)
             .sort((a, b) => a[1].localeCompare(b[1], 'vi'))
@@ -206,10 +206,8 @@ export default function AuditLogPage() {
               </option>
             ))}
         </select>
-        <div className="md:col-span-3 xl:col-span-1">
-          <DateRangeFilter from={from} to={to} onChange={(r) => update(r)} />
-        </div>
-      </div>
+        <DateRangeFilter variant="bar" from={from} to={to} onChange={(r) => update(r)} />
+      </FilterBar>
 
       {total !== null && (
         <p className="mb-3 text-sm text-muted" aria-live="polite">

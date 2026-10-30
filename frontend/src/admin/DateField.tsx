@@ -12,7 +12,7 @@ import {
   WEEKDAYS,
 } from './dates'
 import { RequiredMark } from '../components/FormFields'
-import { btn, input } from './styles'
+import { btn, filterInput, input } from './styles'
 
 interface DateFieldProps {
   label: string
@@ -26,13 +26,15 @@ interface DateFieldProps {
   hideLabel?: boolean
   /** Red * after the label and aria-required on the input */
   requiredMark?: boolean
+  /** 40px high, for a FilterBar */
+  compact?: boolean
 }
 
 /**
  * Date input showing and accepting "dd/MM/yyyy" (typed or picked from a Monday-first Vietnamese calendar). The value
  * is the ISO day "yyyy-MM-dd" in Vietnam time. Keyboard: arrows move in the calendar, Enter picks, Esc closes.
  */
-export function DateField({ label, value, onChange, min, max, error, hideLabel = false, requiredMark = false }: DateFieldProps) {
+export function DateField({ label, value, onChange, min, max, error, hideLabel = false, requiredMark = false, compact = false }: DateFieldProps) {
   const id = useId()
   const [text, setText] = useState(isoToDisplay(value))
   const [shownFor, setShownFor] = useState(value)
@@ -108,7 +110,7 @@ export function DateField({ label, value, onChange, min, max, error, hideLabel =
           aria-invalid={shownError ? true : undefined}
           aria-required={requiredMark || undefined}
           aria-describedby={shownError ? `${id}-error` : undefined}
-          className={`${input} rounded-r-none`}
+          className={`${compact ? filterInput : input} min-w-0 rounded-r-none`}
         />
         <button
           ref={toggle}
@@ -117,7 +119,7 @@ export function DateField({ label, value, onChange, min, max, error, hideLabel =
           aria-label={`Chọn ${label.toLowerCase()} từ lịch`}
           aria-expanded={open}
           aria-haspopup="dialog"
-          className="flex shrink-0 items-center rounded-r-xl border border-l-0 border-stone-300 bg-white px-3 text-stone-700 hover:bg-stone-50"
+          className={`flex shrink-0 items-center rounded-r-xl border border-l-0 border-stone-300 bg-white px-3 text-stone-700 hover:bg-stone-50 ${compact ? 'h-10' : ''}`}
         >
           <svg aria-hidden="true" viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.6">
             <rect x="3" y="4.5" width="14" height="12" rx="2" />
@@ -275,44 +277,59 @@ export function DateRangeFilter({
   from,
   to,
   onChange,
+  variant = 'stacked',
 }: {
   from: string
   to: string
   onChange: (range: { from: string; to: string }) => void
+  /** "bar": the two fields and the quick ranges are separate items of a FilterBar (40px, bottom-aligned) */
+  variant?: 'stacked' | 'bar'
 }) {
   const quick: { kind: 'today' | 'last7' | 'thisMonth'; label: string }[] = [
     { kind: 'today', label: 'Hôm nay' },
     { kind: 'last7', label: '7 ngày qua' },
     { kind: 'thisMonth', label: 'Tháng này' },
   ]
-  return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-2">
-        <DateField label="Từ ngày" value={from} max={to || undefined} onChange={(v) => onChange({ from: v, to })} />
-        <DateField label="Đến ngày" value={to} min={from || undefined} onChange={(v) => onChange({ from, to: v })} />
-      </div>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Chọn nhanh khoảng ngày">
-        {quick.map((q) => {
-          const range = quickRange(q.kind)
-          const active = range.from === from && range.to === to
-          return (
-            <button
-              key={q.kind}
-              type="button"
-              aria-pressed={active}
-              onClick={() => onChange(range)}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${active ? 'bg-stone-900 text-white' : 'border border-stone-300 bg-white text-stone-700'}`}
-            >
-              {q.label}
-            </button>
-          )
-        })}
-        {(from || to) && (
-          <button type="button" onClick={() => onChange({ from: '', to: '' })} className={`${btn.link} px-1`}>
-            Xoá ngày
+  const bar = variant === 'bar'
+  const fields = (
+    <div className={`grid grid-cols-2 gap-2 ${bar ? 'md:w-[22rem]' : ''}`}>
+      <DateField label="Từ ngày" compact={bar} value={from} max={to || undefined} onChange={(v) => onChange({ from: v, to })} />
+      <DateField label="Đến ngày" compact={bar} value={to} min={from || undefined} onChange={(v) => onChange({ from, to: v })} />
+    </div>
+  )
+  const quickRanges = (
+    <div className={`flex flex-wrap items-center gap-2 ${bar ? 'md:h-10' : ''}`} role="group" aria-label="Chọn nhanh khoảng ngày">
+      {quick.map((q) => {
+        const range = quickRange(q.kind)
+        const active = range.from === from && range.to === to
+        return (
+          <button
+            key={q.kind}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(range)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${active ? 'bg-stone-900 text-white' : 'border border-stone-300 bg-white text-stone-700'}`}
+          >
+            {q.label}
           </button>
-        )}
-      </div>
+        )
+      })}
+      {(from || to) && (
+        <button type="button" onClick={() => onChange({ from: '', to: '' })} className={`${btn.link} px-1`}>
+          Xoá ngày
+        </button>
+      )}
+    </div>
+  )
+  return bar ? (
+    <>
+      {fields}
+      {quickRanges}
+    </>
+  ) : (
+    <div className="space-y-2">
+      {fields}
+      {quickRanges}
     </div>
   )
 }

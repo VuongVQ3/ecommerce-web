@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { StatusBadge } from '../components/OrderDetails'
@@ -9,36 +9,13 @@ import { CANCEL_REASON_LABEL, ORDER_STATUS_LABEL, ORDER_STATUSES, type CancelRea
 import { useAsync } from '../lib/useAsync'
 import { DateRangeFilter } from './DateField'
 import { FlagIcon } from './phoneFlags'
-import { btn, input, table } from './styles'
-import { Dialog, EmptyState, PageHeader, Pagination } from './ui'
+import { btn, filterInput, input, table } from './styles'
+import { Dialog, EmptyState, FilterBar, PageHeader, Pagination, SearchFilter } from './ui'
 
 const STATUSES: { value: OrderStatus | ''; label: string }[] = [
   { value: '', label: 'Tất cả' },
   ...ORDER_STATUSES.map((s) => ({ value: s, label: ORDER_STATUS_LABEL[s] })),
 ]
-
-function SearchForm({ initial, onSearch }: { initial: string; onSearch: (q: string) => void }) {
-  const [search, setSearch] = useState(initial)
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    onSearch(search.trim())
-  }
-  return (
-    <form onSubmit={submit} role="search" className="flex gap-2">
-      <input
-        type="search"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Mã đơn (HL...) hoặc số điện thoại"
-        aria-label="Tìm theo mã đơn hoặc số điện thoại"
-        className={input}
-      />
-      <button type="submit" className={btn.primary}>
-        Tìm
-      </button>
-    </form>
-  )
-}
 
 /** Phones: search and dates in a bottom sheet, applied together. */
 function FilterSheet({
@@ -81,7 +58,9 @@ function FilterSheet({
 function Customer({ o }: { o: AdminOrderRow }) {
   return (
     <>
-      <div className="font-medium break-words text-stone-900">{o.customerName}</div>
+      <div className="max-w-64 truncate font-medium text-stone-900" title={o.customerName}>
+        {o.customerName}
+      </div>
       <div className="flex items-center gap-1 text-stone-600 tabular-nums">
         {o.phone}
         {o.flagLevel && <FlagIcon level={o.flagLevel} reason={o.flagReason} />}
@@ -240,13 +219,30 @@ export default function OrdersPage() {
         ))}
       </div>
 
+      <div className="mb-4 md:hidden">
+        <button type="button" className={`${btn.secondary} w-full`} onClick={() => setSheetOpen(true)} aria-haspopup="dialog">
+          Bộ lọc{activeFilters > 0 && ` (${activeFilters})`}
+        </button>
+      </div>
+      <div className="max-md:hidden">
+        <FilterBar>
+          <SearchFilter
+            key={q}
+            initial={q}
+            placeholder="Mã đơn (HL...) hoặc số điện thoại"
+            label="Tìm theo mã đơn hoặc số điện thoại"
+            onSearch={(text) => update({ q: text })}
+          />
+          <DateRangeFilter variant="bar" from={from} to={to} onChange={(r) => update(r)} />
+        </FilterBar>
+      </div>
       {status === 'CANCELLED' && (
-        <div className="mb-4 max-w-sm">
+        <div className="mb-4 md:max-w-xs">
           <select
             aria-label="Lý do huỷ"
             value={cancelReasonCode}
             onChange={(e) => update({ cancelReasonCode: e.target.value })}
-            className={input}
+            className={filterInput}
           >
             <option value="">Mọi lý do huỷ</option>
             {(Object.keys(CANCEL_REASON_LABEL) as CancelReasonCode[]).map((c) => (
@@ -257,15 +253,6 @@ export default function OrdersPage() {
           </select>
         </div>
       )}
-      <div className="mb-4 md:hidden">
-        <button type="button" className={`${btn.secondary} w-full`} onClick={() => setSheetOpen(true)} aria-haspopup="dialog">
-          Bộ lọc{activeFilters > 0 && ` (${activeFilters})`}
-        </button>
-      </div>
-      <div className="mb-4 hidden gap-4 md:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-        <SearchForm key={q} initial={q} onSearch={(text) => update({ q: text })} />
-        <DateRangeFilter from={from} to={to} onChange={(r) => update(r)} />
-      </div>
       {sheetOpen && (
         <FilterSheet
           q={q}
