@@ -8,7 +8,7 @@ import { formatAdminDateTime, formatPrice } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
 import { btn, table } from './styles'
 import MoneyInput from './MoneyInput'
-import { ActionMenu, Dialog, EmptyState, Field, FilterBar, PageHeader, Pagination, SearchFilter } from './ui'
+import { ActionMenu, Badge, Dialog, EmptyState, Field, FilterBar, PageHeader, Pagination, SearchFilter, StockBadge } from './ui'
 import { RequiredLegend } from '../components/FormFields'
 
 const MOVEMENT_LABEL: Record<MovementType, string> = {
@@ -186,6 +186,23 @@ function HistoryDialog({ product, onClose }: { product: StockRow; onClose: () =>
   )
 }
 
+/** Out of stock in red, at or under the threshold in orange */
+const rowTone = (p: StockRow) => (p.available <= 0 ? 'bg-red-50/70' : p.lowStock ? 'bg-orange-50' : '')
+
+function ProductName({ p }: { p: StockRow }) {
+  return (
+    <>
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="min-w-0 truncate font-medium text-stone-900" title={p.name}>
+          {p.name}
+        </span>
+        {!p.active && <Badge tone="gray">Đang ẩn</Badge>}
+      </div>
+      <div className="text-xs text-muted">Ngưỡng cảnh báo: {p.lowStockThreshold}</div>
+    </>
+  )
+}
+
 type Open = { kind: 'import' | 'stocktake' | 'history'; product: StockRow } | null
 
 export default function InventoryPage() {
@@ -250,15 +267,8 @@ export default function InventoryPage() {
         <div aria-busy={loading}>
           <ul className="space-y-3 md:hidden">
             {data.items.map((p) => (
-              <li key={p.id} className={`rounded-2xl border p-4 text-sm ${p.lowStock ? 'border-amber-200 bg-amber-50' : 'border-stone-200 bg-white'}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium break-words text-stone-900">{p.name}</p>
-                    <p className="text-xs text-muted">
-                      {!p.active && 'Đang ẩn · '}Ngưỡng cảnh báo: {p.lowStockThreshold}
-                    </p>
-                  </div>
-                </div>
+              <li key={p.id} className={`rounded-2xl border p-4 text-sm ${p.lowStock || p.available <= 0 ? `border-orange-200 ${rowTone(p)}` : 'border-stone-200 bg-white'}`}>
+                <ProductName p={p} />
                 <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
                   <div>
                     <dt className="text-xs text-muted">Tồn kho</dt>
@@ -270,9 +280,9 @@ export default function InventoryPage() {
                   </div>
                   <div>
                     <dt className="text-xs text-muted">Có thể bán</dt>
-                    <dd className={`font-semibold tabular-nums ${p.lowStock ? 'text-amber-900' : ''}`}>
+                    <dd className="flex flex-wrap items-center justify-center gap-1 font-semibold tabular-nums">
                       {p.available}
-                      {p.lowStock && <span className="ml-1 rounded bg-amber-200 px-1.5 py-0.5 text-xs">Sắp hết</span>}
+                      <StockBadge available={p.available} lowStock={p.lowStock} />
                     </dd>
                   </div>
                 </dl>
@@ -295,20 +305,17 @@ export default function InventoryPage() {
             </thead>
             <tbody>
               {data.items.map((p) => (
-                <tr key={p.id} className={p.lowStock ? 'bg-amber-50' : undefined}>
-                  <td className={table.td}>
-                    <div className="max-w-80 truncate font-medium text-stone-900" title={p.name}>
-                      {p.name}
-                    </div>
-                    <div className="text-xs text-muted">
-                      {!p.active && 'Đang ẩn · '}Ngưỡng cảnh báo: {p.lowStockThreshold}
-                    </div>
+                <tr key={p.id} className={rowTone(p)}>
+                  <td className={`${table.td} max-w-96`}>
+                    <ProductName p={p} />
                   </td>
                   <td className={`${table.td} text-right tabular-nums`}>{p.onHand}</td>
                   <td className={`${table.td} text-right tabular-nums`}>{p.reserved}</td>
-                  <td className={`${table.td} text-right font-semibold tabular-nums ${p.lowStock ? 'text-amber-900' : ''}`}>
-                    {p.available}
-                    {p.lowStock && <span className="ml-1.5 rounded bg-amber-200 px-1.5 py-0.5 text-xs">Sắp hết</span>}
+                  <td className={`${table.td} text-right font-semibold whitespace-nowrap tabular-nums`}>
+                    <span className="inline-flex items-center gap-2">
+                      <StockBadge available={p.available} lowStock={p.lowStock} />
+                      {p.available}
+                    </span>
                   </td>
                   <td className={`${table.td} text-right`}>{rowActions(p)}</td>
                 </tr>

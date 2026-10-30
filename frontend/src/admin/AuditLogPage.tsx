@@ -1,3 +1,4 @@
+import { Pencil, Plus, Trash2, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
@@ -6,18 +7,22 @@ import { formatAdminDateTime } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
 import {
   ACTION_LABEL,
+  actionKind,
   actionLabel,
   actorText,
   changeRows,
+  dayHeading,
   ENTITY_LABEL,
   entityLink,
   fieldLabel,
   formatAuditValue,
   rowReason,
   snapshot,
+  type ActionKind,
   type ValueContext,
 } from './auditLabels'
 import { DateRangeFilter } from './DateField'
+import { vnTodayIso } from './dates'
 import { btn, filterInput } from './styles'
 import { EmptyState, FilterBar, PageHeader } from './ui'
 
@@ -68,56 +73,99 @@ function ChangesTable({ row, categories }: { row: AuditRow; categories: Map<numb
   )
 }
 
+const KIND_ICON: Record<ActionKind, { icon: LucideIcon; className: string }> = {
+  add: { icon: Plus, className: 'bg-brand-100 text-brand-800' },
+  remove: { icon: Trash2, className: 'bg-red-100 text-red-700' },
+  change: { icon: Pencil, className: 'bg-blue-100 text-blue-800' },
+}
+
+/**
+ * What was done to what, who did it and when. Phones: two lines. From 1024px: one line with who, the changes link and
+ * the time in columns, plus a second line only for a reason. The changes fold out underneath.
+ */
 export function AuditEntry({ row, categories }: { row: AuditRow; categories: Map<number, string> }) {
   const [open, setOpen] = useState(false)
   const link = entityLink(row)
   const reason = rowReason(row)
   const hasChanges = changeRows(row).length > 0
+  const kind = KIND_ICON[actionKind(row.action)]
+  const full = formatAdminDateTime(row.createdAt)
+  const actor = actorText(row)
+  const toggle = (className: string) =>
+    hasChanges && (
+      <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className={`text-xs font-semibold text-brand-700 hover:underline ${className}`}>
+        {open ? 'Ẩn thay đổi' : 'Xem thay đổi'}
+      </button>
+    )
   return (
-    <li className="min-w-0 rounded-2xl border border-stone-200 bg-white p-4 text-sm">
-      <p className="flex flex-wrap items-baseline gap-x-2">
-        <span className="font-bold text-stone-900">{actionLabel(row.action)}</span>
-        <span className="text-muted" aria-hidden="true">·</span>
-        <time dateTime={row.createdAt} className="text-muted tabular-nums">
-          {formatAdminDateTime(row.createdAt)}
-        </time>
-      </p>
-      <p className="mt-1 break-words text-stone-700">{actorText(row)}</p>
-      <p className="mt-1 break-words text-stone-700">
-        {row.entityLabel ? (
-          <>
-            {/* An order code alone says little: "Đơn hàng HL…"; names, emails and numbers speak for themselves */}
-            {row.entityType === 'ORDER' && <span className="text-muted">Đơn hàng </span>}
-            {link ? (
-              <Link to={link} className="font-medium text-brand-700 hover:underline">
-                {row.entityLabel}
-              </Link>
+    <li className="flex min-w-0 gap-3 px-3 py-1.5 text-sm sm:px-4">
+      <span aria-hidden className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full ${kind.className}`}>
+        <kind.icon className="size-3.5" strokeWidth={2.25} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-3">
+          <p className="min-w-0 flex-1 truncate">
+            <span className="font-semibold text-stone-900">{actionLabel(row.action)}</span>{' '}
+            {row.entityLabel ? (
+              <>
+                {/* An order code alone says little: "Đơn hàng HL…"; names, emails and numbers speak for themselves */}
+                {row.entityType === 'ORDER' && <span className="text-muted">Đơn hàng </span>}
+                {link ? (
+                  <Link to={link} className="font-medium text-brand-700 hover:underline" title={row.entityLabel}>
+                    {row.entityLabel}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-stone-800" title={row.entityLabel}>
+                    {row.entityLabel}
+                  </span>
+                )}
+              </>
             ) : (
-              <span className="font-medium">{row.entityLabel}</span>
+              <span className="text-muted">
+                {ENTITY_LABEL[row.entityType] ?? row.entityType} #{row.entityId}
+              </span>
             )}
-          </>
-        ) : (
-          <span className="text-muted">
-            {ENTITY_LABEL[row.entityType] ?? row.entityType} #{row.entityId}
+          </p>
+          <span className="hidden w-48 shrink-0 truncate text-xs text-stone-600 lg:block" title={actor}>
+            {actor}
           </span>
-        )}
-      </p>
-      {reason && <p className="mt-1 break-words text-stone-800">Lý do: {reason}</p>}
-      {hasChanges && (
-        <>
-          <button
-            type="button"
-            aria-expanded={open}
-            onClick={() => setOpen((o) => !o)}
-            className="mt-2 text-sm font-semibold text-brand-700 hover:underline"
-          >
-            {open ? 'Ẩn thay đổi' : 'Xem thay đổi'}
-          </button>
-          {open && <ChangesTable row={row} categories={categories} />}
-        </>
-      )}
+          <span className="hidden w-24 shrink-0 lg:block">{toggle('')}</span>
+          <time dateTime={row.createdAt} title={full} className="w-10 shrink-0 text-right text-xs text-muted tabular-nums">
+            {full.slice(-5)}
+          </time>
+        </div>
+        <p className={`mt-0.5 flex flex-wrap items-baseline gap-x-2 text-xs text-stone-600 ${reason ? '' : 'lg:hidden'}`}>
+          <span className="min-w-0 break-words lg:hidden">{actor}</span>
+          {reason && (
+            <>
+              <span aria-hidden className="lg:hidden">
+                ·
+              </span>
+              <span className="min-w-0 break-words text-stone-800">Lý do: {reason}</span>
+            </>
+          )}
+          {hasChanges && (
+            <span aria-hidden className="lg:hidden">
+              ·
+            </span>
+          )}
+          {toggle('lg:hidden')}
+        </p>
+        {open && <ChangesTable row={row} categories={categories} />}
+      </div>
     </li>
   )
+}
+
+/** Rows (newest first) cut into Vietnam days */
+function byDay(rows: AuditRow[]): { day: string; rows: AuditRow[] }[] {
+  const groups: { day: string; rows: AuditRow[] }[] = []
+  for (const row of rows) {
+    const day = vnTodayIso(new Date(row.createdAt))
+    if (groups.at(-1)?.day === day) groups.at(-1)!.rows.push(row)
+    else groups.push({ day, rows: [row] })
+  }
+  return groups
 }
 
 /** Admin only: who changed what, newest first, 50 at a time. */
@@ -139,6 +187,7 @@ export default function AuditLogPage() {
   const [error, setError] = useState<Error | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
 
+  const today = vnTodayIso()
   const filters = useMemo(() => ({ actorId, entityType, action, from, to }), [actorId, entityType, action, from, to])
 
   const load = async (page: number, signal?: AbortSignal) => {
@@ -178,9 +227,15 @@ export default function AuditLogPage() {
 
   return (
     <>
-      <PageHeader title="Nhật ký thao tác" />
+      <PageHeader title="Nhật ký thao tác">
+        {total !== null && (
+          <p className="text-sm text-muted" aria-live="polite">
+            {total.toLocaleString('vi-VN')} bản ghi{rows.length < total ? ` · đang hiện ${rows.length.toLocaleString('vi-VN')}` : ''}
+          </p>
+        )}
+      </PageHeader>
       <FilterBar>
-        <select aria-label="Người thao tác" value={actorId} onChange={(e) => update({ actor: e.target.value })} className={`${filterInput} md:w-52`}>
+        <select aria-label="Người thao tác" value={actorId} onChange={(e) => update({ actor: e.target.value })} className={`${filterInput} md:w-48`}>
           <option value="">Mọi người thao tác</option>
           {actors.data?.map((a) => (
             <option key={a.id} value={a.id}>
@@ -209,12 +264,6 @@ export default function AuditLogPage() {
         <DateRangeFilter variant="bar" from={from} to={to} onChange={(r) => update(r)} />
       </FilterBar>
 
-      {total !== null && (
-        <p className="mb-3 text-sm text-muted" aria-live="polite">
-          {total.toLocaleString('vi-VN')} bản ghi{rows.length < total ? ` · đang hiện ${rows.length.toLocaleString('vi-VN')}` : ''}
-        </p>
-      )}
-
       {error && rows.length === 0 ? (
         <ErrorMessage message={error.message} onRetry={() => setReloadKey((k) => k + 1)} />
       ) : total === null ? (
@@ -223,11 +272,20 @@ export default function AuditLogPage() {
         <EmptyState title="Không có thao tác nào khớp bộ lọc." />
       ) : (
         <div aria-busy={loading}>
-          <ul className="space-y-3">
-            {rows.map((row) => (
-              <AuditEntry key={row.id} row={row} categories={categories} />
+          <div className="space-y-3">
+            {byDay(rows).map((group) => (
+              <section key={group.day} aria-labelledby={`audit-day-${group.day}`}>
+                <h2 id={`audit-day-${group.day}`} className="mb-1 text-xs font-semibold tracking-wide text-stone-500 uppercase">
+                  {dayHeading(group.day, today)}
+                </h2>
+                <ul className="divide-y divide-stone-100 rounded-2xl border border-stone-200 bg-white">
+                  {group.rows.map((row) => (
+                    <AuditEntry key={row.id} row={row} categories={categories} />
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
           {error && (
             <p className="mt-3 text-sm text-danger" role="alert">
               {error.message}

@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
@@ -8,6 +9,8 @@ import { formatAdminDateTime, formatPrice, formatRelative, formatShortDateTime }
 import { CANCEL_REASON_LABEL, ORDER_STATUS_LABEL, ORDER_STATUSES, type CancelReasonCode } from '../lib/orderStatus'
 import { useAsync } from '../lib/useAsync'
 import { DateRangeFilter } from './DateField'
+import { vnTodayIso } from './dates'
+import { OVERDUE_PARAM } from './labels'
 import { FlagIcon } from './phoneFlags'
 import { btn, filterInput, input, table } from './styles'
 import { Dialog, EmptyState, FilterBar, PageHeader, Pagination, SearchFilter } from './ui'
@@ -121,7 +124,7 @@ function OrderTable({ rows }: { rows: AdminOrderRow[] }) {
           {rows.map((o) => (
             <tr
               key={o.code}
-              className="cursor-pointer hover:bg-stone-50"
+              className="cursor-pointer transition-colors hover:bg-brand-50/60 focus-within:bg-brand-50/60"
               onClick={(e) => {
                 // The link handles its own clicks (and middle/ctrl-click)
                 if (!(e.target as HTMLElement).closest('a')) navigate(`/admin/don-hang/${o.code}`)
@@ -163,13 +166,26 @@ export default function OrdersPage() {
   const q = params.get('q') ?? ''
   const cancelReasonCode = (params.get('cancelReasonCode') ?? '') as CancelReasonCode | ''
   const page = Number(params.get('page') ?? 0)
+  // From the dashboard: pending orders older than 24 hours. The API filters by day, so it is asked for the days up
+  // to the cutoff and the few later orders of the cutoff day are left out here.
+  const overdue = status === 'PENDING' && params.get(OVERDUE_PARAM) === '1'
+  const [cutoff] = useState(() => Date.now() - 24 * 3600_000)
+  const cutoffDay = vnTodayIso(new Date(cutoff))
+  const listTo = overdue && (!to || to > cutoffDay) ? cutoffDay : to
   const [sheetOpen, setSheetOpen] = useState(false)
   const chips = useRef<HTMLDivElement>(null)
 
   const { data, error, loading, reload } = useAsync(
-    (signal) => adminApi.orders({ status, from, to, q, cancelReasonCode, page }, signal),
-    [status, from, to, q, cancelReasonCode, page],
+    (signal) => adminApi.orders({ status, from, to: listTo, q, cancelReasonCode, page }, signal),
+    [status, from, listTo, q, cancelReasonCode, page],
   )
+  // Number of orders behind each status chip, for the same search and dates (one tiny request per status)
+  const counts = useAsync(
+    (signal) =>
+      Promise.all(STATUSES.map((s) => adminApi.orders({ status: s.value, from, to, q, size: 1 }, signal).then((r) => r.page.totalItems))),
+    [from, to, q],
+  ).data
+  const rows = data ? (overdue ? data.page.items.filter((o) => new Date(o.createdAt).getTime() <= cutoff) : data.page.items) : []
 
   // Keep the selected status chip visible when the row scrolls sideways
   useEffect(() => {
@@ -185,6 +201,7 @@ export default function OrdersPage() {
     if (!('page' in changes)) next.delete('page')
     // The cancel reason filter only exists next to "Đã huỷ"
     if ('status' in changes && changes.status !== 'CANCELLED') next.delete('cancelReasonCode')
+    if ('status' in changes) next.delete(OVERDUE_PARAM)
     setParams(next)
   }
 
@@ -195,7 +212,7 @@ export default function OrdersPage() {
       <PageHeader title="Đơn hàng">
         {data && data.pendingCount > 0 && (
           <button type="button" className={btn.secondary} onClick={() => update({ status: 'PENDING' })}>
-            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white tabular-nums">
+            <span className="rounded-full bg-orange-500 px-2 py-0.5 text-xs font-bold text-white tabular-nums">
               {data.pendingCount}
             </span>
             đơn chờ xác nhận
@@ -204,7 +221,7 @@ export default function OrdersPage() {
       </PageHeader>
 
       <div ref={chips} className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0" role="group" aria-label="Lọc theo trạng thái">
-        {STATUSES.map((s) => (
+        {STATUSES.map((s, i) => (
           <button
             key={s.value}
             type="button"
@@ -215,9 +232,24 @@ export default function OrdersPage() {
             }`}
           >
             {s.label}
+            {counts && <span className={`ml-1 tabular-nums ${status === s.value ? 'text-stone-300' : 'text-stone-500'}`}>({counts[i]})</span>}
           </button>
         ))}
       </div>
+      {overdue && (
+        <p className="mb-4 flex flex-wrap items-center gap-2 text-sm text-stone-700">
+          Đang xem đơn chờ xác nhận đặt cách đây hơn 24 giờ
+          <button
+            type="button"
+            onClick={() => update({ [OVERDUE_PARAM]: '' })}
+            className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-900 hover:bg-orange-200"
+          >
+            Chờ quá 24 giờ
+            <X aria-hidden className="size-3.5" />
+            <span className="sr-only">: bỏ lọc</span>
+          </button>
+        </p>
+      )}
 
       <div className="mb-4 md:hidden">
         <button type="button" className={`${btn.secondary} w-full`} onClick={() => setSheetOpen(true)} aria-haspopup="dialog">
@@ -270,8 +302,8 @@ export default function OrdersPage() {
         <ErrorMessage message={error.message} onRetry={reload} />
       ) : !data ? (
         <Spinner />
-      ) : data.page.items.length === 0 ? (
-        <EmptyState title="Không có đơn hàng nào.">
+      ) : rows.length === 0 ? (
+        <EmptyState title={overdue ? 'Không có đơn nào chờ quá 24 giờ.' : 'Không có đơn hàng nào.'}>
           {(status || from || to || q || cancelReasonCode) && (
             <button type="button" className={btn.link} onClick={() => setParams(new URLSearchParams())}>
               Xoá bộ lọc
@@ -280,8 +312,8 @@ export default function OrdersPage() {
         </EmptyState>
       ) : (
         <div aria-busy={loading}>
-          <OrderCards rows={data.page.items} />
-          <OrderTable rows={data.page.items} />
+          <OrderCards rows={rows} />
+          <OrderTable rows={rows} />
           <Pagination page={data.page.page} totalPages={data.page.totalPages} onChange={(p) => update({ page: String(p) })} />
         </div>
       )}

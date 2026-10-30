@@ -45,12 +45,21 @@ const message = (err: unknown) => (err instanceof Error ? err.message : String(e
 
 const REMINDER = 'Kiểm tra quy định khuyến mại và thông báo với Sở Công Thương trước khi chạy chương trình.'
 
-/** Warns when the yearly promotion days of a product are close to (or over) the limit. */
+/** Yearly promotion days of a product as a small bar; orange close to the limit (80%), red over it. */
 function DaysUsage({ used, max }: { used: number; max: number }) {
-  const near = used >= max * 0.8
+  const over = used > max
+  const near = !over && used >= max * 0.8
   return (
-    <span className={`tabular-nums ${used > max ? 'font-semibold text-danger' : near ? 'font-semibold text-amber-800' : 'text-stone-600'}`}>
-      {used}/{max} ngày{near && used <= max ? ' · gần chạm giới hạn' : ''}
+    <span className="inline-flex w-full max-w-64 min-w-48 flex-col gap-1">
+      <span aria-hidden className="h-1.5 overflow-hidden rounded-full bg-stone-200">
+        <span
+          className={`block h-full rounded-full ${over ? 'bg-red-600' : near ? 'bg-orange-500' : 'bg-brand-500'}`}
+          style={{ width: `${Math.min(100, (used / max) * 100)}%` }}
+        />
+      </span>
+      <span className={`text-xs tabular-nums ${over ? 'font-semibold text-danger' : near ? 'font-semibold text-orange-800' : 'text-stone-600'}`}>
+        Đã dùng {used}/{max} ngày khuyến mại trong năm{over ? ' · vượt giới hạn' : near ? ' · gần chạm giới hạn' : ''}
+      </span>
     </span>
   )
 }

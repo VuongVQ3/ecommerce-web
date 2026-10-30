@@ -1,3 +1,4 @@
+import { Check, ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
@@ -5,7 +6,9 @@ import { StatusBadge } from '../components/OrderDetails'
 import { adminApi, type DashboardDay, type DashboardDayTotals } from '../lib/adminApi'
 import { formatPrice } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
+import { axisTicks, shortMoney } from './chartAxis'
 import { Calendar } from './DateField'
+import { OVERDUE_PARAM } from './labels'
 import { addDays, fromIso, isoToDisplay, vnTodayIso, WEEKDAY_NAMES, WEEKDAYS } from './dates'
 import { card, table } from './styles'
 import { PageHeader } from './ui'
@@ -32,17 +35,33 @@ function dayName(iso: string, today: string): string | null {
   return null
 }
 
-function NowCard({ label, value, to, warn = false, hint }: { label: string; value: number; to: string; warn?: boolean; hint?: string }) {
+/** Orange while something waits (value > 0), faded with a ✓ when there is nothing to do. The whole card opens the list. */
+function NowCard({ label, value, to, hint }: { label: string; value: number; to: string; hint?: string }) {
+  const waiting = value > 0
   return (
     <Link
       to={to}
-      className={`${card} block p-5 hover:border-brand-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${
-        warn ? 'border-amber-300 bg-amber-50' : ''
+      className={`group block rounded-2xl border p-5 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${
+        waiting ? 'border-orange-300 bg-orange-50 hover:border-orange-400 hover:shadow-sm' : 'border-stone-200 bg-white hover:border-brand-300'
       }`}
     >
-      <p className="text-sm text-stone-600">{label}</p>
-      <p className={`mt-1 text-2xl font-bold tabular-nums ${warn ? 'text-amber-800' : 'text-stone-900'}`}>{value}</p>
-      {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
+      <p className="flex items-center justify-between gap-2 text-sm text-stone-600">
+        {label}
+        <ChevronRight aria-hidden className="size-4 shrink-0 text-stone-400 transition group-hover:translate-x-0.5 group-hover:text-stone-600" />
+      </p>
+      <p className={`mt-1 text-3xl font-bold tabular-nums ${waiting ? 'text-orange-700' : 'text-stone-400'}`}>{value}</p>
+      {waiting ? (
+        hint && (
+          <p className="mt-1 truncate text-xs text-stone-700" title={hint}>
+            {hint}
+          </p>
+        )
+      ) : (
+        <p className="mt-1 flex items-center gap-1 text-xs font-medium text-brand-700">
+          <Check aria-hidden className="size-3.5" strokeWidth={2.5} />
+          Không có việc tồn
+        </p>
+      )}
     </Link>
   )
 }
@@ -191,16 +210,23 @@ function DayPicker({ date, today, min, onChange }: { date: string; today: string
   )
 }
 
-/** 7 columns ending on the selected day (drawn darker); each column is a button that selects its day. */
+/**
+ * 7 columns ending on the selected day (drawn darker), over a money axis. Each column is a button that selects its
+ * day; pointing at it (or focusing it) shows the amount and the number of orders. A day without revenue keeps a faint
+ * hatched stub, so it reads as "0" rather than as missing data.
+ */
 function RevenueChart({ days, selected, min, onSelect }: { days: DashboardDay['last7Days']; selected: string; min: string; onSelect: (iso: string) => void }) {
-  const max = Math.max(1, ...days.map((d) => d.revenue))
+  const ticks = axisTicks(Math.max(...days.map((d) => d.revenue)))
+  const top = ticks[ticks.length - 1]
   const total = days.reduce((sum, d) => sum + d.revenue, 0)
   const orders = days.reduce((sum, d) => sum + d.orders, 0)
+  const [pointed, setPointed] = useState<string | null>(null)
   // Narrow screens scroll the chart: keep the selected day (the last column) in view
   const scroller = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (scroller.current) scroller.current.scrollLeft = scroller.current.scrollWidth
   }, [selected])
+  const pct = (v: number) => `${(v / top) * 100}%`
   return (
     <section className={`${card} p-5`} aria-labelledby="revenue-title">
       <h2 id="revenue-title" className="font-semibold text-stone-900">
@@ -210,34 +236,78 @@ function RevenueChart({ days, selected, min, onSelect }: { days: DashboardDay['l
       <p className="mt-2 text-sm text-stone-700 tabular-nums">
         7 ngày đến {dayMonth(selected)}: <strong className="text-stone-900">{formatPrice(total)}</strong> · {orders} đơn
       </p>
-      <div ref={scroller} className="-mx-1 mt-3 overflow-x-auto px-1 pb-1">
-        <ol className="flex h-44 min-w-[22rem] items-end gap-2" aria-label="Biểu đồ doanh thu 7 ngày">
-          {days.map((d) => {
-            const active = d.date === selected
-            return (
-              <li key={d.date} className="flex h-full flex-1">
-                <button
-                  type="button"
-                  onClick={() => onSelect(d.date)}
-                  disabled={d.date < min}
-                  aria-pressed={active}
-                  aria-label={`Xem ngày ${dayMonth(d.date)}: ${formatPrice(d.revenue)}, ${d.orders} đơn`}
-                  title={`${formatPrice(d.revenue)} · ${d.orders} đơn`}
-                  className="group flex h-full w-full flex-col items-center justify-end gap-1 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed"
-                >
-                  <span
-                    aria-hidden
-                    className={`w-full max-w-12 rounded-t-lg transition-colors ${active ? 'bg-brand-700' : 'bg-brand-500/45 group-hover:bg-brand-500'}`}
-                    style={{ height: `${Math.max(2, (d.revenue / max) * 100)}%` }}
-                  />
-                  <span aria-hidden className={`text-xs whitespace-nowrap tabular-nums ${active ? 'font-bold text-stone-900' : 'text-stone-600'}`}>
-                    {shortWeekday(d.date)} {dayMonth(d.date)}
-                  </span>
-                </button>
-              </li>
-            )
-          })}
-        </ol>
+      <div ref={scroller} className="-mx-1 mt-1 overflow-x-auto px-1 pb-1">
+        {/* pt-12 leaves room for the tooltip of the tallest column */}
+        <div className="flex min-w-[24rem] gap-2 pt-12">
+          <div aria-hidden className="relative h-44 w-9 shrink-0 text-right text-xs text-muted tabular-nums">
+            {ticks.map((t) => (
+              <span key={t} className="absolute right-0 translate-y-1/2 leading-none" style={{ bottom: pct(t) }}>
+                {shortMoney(t)}
+              </span>
+            ))}
+          </div>
+          <div className="relative min-w-0 flex-1">
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-44">
+              {ticks.map((t) => (
+                <span
+                  key={t}
+                  className={`absolute inset-x-0 border-t ${t === 0 ? 'border-stone-300' : 'border-dashed border-stone-200'}`}
+                  style={{ bottom: pct(t) }}
+                />
+              ))}
+            </div>
+            <ol className="relative flex gap-2" aria-label="Biểu đồ doanh thu 7 ngày" onPointerLeave={() => setPointed(null)}>
+              {days.map((d, i) => {
+                const active = d.date === selected
+                return (
+                  <li key={d.date} className="flex min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => onSelect(d.date)}
+                      onPointerEnter={() => setPointed(d.date)}
+                      onFocus={() => setPointed(d.date)}
+                      onBlur={() => setPointed(null)}
+                      disabled={d.date < min}
+                      aria-pressed={active}
+                      aria-label={`Xem ngày ${dayMonth(d.date)}: ${formatPrice(d.revenue)}, ${d.orders} đơn`}
+                      className="group flex w-full flex-col items-center gap-1 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed"
+                    >
+                      <span aria-hidden className="relative flex h-44 w-full max-w-12 items-end">
+                        {d.revenue === 0 ? (
+                          // Short, hatched and faint: "nothing" at a glance, never mistaken for a value
+                          <span
+                            className={`h-[12%] w-full rounded-t-lg border border-b-0 border-dashed bg-[repeating-linear-gradient(135deg,var(--color-stone-200)_0_3px,transparent_3px_7px)] ${
+                              active ? 'border-stone-500' : 'border-stone-300 group-hover:border-stone-400'
+                            }`}
+                          />
+                        ) : (
+                          <span
+                            className={`w-full rounded-t-lg transition-colors ${active ? 'bg-brand-700' : 'bg-brand-500/45 group-hover:bg-brand-500'}`}
+                            style={{ height: pct(d.revenue) }}
+                          />
+                        )}
+                        {pointed === d.date && (
+                          <span
+                            className={`absolute z-10 mb-1.5 rounded-lg bg-stone-900 px-2.5 py-1.5 text-left text-xs whitespace-nowrap text-white shadow-lg ${
+                              i === 0 ? 'left-0' : i === days.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'
+                            }`}
+                            style={{ bottom: d.revenue === 0 ? '12%' : pct(d.revenue) }}
+                          >
+                            <span className="block font-semibold tabular-nums">{formatPrice(d.revenue)}</span>
+                            <span className="block text-stone-300">{d.revenue === 0 ? 'Không có đơn giao xong' : `${d.orders} đơn`}</span>
+                          </span>
+                        )}
+                      </span>
+                      <span aria-hidden className={`text-xs whitespace-nowrap tabular-nums ${active ? 'font-bold text-stone-900' : 'text-stone-600'}`}>
+                        {shortWeekday(d.date)} {dayMonth(d.date)}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ol>
+          </div>
+        </div>
       </div>
     </section>
   )
@@ -383,20 +453,18 @@ export default function DashboardPage() {
           <Spinner />
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-            <NowCard label="Đơn chờ xác nhận" value={now.data.pendingCount} to="/admin/don-hang?status=PENDING" />
+            <NowCard label="Đơn chờ xác nhận" value={now.data.pendingCount} to="/admin/don-hang?status=PENDING" hint="Gọi khách rồi xác nhận đơn" />
             <NowCard
               label="Đơn chờ quá 24 giờ"
               value={now.data.pendingOver24h}
-              to="/admin/don-hang?status=PENDING"
-              warn={now.data.pendingOver24h > 0}
-              hint={now.data.pendingOver24h > 0 ? 'Cần gọi xác nhận sớm' : undefined}
+              to={`/admin/don-hang?status=PENDING&${OVERDUE_PARAM}=1`}
+              hint="Cần gọi xác nhận sớm"
             />
             <NowCard
               label="Sản phẩm sắp hết hàng"
               value={now.data.lowStockCount}
               to="/admin/kho?low=1"
-              warn={now.data.lowStockCount > 0}
-              hint={now.data.lowStock.length > 0 ? now.data.lowStock.slice(0, 3).map((p) => p.name).join(', ') : undefined}
+              hint={now.data.lowStock.slice(0, 3).map((p) => p.name).join(', ') || undefined}
             />
           </div>
         )}

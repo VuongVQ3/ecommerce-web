@@ -2,6 +2,7 @@ import type { AuditRow } from '../lib/adminApi'
 import { formatAdminDateTime, formatPrice, formatPromotionEnd } from '../lib/format'
 import { CANCEL_REASON_LABEL, ORDER_STATUS_LABEL, type CancelReasonCode } from '../lib/orderStatus'
 import type { OrderStatus, Role } from '../lib/api'
+import { addDays, isoToDisplay } from './dates'
 import { ROLE_LABEL } from './labels'
 
 /**
@@ -227,4 +228,21 @@ export function entityLink(row: Pick<AuditRow, 'entityType' | 'entityId' | 'acti
   if (row.entityType === 'USER') return `/admin/nguoi-dung/${id}`
   if (row.entityType === 'PHONE') return `/admin/don-hang?q=${id}`
   return null
+}
+
+export type ActionKind = 'add' | 'remove' | 'change'
+
+/** Adding (green +), taking away (red bin: delete, cancel, hide, lock, end) or changing (blue pencil) */
+export function actionKind(action: string): ActionKind {
+  if (/_(CREATED|ADDED|INVITED|IMPORTED)$/.test(action)) return 'add'
+  if (/_(DELETED|REMOVED|CANCEL|CANCELLED|ENDED|HIDDEN|LOCKED)$/.test(action)) return 'remove'
+  return 'change'
+}
+
+/** "Hôm nay", "Hôm qua", "30/10" (with the year when not this year) for a Vietnam day */
+export function dayHeading(day: string, today: string): string {
+  if (day === today) return 'Hôm nay'
+  if (day === addDays(today, -1)) return 'Hôm qua'
+  const display = isoToDisplay(day)
+  return day.slice(0, 4) === today.slice(0, 4) ? display.slice(0, 5) : display
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { actionLabel, actorText, changeRows, entityLink, fieldLabel, formatAuditValue, reasonText, rowReason } from './auditLabels'
+import { actionKind, actionLabel, actorText, changeRows, dayHeading, entityLink, fieldLabel, formatAuditValue, reasonText, rowReason } from './auditLabels'
 
 const product = { entityType: 'PRODUCT', action: 'PRODUCT_UPDATED', categories: new Map([[3, 'Hạt dinh dưỡng']]) }
 
@@ -59,5 +59,27 @@ describe('older rows', () => {
     ])
     expect(changeRows({ before: null, after: 'không phải JSON' })).toEqual([{ field: '', before: null, after: 'không phải JSON' }])
     expect(rowReason({ reasonCode: null, reason: null, after: { reason: 'Nghỉ việc' } })).toBe('Nghỉ việc')
+  })
+})
+
+describe('audit timeline', () => {
+  it('sorts actions into adding, taking away and changing', () => {
+    expect(['PRODUCT_CREATED', 'PRODUCT_IMAGE_ADDED', 'USER_INVITED', 'STOCK_IMPORTED'].map(actionKind)).toEqual(['add', 'add', 'add', 'add'])
+    expect(['PRODUCT_DELETED', 'ORDER_CANCEL', 'PROMOTION_ENDED', 'PRODUCT_HIDDEN', 'USER_LOCKED', 'PHONE_FLAG_REMOVED'].map(actionKind)).toEqual([
+      'remove',
+      'remove',
+      'remove',
+      'remove',
+      'remove',
+      'remove',
+    ])
+    expect(['PRODUCT_UPDATED', 'ORDER_CONFIRM', 'USER_UNLOCKED', 'SOMETHING_NEW'].map(actionKind)).toEqual(['change', 'change', 'change', 'change'])
+  })
+
+  it('names the days of the timeline', () => {
+    expect(dayHeading('2026-10-31', '2026-10-31')).toBe('Hôm nay')
+    expect(dayHeading('2026-10-30', '2026-10-31')).toBe('Hôm qua')
+    expect(dayHeading('2026-10-28', '2026-10-31')).toBe('28/10')
+    expect(dayHeading('2025-12-31', '2026-01-02')).toBe('31/12/2025')
   })
 })

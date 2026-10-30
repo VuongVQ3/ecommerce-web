@@ -3,7 +3,8 @@ import { Link, useSearchParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { useToast } from '../components/Toast'
 import { ApiError, type Page } from '../lib/api'
-import { adminApi, type AdminProductRow } from '../lib/adminApi'
+import { PriceTag } from '../components/Price'
+import { adminApi, promotionApi, type AdminProductRow, type PromotionRow } from '../lib/adminApi'
 import { formatPrice } from '../lib/format'
 import { categoryEmoji } from '../lib/categoryStyle'
 import { cloudinaryUrl } from '../lib/images'
@@ -175,8 +176,20 @@ function Thumb({ url, categorySlug }: { url: string | null; categorySlug: string
   )
 }
 
-/** The price, or "Chưa có giá" for a product still being prepared (price 0) */
-function PriceCell({ price }: { price: number }) {
+/**
+ * The price, or "Chưa có giá" for a product still being prepared (price 0). During a promotion: the sale price in red,
+ * the regular price struck through and the discount, as on the storefront.
+ */
+function PriceCell({ price, promotion }: { price: number; promotion?: PromotionRow }) {
+  if (price > 0 && promotion && promotion.salePrice < price)
+    return (
+      <span className="inline-flex flex-col items-end">
+        <PriceTag price={promotion.salePrice} regularPrice={price} className="font-semibold" regularClassName="text-xs text-muted" />
+        <span className="mt-0.5 rounded-full bg-red-700 px-1.5 text-xs font-bold text-white">
+          <span className="sr-only">Giảm </span>-{promotion.discountPercent}%
+        </span>
+      </span>
+    )
   return price > 0 ? (
     <>{formatPrice(price)}</>
   ) : (
@@ -205,6 +218,9 @@ export default function ProductsPage() {
     (signal) => adminApi.products(q, active, page, signal, filter === 'notReady', PAGE_SIZE),
     [q, active, filter, page],
   )
+  // Running promotions, to show sale prices; the list still works without them
+  const promotions = useAsync((signal) => promotionApi.list(signal).catch(() => [] as PromotionRow[]), []).data
+  const runningPromotion = new Map((promotions ?? []).filter((r) => r.status === 'RUNNING').map((r) => [r.productId, r]))
 
   // Order of the products on sale shown after a move, before the server confirms it; tied to the data it was made
   // from, so fresh data wins
@@ -289,7 +305,7 @@ export default function ProductsPage() {
         <p className="text-xs text-muted">{p.categoryName}</p>
         <p className="mt-1 tabular-nums">
           <span className="font-semibold">
-            <PriceCell price={p.price} />
+            <PriceCell price={p.price} promotion={runningPromotion.get(p.id)} />
           </span>
           <span className={`text-muted ${p.lowStock ? 'font-semibold text-amber-900' : ''}`}> · còn {p.available}</span>
         </p>
@@ -330,7 +346,7 @@ export default function ProductsPage() {
         </div>
       </td>
       <td className={`${table.td} text-right tabular-nums`}>
-        <PriceCell price={p.price} />
+        <PriceCell price={p.price} promotion={runningPromotion.get(p.id)} />
       </td>
       <td className={`${table.td} text-right tabular-nums ${p.lowStock ? 'font-semibold text-amber-900' : ''}`}>{p.available}</td>
       <td className={`${table.td} hidden xl:table-cell`}>

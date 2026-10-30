@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, type Page } from '../lib/api'
-import { adminApi, type AdminProductRow } from '../lib/adminApi'
+import { adminApi, promotionApi, type AdminProductRow, type PromotionRow } from '../lib/adminApi'
 import ProductsPage from './ProductsPage'
 import { arrayMove, dropAnchor, dropIndex, shiftOf } from './reorder'
 
@@ -103,9 +103,10 @@ const page = (items: AdminProductRow[]): Page<AdminProductRow> => ({
 
 const PRODUCTS = [row(1, 'Mắc ca', { onHand: 5 }), row(2, 'Hạt điều'), row(3, 'Óc chó')]
 
-function renderPage(items = PRODUCTS, url = '/admin/san-pham') {
+function renderPage(items = PRODUCTS, url = '/admin/san-pham', promotions: PromotionRow[] = []) {
   // A fresh page object on every load, as the network would give
   const products = vi.spyOn(adminApi, 'products').mockImplementation(async () => page(items))
+  vi.spyOn(promotionApi, 'list').mockResolvedValue(promotions)
   const router = createMemoryRouter([{ path: '/admin/san-pham', element: <ProductsPage /> }], {
     initialEntries: [url],
   })
@@ -304,6 +305,18 @@ describe('products page', () => {
     expect(screen.queryByText(/Kéo tay nắm/)).toBeNull()
     expect(screen.queryByText('Đang ẩn · xếp theo tên A→Z')).toBeNull()
     expect(screen.queryAllByRole('button', { name: /Đổi thứ tự/ })).toHaveLength(0)
+  })
+
+  it('shows the sale price of a running promotion like the storefront', async () => {
+    const sale = { id: 'p1', productId: 2, productName: 'Hạt điều', productSlug: 'hat-dieu', regularPrice: 150000, salePrice: 120000, discountPercent: 20, startsAt: '', endsAt: '', status: 'RUNNING', productDaysThisYear: 3 } as PromotionRow
+    renderPage(PRODUCTS, '/admin/san-pham', [sale, { ...sale, id: 'p2', productId: 1, status: 'UPCOMING' }])
+    await screen.findByRole('table')
+    const rowText = (name: string) => within(screen.getByRole('table')).getAllByRole('row').find((tr) => tr.textContent?.includes(name))!.textContent
+    await waitFor(() => expect(rowText('Hạt điều')).toContain('Giá khuyến mại 120.000₫'))
+    expect(rowText('Hạt điều')).toContain('Giá gốc')
+    expect(rowText('Hạt điều')).toContain('-20%')
+    // Only running promotions count
+    expect(rowText('Mắc ca')).not.toContain('Giá khuyến mại')
   })
 
   it('says where a product shown again goes', async () => {

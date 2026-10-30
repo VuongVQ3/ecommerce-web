@@ -1,24 +1,33 @@
 import type { ReactNode } from 'react'
 import type { Order, OrderStatus } from '../lib/api'
-import { ORDER_STATUS_LABEL, ORDER_STATUS_STYLE } from '../lib/orderStatus'
+import { ORDER_STATUS_DOT, ORDER_STATUS_LABEL, ORDER_STATUS_STYLE } from '../lib/orderStatus'
 import { orderSavings } from '../lib/pricing'
 import { PriceTag } from './Price'
 import { formatDateTime, formatPrice, formatWeight } from '../lib/format'
 
 /** Label and colour come from lib/orderStatus (the `label` prop is kept for older callers and ignored). */
-export function StatusBadge({ status }: { status: OrderStatus; label?: string }) {
+export function StatusBadge({ status, size = 'md' }: { status: OrderStatus; label?: string; size?: 'md' | 'lg' }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${ORDER_STATUS_STYLE[status]}`}>
+    <span
+      className={`inline-flex items-center rounded-full font-semibold whitespace-nowrap ${ORDER_STATUS_STYLE[status]} ${
+        size === 'lg' ? 'gap-2 px-3.5 py-1.5 text-sm' : 'gap-1.5 px-2.5 py-1 text-xs'
+      }`}
+    >
+      <span aria-hidden className={`shrink-0 rounded-full ${ORDER_STATUS_DOT[status]} ${size === 'lg' ? 'size-2' : 'size-1.5'}`} />
       {ORDER_STATUS_LABEL[status]}
     </span>
   )
 }
 
-/** Full order view shared by the success page, "my orders" and guest lookup. `actions` renders under the header. */
-export default function OrderDetails({ order, actions }: { order: Order; actions?: ReactNode }) {
+/**
+ * Full order view shared by the success page, "my orders" and guest lookup. `actions` renders under the header;
+ * `header={false}` leaves out code, date and status for a page that shows them itself (the back office).
+ */
+export default function OrderDetails({ order, actions, header = true }: { order: Order; actions?: ReactNode; header?: boolean }) {
   const savings = orderSavings(order.items)
   return (
     <div className="space-y-6">
+      {header && (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm text-muted">Mã đơn hàng</p>
@@ -27,6 +36,7 @@ export default function OrderDetails({ order, actions }: { order: Order; actions
         </div>
         <StatusBadge status={order.status} label={order.statusLabel} />
       </div>
+      )}
       {actions}
 
       <section className="rounded-2xl border border-stone-200 bg-white p-5" aria-labelledby="order-items-title">
