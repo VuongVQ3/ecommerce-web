@@ -4,6 +4,7 @@ import com.nutshop.common.TextFold;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
+import org.hibernate.query.criteria.HibernateCriteriaBuilder;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.Instant;
@@ -32,6 +33,32 @@ final class ProductSpecs {
 				cb.lower(cb.function("translate", String.class, root.get("name"), cb.literal(TextFold.ACCENTED),
 						cb.literal(TextFold.PLAIN))),
 				pattern, '\\');
+	}
+
+	/**
+	 * PostgreSQL ICU collation for Vietnamese: accented letters next to their base letter (Á, Ạ by A) and Đ as its own
+	 * letter right after D. The database default may compare bytes (the Alpine image does: Á, Đ sort after Z).
+	 */
+	static final String VIETNAMESE = "\"vi-x-icu\"";
+
+	/**
+	 * Back-office list order: products on sale first, in their storefront order (sort_order, set by dragging), then
+	 * hidden ones by name A→Z (Vietnamese order), id last for a stable order. Adds no filter. Skipped for the count
+	 * query of a page.
+	 */
+	static Specification<Product> adminListOrder() {
+		return (root, query, cb) -> {
+			Class<?> result = query.getResultType();
+			if (result == Long.class || result == long.class) {
+				return null;
+			}
+			Expression<Integer> manual = cb.<Integer>selectCase()
+				.when(cb.isTrue(root.get("active")), root.<Integer>get("sortOrder"))
+				.otherwise(0);
+			Expression<String> name = ((HibernateCriteriaBuilder) cb).collate(root.get("name"), VIETNAMESE);
+			query.orderBy(cb.desc(root.get("active")), cb.asc(manual), cb.asc(name), cb.asc(root.get("id")));
+			return null;
+		};
 	}
 
 	/**

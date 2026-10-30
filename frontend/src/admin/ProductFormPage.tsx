@@ -262,8 +262,8 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
 
   const nameField = register('name')
   const slugField = register('slug')
-  const num = (name: keyof ProductForm, label: string, hint?: string, required = true) => (
-    <TextField label={label} requiredMark={required} inputMode="decimal" hint={hint} error={errors[name]?.message} {...register(name)} />
+  const num = (name: keyof ProductForm, label: string, hint?: string) => (
+    <TextField label={label} requiredMark inputMode="decimal" hint={hint} error={errors[name]?.message} {...register(name)} />
   )
 
   return (
@@ -386,10 +386,9 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
           />
           {num('weightGrams', 'Khối lượng (g)')}
         </div>
-        <div className="grid gap-5 md:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-2">
           <TextField label="Xuất xứ" error={errors.origin?.message} {...register('origin')} />
           {num('lowStockThreshold', 'Ngưỡng cảnh báo tồn kho', 'Cảnh báo khi số có thể bán ≤ ngưỡng này')}
-          {num('sortOrder', 'Thứ tự hiển thị', 'Số nhỏ hiện trước trên cửa hàng; để trống = xếp sau cùng', false)}
         </div>
         <div>
           <div className="flex items-baseline justify-between gap-3">

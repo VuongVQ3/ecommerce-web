@@ -34,6 +34,10 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 	@Query("SELECT COALESCE(MAX(p.sortOrder), 0) FROM Product p")
 	int maxSortOrder();
 
+	/** End of the list on sale (hidden products keep whatever number they had and do not count) */
+	@Query("SELECT COALESCE(MAX(p.sortOrder), 0) FROM Product p WHERE p.active = true")
+	int maxActiveSortOrder();
+
 	/** Search-as-you-type index: every product on sale, in the shop's order (the browser filters it). */
 	@EntityGraph(attributePaths = "category")
 	@Query("SELECT p FROM Product p WHERE p.active = true AND p.price > 0 ORDER BY p.sortOrder, p.id")

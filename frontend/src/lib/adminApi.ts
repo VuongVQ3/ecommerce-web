@@ -155,8 +155,9 @@ export interface ProductInput {
   carbs: number | null
   fiber: number | null
   lowStockThreshold: number
-  /** Storefront order; null = after the others (create) / unchanged (update) */
-  sortOrder: number | null
+  /** Storefront order, set by dragging in the list: the form always sends null (after the others on create,
+   *  unchanged on update) */
+  sortOrder: null
 }
 
 export interface AdminProduct extends Omit<ProductInput, 'shortDescription' | 'origin' | 'price' | 'sortOrder'> {
@@ -237,14 +238,19 @@ export const adminApi = {
   movements: (productId: number, page: number, signal?: AbortSignal) =>
     apiRequest<Page<MovementRow>>(`/api/admin/inventory/${productId}/movements${query({ page })}`, { signal }),
 
-  /** notReady: only products that cannot be sold yet (no price, or no stock) */
-  products: (q: string, active: '' | 'true' | 'false', page: number, signal?: AbortSignal, notReady = false) =>
-    apiRequest<Page<AdminProductRow>>(`/api/admin/products${query({ q, active, notReady, page })}`, { signal }),
+  /** notReady: only products that cannot be sold yet (no price, or no stock). size: up to 100 (server default 20) */
+  products: (q: string, active: '' | 'true' | 'false', page: number, signal?: AbortSignal, notReady = false, size?: number) =>
+    apiRequest<Page<AdminProductRow>>(`/api/admin/products${query({ q, active, notReady, page, size })}`, { signal }),
   product: (id: number, signal?: AbortSignal) => apiRequest<AdminProduct>(`/api/admin/products/${id}`, { signal }),
   createProduct: (input: ProductInput) => apiRequest<AdminProduct>('/api/admin/products', post(input)),
   updateProduct: (id: number, input: ProductInput) => apiRequest<AdminProduct>(`/api/admin/products/${id}`, put(input)),
   setActive: (id: number, active: boolean) =>
     apiRequest<AdminProduct>(`/api/admin/products/${id}/active`, { method: 'PATCH', body: JSON.stringify({ active }) }),
+  /** Deletes for good (images, stock history, promotions, cart lines); refused with PRODUCT_HAS_ORDERS once ordered */
+  deleteProduct: (id: number) => apiRequest<void>(`/api/admin/products/${id}`, { method: 'DELETE' }),
+  /** Moves a product just before or just after another one (neither: to the end); the catalogue is renumbered 1..N */
+  moveProduct: (id: number, to: { beforeId: number } | { afterId: number }) =>
+    apiRequest<AdminProductRow>(`/api/admin/products/${id}/move`, post(to)),
   uploadImage: (id: number, file: File) => {
     const form = new FormData()
     form.append('file', file)

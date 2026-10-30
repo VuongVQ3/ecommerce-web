@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -48,6 +49,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -872,6 +874,245 @@ class AdminE2ETest {
 		verify(storage).delete(anyString());
 		assertThat(ImageTypes.detect(PNG)).isPresent();
 	}
+
+	// ---- delete and reorder ---------------------------------------------------------------------------------
+
+	private int rowsOf(String table, long productId) {
+		return jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE product_id = ?", Integer.class, productId);
+	}
+
+	/** Deleting takes everything that hangs on the product with it; the image file goes after commit. */
+	@Test
+	void adminDeletesAProductThatWasNeverOrdered() throws Exception {
+		Cookie admin = as("ADMIN");
+		Cookie staff = as("STAFF");
+		Cookie customer = as("CUSTOMER");
+		String slug = "hat-se-xoa-" + uploads.incrementAndGet();
+		long id = createProduct(admin, "Hạt sẽ xoá", slug);
+		// An old address (slug history), stock, an image, a cart line and an upcoming promotion
+		mvc.perform(json(put("/api/admin/products/" + id), productJson("Hạt sẽ xoá", slug + "-moi", 120_000)).cookie(admin))
+			.andExpect(status().isOk());
+		importStock(admin, id, 5);
+		mvc.perform(multipart("/api/admin/products/" + id + "/images")
+			.file(new MockMultipartFile("file", "a.png", "image/png", PNG))
+			.header("X-Requested-With", "XMLHttpRequest")
+			.cookie(admin)).andExpect(status().isCreated());
+		String publicId = jdbc.queryForObject("SELECT public_id FROM product_images WHERE product_id = ?", String.class, id);
+		mvc.perform(json(post("/api/cart/items"), "{\"productId\":" + id + ",\"quantity\":1}").cookie(customer))
+			.andExpect(status().is2xxSuccessful());
+		jdbc.update("""
+				INSERT INTO product_promotions (product_id, sale_price, starts_at, ends_at)
+				VALUES (?, 100000, now() + interval '1 day', now() + interval '3 days')""", id);
+		List<String> tables = List.of("product_images", "product_slug_history", "inventory_movements", "cart_items",
+				"product_promotions");
+		assertThat(tables).allSatisfy(t -> assertThat(rowsOf(t, id)).as(t).isPositive());
+
+		call(delete("/api/admin/products/" + id), staff).andExpect(status().isForbidden());
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE id = ?", Integer.class, id)).isOne();
+
+		call(delete("/api/admin/products/" + id), admin).andExpect(status().isNoContent());
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE id = ?", Integer.class, id)).isZero();
+		assertThat(tables).allSatisfy(t -> assertThat(rowsOf(t, id)).as(t).isZero());
+		verify(storage).delete(publicId);
+		assertThat(audits("PRODUCT_DELETED", id)).isEqualTo(1);
+		mvc.perform(get("/api/products/" + slug + "-moi")).andExpect(status().isNotFound());
+
+		call(delete("/api/admin/products/" + id), admin).andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"));
+	}
+
+	/** Old orders must keep showing what was bought: an ordered product can only be hidden. */
+	@Test
+	void anOrderedProductCannotBeDeleted() throws Exception {
+		Cookie admin = as("ADMIN");
+		long id = createProduct(admin, "Hạt đã bán", null);
+		importStock(admin, id, 5);
+		placeOrder(id, 1);
+
+		call(delete("/api/admin/products/" + id), admin).andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("PRODUCT_HAS_ORDERS"))
+			.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("1 đơn hàng")))
+			.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Hãy ẩn sản phẩm để ngừng bán")));
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE id = ?", Integer.class, id)).isOne();
+		assertThat(rowsOf("inventory_movements", id)).isPositive();
+		assertThat(audits("PRODUCT_DELETED", id)).isZero();
+	}
+
+	private ResultActions move(Cookie cookie, long id, String body) throws Exception {
+		return mvc.perform(json(post("/api/admin/products/" + id + "/move"), body).cookie(cookie));
+	}
+
+	/** Same order on the storefront and in the back-office list */
+	private void assertOrder(Cookie admin, String tag, long... ids) throws Exception {
+		var expected = org.hamcrest.Matchers.contains(java.util.Arrays.stream(ids).mapToInt(id -> (int) id).boxed().toArray());
+		mvc.perform(get("/api/products").param("q", tag)).andExpect(jsonPath("$.items[*].id").value(expected));
+		call(get("/api/admin/products").param("q", tag), admin).andExpect(jsonPath("$.items[*].id").value(expected));
+	}
+
+	/**
+	 * Moves renumber the products on sale 1..N in the admin list's order, which the storefront follows. The other
+	 * tests share the database (and check the seeded numbers): every sort_order is put back afterwards.
+	 */
+	@Test
+	void productsAreReorderedByMovingOneBeforeOrAfterAnother() throws Exception {
+		Map<Long, Integer> saved = saveSortOrders();
+		try {
+			Cookie admin = as("ADMIN");
+			Cookie staff = as("STAFF");
+			String tag = "Kéo thả " + UUID.randomUUID().toString().substring(0, 8);
+			long a = createProduct(admin, tag + " A", null);
+			long b = createProduct(admin, tag + " B", null);
+			long c = createProduct(admin, tag + " C", null);
+
+			move(staff, a, "{\"afterId\":" + c + "}").andExpect(status().isForbidden());
+
+			move(admin, a, "{\"afterId\":" + c + "}").andExpect(status().isOk()).andExpect(jsonPath("$.id").value(a));
+			assertOrder(admin, tag, b, c, a);
+			move(admin, c, "{\"beforeId\":" + b + "}").andExpect(status().isOk());
+			assertOrder(admin, tag, c, b, a);
+			assertThat(jdbc.queryForObject("""
+					SELECT COUNT(*) FROM (SELECT sort_order, row_number() OVER (ORDER BY sort_order, name COLLATE "vi-x-icu", id) AS n
+					                      FROM products WHERE active) t
+					WHERE sort_order <> n""", Integer.class)).isZero();
+			assertThat(audits("PRODUCT_MOVED", a)).isEqualTo(1);
+			assertThat(audits("PRODUCT_MOVED", c)).isEqualTo(1);
+			// Recorded as positions (1-based) among the products on sale, the last three here
+			int total = jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE active", Integer.class);
+			assertThat(jdbc.queryForObject("""
+					SELECT before::text || ' -> ' || after::text FROM audit_logs
+					WHERE action = 'PRODUCT_MOVED' AND entity_id = ?""", String.class, String.valueOf(a)))
+				.isEqualTo("{\"sortOrder\": " + (total - 2) + "} -> {\"sortOrder\": " + total + "}");
+
+			// Dropped where it already was: nothing to record
+			move(admin, b, "{\"beforeId\":" + a + "}").andExpect(status().isOk());
+			move(admin, a, "{}").andExpect(status().isOk());
+			assertOrder(admin, tag, c, b, a);
+			assertThat(audits("PRODUCT_MOVED", b)).isZero();
+			assertThat(audits("PRODUCT_MOVED", a)).isEqualTo(1);
+
+			move(admin, a, "{\"beforeId\":" + b + ",\"afterId\":" + c + "}").andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("INVALID_MOVE"));
+			move(admin, a, "{\"beforeId\":" + a + "}").andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("INVALID_MOVE"));
+			move(admin, a, "{\"beforeId\":999999999}").andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("MOVE_TARGET_GONE"));
+			move(admin, 999_999_999, "{\"beforeId\":" + a + "}").andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"));
+			assertOrder(admin, tag, c, b, a);
+		}
+		finally {
+			restoreSortOrders(saved);
+		}
+	}
+
+	private Map<Long, Integer> saveSortOrders() {
+		Map<Long, Integer> saved = new HashMap<>();
+		jdbc.query("SELECT id, sort_order FROM products", rs -> {
+			saved.put(rs.getLong(1), rs.getInt(2));
+		});
+		return saved;
+	}
+
+	private void restoreSortOrders(Map<Long, Integer> saved) {
+		jdbc.batchUpdate("UPDATE products SET sort_order = ? WHERE id = ?",
+				saved.entrySet().stream().map(e -> new Object[] { e.getValue(), e.getKey() }).toList());
+	}
+
+	private ResultActions adminList(Cookie admin, String tag, String... more) throws Exception {
+		var request = get("/api/admin/products").param("q", tag);
+		for (int i = 0; i < more.length; i += 2) {
+			request = request.param(more[i], more[i + 1]);
+		}
+		return call(request, admin);
+	}
+
+	/**
+	 * Back office: products on sale first in their dragged order, hidden ones after them by name in Vietnamese order
+	 * (Á by A, Đ after D, not after Z), on every filter and across pages. Hidden products cannot be moved nor be
+	 * a target; showing one puts it at the end of the products on sale.
+	 */
+	@Test
+	void hiddenProductsComeLastByNameAndStayOutOfTheManualOrder() throws Exception {
+		Map<Long, Integer> saved = saveSortOrders();
+		try {
+			Cookie admin = as("ADMIN");
+			// ASCII tag: the search lower-cases the text, which the test database does not do for accented capitals
+			String tag = "Sap xep " + UUID.randomUUID().toString().substring(0, 8);
+			long ze = createProduct(admin, tag + " Zê", null);
+			long an = createProduct(admin, tag + " An", null);
+			long dau = createProduct(admin, tag + " Đậu", null);
+			long dua = createProduct(admin, tag + " Dừa", null);
+			long anh = createProduct(admin, tag + " Ánh", null);
+			long bo = createProduct(admin, tag + " Bơ", null);
+			for (long hidden : new long[] { dau, dua, anh, bo }) {
+				mvc.perform(json(patch("/api/admin/products/" + hidden + "/active"), "{\"active\":false}").cookie(admin))
+					.andExpect(status().isOk());
+			}
+			Map<Long, Integer> hiddenOrders = Map.of(dau, sortOrder(dau), dua, sortOrder(dua), anh, sortOrder(anh), bo,
+					sortOrder(bo));
+
+			adminList(admin, tag).andExpect(jsonPath("$.items[*].id").value(ids(ze, an, anh, bo, dua, dau)));
+			adminList(admin, tag, "active", "true").andExpect(jsonPath("$.items[*].id").value(ids(ze, an)));
+			adminList(admin, tag, "active", "false").andExpect(jsonPath("$.items[*].id").value(ids(anh, bo, dua, dau)));
+			adminList(admin, tag, "notReady", "true").andExpect(jsonPath("$.items[*].id").value(ids(ze, an, anh, bo, dua, dau)));
+			// Pages follow the same order; the count is not thrown off by the ordering
+			adminList(admin, tag, "size", "2", "page", "1").andExpect(jsonPath("$.items[*].id").value(ids(anh, bo)))
+				.andExpect(jsonPath("$.totalItems").value(6))
+				.andExpect(jsonPath("$.totalPages").value(3));
+			// The storefront only lists products on sale, by their number
+			mvc.perform(get("/api/products").param("q", tag)).andExpect(jsonPath("$.items[*].id").value(ids(ze, an)));
+
+			move(admin, anh, "{}").andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("PRODUCT_HIDDEN"))
+				.andExpect(jsonPath("$.detail").value("Hiện sản phẩm trước rồi mới sắp xếp"));
+			move(admin, ze, "{\"beforeId\":" + bo + "}").andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("MOVE_TARGET_GONE"));
+
+			// Only the products on sale are renumbered 1..N; hidden ones keep their numbers
+			move(admin, ze, "{\"afterId\":" + an + "}").andExpect(status().isOk());
+			adminList(admin, tag).andExpect(jsonPath("$.items[*].id").value(ids(an, ze, anh, bo, dua, dau)));
+			assertThat(jdbc.queryForObject("""
+					SELECT COUNT(*) FROM (SELECT sort_order, row_number() OVER (ORDER BY sort_order, name COLLATE "vi-x-icu", id) AS n
+					                      FROM products WHERE active) t
+					WHERE sort_order <> n""", Integer.class)).isZero();
+			hiddenOrders.forEach((id, order) -> assertThat(sortOrder(id)).isEqualTo(order));
+
+			// Shown again: last of the products on sale (a new number, recorded with the change)
+			int lastOnSale = jdbc.queryForObject("SELECT MAX(sort_order) FROM products WHERE active", Integer.class);
+			mvc.perform(json(patch("/api/admin/products/" + dua + "/active"), "{\"active\":true}").cookie(admin))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.sortOrder").value(lastOnSale + 1));
+			adminList(admin, tag).andExpect(jsonPath("$.items[*].id").value(ids(an, ze, dua, anh, bo, dau)));
+			assertThat(jdbc.queryForObject("""
+					SELECT after::text FROM audit_logs WHERE action = 'PRODUCT_SHOWN' AND entity_id = ?""", String.class,
+					String.valueOf(dua))).contains("\"sortOrder\": " + (lastOnSale + 1));
+			// Hiding keeps the number
+			mvc.perform(json(patch("/api/admin/products/" + dua + "/active"), "{\"active\":false}").cookie(admin))
+				.andExpect(status().isOk());
+			assertThat(sortOrder(dua)).isEqualTo(lastOnSale + 1);
+		}
+		finally {
+			restoreSortOrders(saved);
+		}
+	}
+
+	/** A new product on sale goes after the others on sale, not after the hidden samples (sort_order 1000) */
+	@Test
+	void aNewProductOnSaleGoesLastOfTheProductsOnSale() throws Exception {
+		Cookie admin = as("ADMIN");
+		long id = createProduct(admin, "Hạt mới đang bán", null);
+		assertThat(sortOrder(id)).isEqualTo(
+				jdbc.queryForObject("SELECT COALESCE(MAX(sort_order), 0) FROM products WHERE active AND id <> ?", Integer.class, id) + 1);
+	}
+
+	private int sortOrder(long id) {
+		return jdbc.queryForObject("SELECT sort_order FROM products WHERE id = ?", Integer.class, id);
+	}
+
+	private static org.hamcrest.Matcher<Iterable<? extends Object>> ids(long... ids) {
+		return org.hamcrest.Matchers.contains(java.util.Arrays.stream(ids).mapToInt(id -> (int) id).boxed().toArray());
+	}
+
 
 	// ---- first admin ----------------------------------------------------------------------------------------
 

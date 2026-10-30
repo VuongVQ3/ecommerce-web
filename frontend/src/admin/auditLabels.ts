@@ -23,6 +23,8 @@ export const ACTION_LABEL: Record<string, string> = {
   PRODUCT_UPDATED: 'Sửa sản phẩm',
   PRODUCT_HIDDEN: 'Ẩn sản phẩm',
   PRODUCT_SHOWN: 'Hiện sản phẩm',
+  PRODUCT_DELETED: 'Xoá sản phẩm',
+  PRODUCT_MOVED: 'Đổi thứ tự sản phẩm',
   PRODUCT_IMAGE_ADDED: 'Thêm ảnh sản phẩm',
   PRODUCT_IMAGE_DELETED: 'Xoá ảnh sản phẩm',
   PRODUCT_IMAGE_PRIMARY: 'Đổi ảnh chính',
@@ -75,6 +77,7 @@ export const FIELD_LABEL: Record<string, string> = {
   origin: 'Xuất xứ',
   weightGrams: 'Khối lượng',
   lowStockThreshold: 'Ngưỡng cảnh báo',
+  sortOrder: 'Thứ tự hiển thị',
   calories: 'Năng lượng',
   protein: 'Protein',
   fat: 'Chất béo',
@@ -216,10 +219,11 @@ export function actorText(row: Pick<AuditRow, 'actorType' | 'actorName' | 'actor
 }
 
 /** Back-office page of the entity, when there is one. */
-export function entityLink(row: Pick<AuditRow, 'entityType' | 'entityId'>): string | null {
+export function entityLink(row: Pick<AuditRow, 'entityType' | 'entityId' | 'action'>): string | null {
   const id = encodeURIComponent(row.entityId)
   if (row.entityType === 'ORDER') return `/admin/don-hang/${id}`
-  if (row.entityType === 'PRODUCT') return `/admin/san-pham/${id}`
+  // A deleted product has no page left to open
+  if (row.entityType === 'PRODUCT') return row.action === 'PRODUCT_DELETED' ? null : `/admin/san-pham/${id}`
   if (row.entityType === 'USER') return `/admin/nguoi-dung/${id}`
   if (row.entityType === 'PHONE') return `/admin/don-hang?q=${id}`
   return null
