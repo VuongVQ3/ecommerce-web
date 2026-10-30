@@ -67,8 +67,6 @@ const fields = z.object({
   carbs: positiveWhole(100),
   fiber: positiveWhole(100),
   lowStockThreshold: whole('ngưỡng', 0, 100_000),
-  // Storefront order, smaller first; empty = after the others
-  sortOrder: optionalWhole('thứ tự', 0, 100_000),
 })
 
 /**
@@ -105,7 +103,6 @@ export const EMPTY_PRODUCT: ProductForm = {
   carbs: '',
   fiber: '',
   lowStockThreshold: '10',
-  sortOrder: '',
 }
 
 const int = (v: string) => Number(v.replace(/[.\s]/g, ''))
@@ -128,7 +125,8 @@ export function toInput(f: ProductForm): ProductInput {
     carbs: dec(f.carbs),
     fiber: dec(f.fiber),
     lowStockThreshold: int(f.lowStockThreshold),
-    sortOrder: intOrNull(f.sortOrder),
+    // Set by dragging in the product list: kept on update, after the others on create
+    sortOrder: null,
   }
 }
 
@@ -151,7 +149,6 @@ export function toForm(p: AdminProduct): ProductForm {
     carbs: text(p.carbs),
     fiber: text(p.fiber),
     lowStockThreshold: String(p.lowStockThreshold),
-    sortOrder: String(p.sortOrder),
   }
 }
 

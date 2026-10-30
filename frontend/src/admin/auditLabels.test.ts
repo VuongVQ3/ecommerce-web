@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { actionLabel, actorText, changeRows, formatAuditValue, reasonText, rowReason } from './auditLabels'
+import { actionLabel, actorText, changeRows, entityLink, fieldLabel, formatAuditValue, reasonText, rowReason } from './auditLabels'
 
 const product = { entityType: 'PRODUCT', action: 'PRODUCT_UPDATED', categories: new Map([[3, 'Hạt dinh dưỡng']]) }
 
@@ -8,6 +8,14 @@ describe('audit labels', () => {
     expect(actionLabel('ORDER_CANCEL')).toBe('Huỷ đơn')
     expect(actionLabel('ORDER_SHIP')).toBe('Giao cho vận chuyển')
     expect(actionLabel('SOMETHING_NEW')).toBe('SOMETHING_NEW')
+    expect(actionLabel('PRODUCT_DELETED')).toBe('Xoá sản phẩm')
+    expect(actionLabel('PRODUCT_MOVED')).toBe('Đổi thứ tự sản phẩm')
+    expect(fieldLabel('sortOrder')).toBe('Thứ tự hiển thị')
+  })
+
+  it('links to the product, except once it is deleted', () => {
+    expect(entityLink({ entityType: 'PRODUCT', entityId: '7', action: 'PRODUCT_MOVED' })).toBe('/admin/san-pham/7')
+    expect(entityLink({ entityType: 'PRODUCT', entityId: '7', action: 'PRODUCT_DELETED' })).toBeNull()
   })
 
   it('formats values for people', () => {

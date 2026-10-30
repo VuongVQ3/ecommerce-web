@@ -61,6 +61,10 @@ public final class AdminDtos {
 	public record ActiveRequest(@NotNull Boolean active) {
 	}
 
+	/** Where to put a product: just before {@code beforeId}, just after {@code afterId}, or (neither) at the end */
+	public record MoveRequest(Long beforeId, Long afterId) {
+	}
+
 	public record CategoryRequest(
 			@NotBlank(message = "Vui lòng nhập tên danh mục") @Size(max = 100, message = "Tên tối đa 100 ký tự") String name,
 			@Size(max = 100, message = "Slug tối đa 100 ký tự") String slug) {
@@ -90,7 +94,8 @@ public final class AdminDtos {
 			@Digits(integer = 4, fraction = 0, message = "Chất xơ: chỉ nhập số nguyên, không có phần lẻ")
 			@DecimalMin(value = "1", message = "Chất xơ phải lớn hơn 0") @DecimalMax(value = "100", message = "Tối đa 100g") BigDecimal fiber,
 			@Min(value = 0, message = "Ngưỡng không được âm") @Max(value = 100_000, message = "Ngưỡng quá lớn") Integer lowStockThreshold,
-			/** Storefront order (smaller first); null = after the others on create, unchanged on update */
+			/** Storefront order (smaller first); null = after the others on create, unchanged on update. The back office
+			 *  no longer sends it (it reorders with POST /products/{id}/move); kept for older clients */
 			@Min(value = 0, message = "Thứ tự không được âm") @Max(value = 100_000, message = "Thứ tự quá lớn") Integer sortOrder) {
 
 		public ProductRequest {

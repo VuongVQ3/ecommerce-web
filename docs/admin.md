@@ -150,8 +150,21 @@ ngược lại là giới hạn mỗi sản phẩm trong giỏ (10); giỏ hàng
 - Rời trang khi form còn thay đổi chưa lưu → hỏi lại (trong app là hộp thoại, đóng/tải lại tab là hộp của trình duyệt).
 - **Slug**: để trống thì tự tạo từ tên (bỏ dấu, `đ → d`), trùng thì thêm `-2`, `-3`…; tự nhập thì phải đúng dạng
   `chu-thuong-khong-dau` (400 `INVALID_SLUG`) và chưa ai dùng (409 `SLUG_EXISTS`).
-- **Không xoá cứng**: chỉ Ẩn/Hiện (`PATCH /products/{id}/active`), có hộp xác nhận. Sản phẩm ẩn biến mất khỏi danh
-  sách/tìm kiếm và không mua được; đơn cũ không bị ảnh hưởng.
+- **Ẩn/Hiện** (`PATCH /products/{id}/active`), có hộp xác nhận: cách ngừng bán thông thường. Sản phẩm ẩn biến mất
+  khỏi danh sách/tìm kiếm và không mua được; đơn cũ không bị ảnh hưởng; hiện lại được bất cứ lúc nào.
+- **Xoá** (`DELETE /products/{id}` → 204, nút "Xoá" trên bảng, "Xoá sản phẩm" trong menu ⋯ trên điện thoại): xoá hẳn
+  cùng ảnh (file Cloudinary xoá sau khi commit), slug cũ, lịch sử kho, khuyến mại và các dòng trong giỏ của khách;
+  không khôi phục được. Hộp xác nhận "Xoá vĩnh viễn" cảnh báo nếu trong kho còn hàng. Chỉ xoá được sản phẩm **chưa
+  từng có trong đơn hàng** (đơn cũ phải giữ thông tin sản phẩm): ngược lại trả 409 `PRODUCT_HAS_ORDERS`, hộp thoại
+  ẩn nút xoá và gợi ý "Ẩn sản phẩm thay vì xoá". Ghi nhật ký `PRODUCT_DELETED` (kèm thông tin sản phẩm trước khi xoá).
+- **Thứ tự hiển thị**: kéo tay nắm ⠿ ở đầu mỗi dòng (chuột hoặc cảm ứng; Esc huỷ; trang tự cuộn khi kéo gần mép), hoặc
+  chọn tay nắm rồi bấm ↑/↓. Danh sách tải tới 100 sản phẩm một trang nên kéo được khắp danh mục (nhiều hơn thì chỉ kéo
+  trong trang đang xem). Thứ tự đổi ngay trên màn hình rồi gửi `POST /products/{id}/move` với `{beforeId}` (đặt ngay
+  trước), `{afterId}` (đặt ngay sau) hoặc `{}` (cuối); lỗi thì báo và tải lại thứ tự thật. Server đánh số lại cả danh
+  mục 1, 2, 3… theo thứ tự của danh sách admin (cũng là thứ tự cửa hàng); 400 `INVALID_MOVE` (có cả hai, hoặc trỏ vào
+  chính nó), 409 `MOVE_TARGET_GONE` (sản phẩm làm mốc đã bị xoá). Nhật ký `PRODUCT_MOVED` ghi vị trí cũ → mới, chỉ khi
+  vị trí thực sự đổi. Form sửa sản phẩm không còn ô "Thứ tự hiển thị" (trường `sortOrder` của API vẫn nhận, để trống
+  thì giữ nguyên).
 - Danh mục: thêm và đổi tên (kèm slug). Không có chức năng xoá.
 
 ### Ảnh (Cloudinary)

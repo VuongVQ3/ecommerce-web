@@ -2,6 +2,7 @@ package com.nutshop.admin;
 
 import com.nutshop.admin.AdminDtos.ActiveRequest;
 import com.nutshop.admin.AdminDtos.CategoryRequest;
+import com.nutshop.admin.AdminDtos.MoveRequest;
 import com.nutshop.admin.AdminDtos.ProductRequest;
 import com.nutshop.common.PageResponse;
 import com.nutshop.product.AdminProductService;
@@ -58,11 +59,26 @@ public class AdminCatalogController {
 		return catalog.update(id, req.categoryId(), req.slug(), req.details(), userId(jwt));
 	}
 
-	/** Hide or show on the storefront. There is no delete: orders keep pointing at products. */
+	/** Hide or show on the storefront (what to do with a product that was ordered: it cannot be deleted). */
 	@PatchMapping("/products/{id}/active")
 	public ProductAdminDetail setActive(@PathVariable long id, @Valid @RequestBody ActiveRequest req,
 			@AuthenticationPrincipal Jwt jwt) {
 		return catalog.setActive(id, req.active(), userId(jwt));
+	}
+
+	/** Deletes for good a product that was never ordered (409 PRODUCT_HAS_ORDERS otherwise). */
+	@DeleteMapping("/products/{id}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void delete(@PathVariable long id, @AuthenticationPrincipal Jwt jwt) {
+		catalog.delete(id, userId(jwt));
+	}
+
+	/** Drag-to-reorder: puts the product before/after another one (no body or {}: at the end). */
+	@PostMapping("/products/{id}/move")
+	public ProductRow move(@PathVariable long id, @RequestBody(required = false) MoveRequest req,
+			@AuthenticationPrincipal Jwt jwt) {
+		MoveRequest to = req == null ? new MoveRequest(null, null) : req;
+		return catalog.move(id, to.beforeId(), to.afterId(), userId(jwt));
 	}
 
 	@PostMapping(path = "/products/{id}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

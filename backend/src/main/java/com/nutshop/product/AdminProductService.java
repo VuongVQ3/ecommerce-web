@@ -10,10 +10,12 @@ import com.nutshop.media.ImageTypes;
 import jakarta.persistence.criteria.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,9 +27,11 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /** Catalogue management (ADMIN only): products, images, categories. Every change is audited. */
@@ -91,14 +95,17 @@ public class AdminProductService {
 	private final PromotionService promotions;
 	private final ProductSlugHistory slugHistory;
 	private final CategorySlugHistory categorySlugHistory;
+	private final JdbcTemplate jdbc;
 
 	public static final String PRICE_REQUIRED = "PRICE_REQUIRED";
 	public static final String PRICE_REQUIRED_MESSAGE = "Nhập giá bán trước khi hiện sản phẩm";
 
 	public AdminProductService(ProductRepository products, CategoryRepository categories,
 			ProductImageRepository images, ImageStorage storage, AuditLog audit, PlatformTransactionManager txManager,
-			PromotionService promotions, ProductSlugHistory slugHistory, CategorySlugHistory categorySlugHistory) {
+			PromotionService promotions, ProductSlugHistory slugHistory, CategorySlugHistory categorySlugHistory,
+			JdbcTemplate jdbc) {
 		this.categorySlugHistory = categorySlugHistory;
+		this.jdbc = jdbc;
 		this.promotions = promotions;
 		this.slugHistory = slugHistory;
 		this.products = products;
@@ -179,7 +186,7 @@ public class AdminProductService {
 	}
 
 	/**
-	 * Hide/show. Products are never hard-deleted: orders and carts keep referring to them. Showing needs a price
+	 * Hide/show: how to stop selling a product that was ordered (it cannot be deleted). Showing needs a price
 	 * (products of the real catalogue start at 0 until the owner prices them).
 	 */
 	@Transactional
@@ -196,6 +203,93 @@ public class AdminProductService {
 				.record();
 		}
 		return detail(product);
+	}
+
+	/**
+	 * Deletes a product for good, with its images (files removed after commit), slug history, stock history,
+	 * promotions and cart lines. Refused once it is in an order: old orders must keep showing what was bought.
+	 */
+	@Transactional
+	public void delete(long id, UUID actorId) {
+		Product product = products.lockById(id).orElseThrow(AdminProductService::productNotFound);
+		Integer orders = jdbc.queryForObject("SELECT COUNT(DISTINCT order_id) FROM order_items WHERE product_id = ?",
+				Integer.class, id);
+		if (orders != null && orders > 0) {
+			throw hasOrders("Sản phẩm đã có trong " + orders + " đơn hàng nên không xoá được (đơn cũ cần giữ thông tin sản phẩm).");
+		}
+		AuditView before = AuditView.of(product);
+		List<String> publicIds = images.findByProductIdOrderByPrimaryDescPositionAsc(id)
+			.stream()
+			.map(ProductImage::getPublicId)
+			.toList();
+		jdbc.update("DELETE FROM cart_items WHERE product_id = ?", id);
+		jdbc.update("DELETE FROM inventory_movements WHERE product_id = ?", id);
+		jdbc.update("DELETE FROM product_promotions WHERE product_id = ?", id);
+		try {
+			// product_images and product_slug_history go with it (ON DELETE CASCADE)
+			products.delete(product);
+			products.flush();
+		}
+		catch (DataIntegrityViolationException ex) {
+			// An order came in between the check and the delete
+			throw hasOrders("Sản phẩm vừa được đặt trong một đơn hàng nên không xoá được.");
+		}
+		audit.entry("PRODUCT_DELETED", "PRODUCT", id, before.name()).by(actorId).changes(before, null).record();
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				publicIds.forEach(AdminProductService.this::deleteQuietly);
+			}
+		});
+	}
+
+	/**
+	 * Drag-to-reorder: puts the product just before {@code beforeId}, just after {@code afterId}, or (neither) at
+	 * the end, then numbers the whole catalogue 1, 2, 3… in the admin list's order (rows locked meanwhile, so two
+	 * moves cannot interleave). Audited only when the position really changes, as positions (not the old numbers:
+	 * several products may share one, e.g. the samples at 1000).
+	 */
+	@Transactional
+	public ProductRow move(long id, Long beforeId, Long afterId, UUID actorId) {
+		if (beforeId != null && afterId != null || Objects.equals(beforeId, id) || Objects.equals(afterId, id)) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_MOVE", "Vị trí mới không hợp lệ");
+		}
+		List<long[]> rows = jdbc.query("SELECT id, sort_order FROM products ORDER BY sort_order, name, id FOR UPDATE",
+				(rs, n) -> new long[] { rs.getLong(1), rs.getInt(2) });
+		List<Long> ids = new ArrayList<>(rows.stream().map(r -> r[0]).toList());
+		int from = ids.indexOf(id);
+		if (from < 0) {
+			throw productNotFound();
+		}
+		Long target = beforeId != null ? beforeId : afterId;
+		if (target != null && !ids.contains(target)) {
+			throw new ApiException(HttpStatus.CONFLICT, "MOVE_TARGET_GONE",
+					"Sản phẩm dùng làm mốc không còn nữa. Tải lại danh sách rồi thử lại.");
+		}
+		ids.remove(from);
+		int to = beforeId != null ? ids.indexOf(beforeId) : afterId != null ? ids.indexOf(afterId) + 1 : ids.size();
+		ids.add(to, id);
+
+		// Only the rows whose number changes are written
+		Map<Long, Long> oldOrder = new HashMap<>();
+		rows.forEach(r -> oldOrder.put(r[0], r[1]));
+		List<Object[]> changed = new ArrayList<>();
+		for (int i = 0; i < ids.size(); i++) {
+			if (oldOrder.get(ids.get(i)) != i + 1) {
+				changed.add(new Object[] { i + 1, ids.get(i) });
+			}
+		}
+		if (!changed.isEmpty()) {
+			jdbc.batchUpdate("UPDATE products SET sort_order = ? WHERE id = ?", changed);
+		}
+		Product product = products.findById(id).orElseThrow(AdminProductService::productNotFound);
+		if (to != from) {
+			audit.entry("PRODUCT_MOVED", "PRODUCT", id, product.getName())
+				.by(actorId)
+				.changes(Map.of("sortOrder", from + 1), Map.of("sortOrder", to + 1))
+				.record();
+		}
+		return ProductRow.from(product);
 	}
 
 	// ---- images -----------------------------------------------------------------------------------------------
@@ -419,6 +513,10 @@ public class AdminProductService {
 
 	private static ApiException tooManyImages() {
 		return new ApiException(HttpStatus.CONFLICT, "TOO_MANY_IMAGES", "Mỗi sản phẩm tối đa " + MAX_IMAGES + " ảnh");
+	}
+
+	private static ApiException hasOrders(String why) {
+		return new ApiException(HttpStatus.CONFLICT, "PRODUCT_HAS_ORDERS", why + " Hãy ẩn sản phẩm để ngừng bán.");
 	}
 
 	private static ApiException productNotFound() {
