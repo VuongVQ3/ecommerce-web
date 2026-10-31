@@ -1,4 +1,4 @@
-import { Ellipsis } from 'lucide-react'
+import { Ellipsis, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useBlocker } from 'react-router'
 import { RequiredMark } from '../components/FormFields'
@@ -375,6 +375,69 @@ export function ActionMenu({ label, items }: { label: string; items: { label: st
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Side panel on the native <dialog> (focus trapped, Esc closes, the page behind is inert): from the right on screens
+ * from 640px, full screen on phones. The body scrolls between a fixed header and footer.
+ */
+export function Drawer({
+  title,
+  onClose,
+  busy = false,
+  footer,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  /** While saving: Esc and the close button do nothing */
+  busy?: boolean
+  footer?: ReactNode
+  children: ReactNode
+}) {
+  const ref = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+
+  useEffect(() => {
+    const dialog = ref.current
+    const opener = document.activeElement as HTMLElement | null
+    dialog?.showModal?.()
+    return () => {
+      dialog?.close?.()
+      opener?.focus?.()
+    }
+  }, [])
+
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby={titleId}
+      onCancel={(e) => {
+        e.preventDefault()
+        if (!busy) onClose()
+      }}
+      className="m-0 ml-auto h-dvh max-h-none w-full max-w-none bg-white p-0 shadow-2xl backdrop:bg-stone-900/50 sm:w-[min(46rem,100vw)]"
+    >
+      <div className="flex h-full flex-col">
+        <div className="flex items-center justify-between gap-3 border-b border-stone-200 px-5 py-3">
+          <h2 id={titleId} className="text-lg font-bold text-stone-900">
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            aria-label="Đóng"
+            className="flex size-10 items-center justify-center rounded-full text-stone-600 hover:bg-stone-100 disabled:opacity-50"
+          >
+            <X aria-hidden className="size-5" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">{children}</div>
+        {footer && <div className="border-t border-stone-200 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">{footer}</div>}
+      </div>
+    </dialog>
   )
 }
 

@@ -19,10 +19,10 @@ import {
   vnDayStart,
   vnToday,
 } from './promotionMath'
-import { btn, card, input, table } from './styles'
+import { btn, input, table } from './styles'
 import { DateField } from './DateField'
 import MoneyInput from './MoneyInput'
-import { Dialog, EmptyState, Field, PageHeader, Pagination, TableFrame } from './ui'
+import { Dialog, Drawer, EmptyState, Field, PageHeader, Pagination, TableFrame } from './ui'
 
 const TABS: { key: 'running' | 'upcoming' | 'ended'; label: string; statuses: PromotionStatus[] }[] = [
   { key: 'running', label: 'Đang chạy', statuses: ['RUNNING'] },
@@ -133,15 +133,25 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
   }
 
   return (
-    <section className={`${card} mb-6 space-y-5 p-5`} aria-labelledby="create-promo-title">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="create-promo-title" className="text-lg font-bold text-stone-900">
-          Tạo khuyến mại
-        </h2>
-        <button type="button" className={btn.secondary} onClick={onCancel} disabled={pending}>
-          Đóng
-        </button>
-      </div>
+    <Drawer
+      title="Tạo khuyến mại"
+      onClose={onCancel}
+      busy={pending}
+      footer={
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <p className="mr-auto text-sm text-muted max-sm:hidden">
+            {chosen.length > 0 ? `${chosen.length} sản phẩm được chọn` : 'Chưa chọn sản phẩm nào'}
+          </p>
+          <button type="button" className={btn.secondary} onClick={onCancel} disabled={pending}>
+            Huỷ
+          </button>
+          <button type="button" className={btn.primary} onClick={submit} disabled={pending} aria-busy={pending}>
+            {pending ? 'Đang lưu...' : 'Tạo khuyến mại'}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-5">
       <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900" role="note">
         {REMINDER} Giới hạn: giảm tối đa {usage.maxDiscountPercent}%, tối đa {usage.maxDaysPerYear} ngày khuyến mại mỗi sản
         phẩm trong một năm.
@@ -159,6 +169,16 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
           aria-label="Tìm sản phẩm"
           className={`${input} mt-2`}
         />
+        <div className="mt-2 flex min-h-8 items-center justify-between gap-3 text-sm">
+          <span className="text-stone-700" aria-live="polite">
+            Đã chọn <strong className="tabular-nums">{selected.length}</strong> sản phẩm
+          </span>
+          {selected.length > 0 && (
+            <button type="button" className={btn.link} onClick={() => setSelected([])}>
+              Bỏ chọn tất cả
+            </button>
+          )}
+        </div>
         <ul className="mt-2 max-h-64 divide-y divide-stone-100 overflow-y-auto rounded-xl border border-stone-200">
           {products.map((p) => (
             <li key={p.id}>
@@ -279,12 +299,8 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
           {error}
         </p>
       )}
-      <div className="flex justify-end">
-        <button type="button" className={btn.primary} onClick={submit} disabled={pending} aria-busy={pending}>
-          {pending ? 'Đang lưu...' : 'Tạo khuyến mại'}
-        </button>
       </div>
-    </section>
+    </Drawer>
   )
 }
 
