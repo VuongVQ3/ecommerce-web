@@ -307,11 +307,14 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
         </PageHeader>
       </div>
 
-      {/* From 1024px: what the product is on the left, how it is sold on the right; one column below, same order */}
+      {/*
+        From 1024px: what the product is on the left, how it is sold on the right. Below, one column with the sale
+        settings first: status, sale, information, nutrition, images (the column wrappers dissolve and order applies).
+      */}
       <form onSubmit={onSubmit} noValidate>
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,24rem)] lg:items-start">
-          <div className="min-w-0 space-y-6">
-            <section className={`${card} space-y-5 p-5`} aria-labelledby="info-title">
+          <div className="min-w-0 max-lg:contents lg:space-y-6">
+            <section className={`${card} min-w-0 space-y-5 p-5 max-lg:order-3`} aria-labelledby="info-title">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 id="info-title" className="font-bold text-stone-900">
                   Thông tin sản phẩm
@@ -393,7 +396,7 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
                 </p>
               </div>
             </section>
-            <section className={`${card} p-5`}>
+            <section className={`${card} min-w-0 p-5 max-lg:order-4`}>
               <fieldset>
                 <legend className="text-sm font-semibold text-stone-900">Dinh dưỡng trên 100g (không bắt buộc)</legend>
                 <p className="mt-1 text-sm text-muted">
@@ -419,8 +422,8 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
             </section>
           </div>
 
-          <div className="min-w-0 space-y-6">
-            <section className={`${card} p-5 text-sm`} aria-labelledby="status-title">
+          <div className="min-w-0 max-lg:contents lg:space-y-6">
+            <section className={`${card} min-w-0 p-5 text-sm max-lg:order-1`} aria-labelledby="status-title">
               <h2 id="status-title" className="font-bold text-stone-900">
                 Trạng thái
               </h2>
@@ -445,7 +448,7 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
               )}
             </section>
 
-            <section className={`${card} space-y-5 p-5`} aria-labelledby="sale-title">
+            <section className={`${card} min-w-0 space-y-5 p-5 max-lg:order-2`} aria-labelledby="sale-title">
               <h2 id="sale-title" className="font-bold text-stone-900">
                 Bán hàng
               </h2>
@@ -499,12 +502,11 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
                       className={`${input} mt-1`}
                     />
                     <div id="price-help" className="mt-1 space-y-0.5 text-sm">
+                      {/* The field shows the amount grouped already: no "= 245.000₫" echo, only errors and warnings */}
                       {fieldState.error ? (
                         <p className="text-danger">{fieldState.error.message}</p>
-                      ) : priceValue != null ? (
-                        <p className="text-muted tabular-nums">= {formatPrice(priceValue)}</p>
                       ) : (
-                        <p className="text-muted">Chưa có giá: sản phẩm ở trạng thái ẩn cho tới khi nhập giá.</p>
+                        priceValue == null && <p className="text-muted">Chưa có giá: sản phẩm ở trạng thái ẩn cho tới khi nhập giá.</p>
                       )}
                       {!fieldState.error && priceValue != null && priceValue % 1000 !== 0 && (
                         <p className="text-amber-800">Giá không chẵn nghìn, kiểm tra lại nhé.</p>
@@ -528,11 +530,13 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
               {num('lowStockThreshold', 'Ngưỡng cảnh báo tồn kho', 'Cảnh báo khi số có thể bán ≤ ngưỡng này')}
             </section>
 
-            {current ? (
-              <ImageManager product={current} onChange={setCurrent} />
-            ) : (
-              <p className={`${card} p-5 text-sm text-muted`}>Có thể thêm ảnh sau khi tạo sản phẩm.</p>
-            )}
+            <div className="min-w-0 max-lg:order-5">
+              {current ? (
+                <ImageManager product={current} onChange={setCurrent} />
+              ) : (
+                <p className={`${card} p-5 text-sm text-muted`}>Có thể thêm ảnh sau khi tạo sản phẩm.</p>
+              )}
+            </div>
           </div>
         </div>
 

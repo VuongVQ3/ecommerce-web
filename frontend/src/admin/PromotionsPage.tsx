@@ -23,7 +23,7 @@ import {
 import { btn, input, table } from './styles'
 import { DateField } from './DateField'
 import MoneyInput from './MoneyInput'
-import { Dialog, Drawer, EmptyState, Field, PageHeader, Pagination, TableFrame } from './ui'
+import { Dialog, Drawer, EmptyState, Field, InfoTip, PageHeader, Pagination, TableFrame } from './ui'
 
 const TABS: { key: 'running' | 'upcoming' | 'ended'; label: string; statuses: PromotionStatus[] }[] = [
   { key: 'running', label: 'Đang chạy', statuses: ['RUNNING'] },
@@ -44,10 +44,14 @@ const PAGE_SIZE = 20
 const dmy = (day: string) => day.split('-').reverse().join('/')
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
+/** What "Đã đặt N ngày" counts, said once per screen (tooltip on the table header, a note in the drawer) */
+const daysExplained = (max: number) => `Số ngày đã đặt gồm cả ngày sắp chạy của khuyến mại đang chạy và sắp tới; tối đa ${max} ngày/năm cho mỗi sản phẩm.`
+
 const REMINDER = 'Kiểm tra quy định khuyến mại và thông báo với Sở Công Thương trước khi chạy chương trình.'
 
 /**
- * Yearly promotion days of a product as a small bar; orange close to the limit (80%), red over it. The server counts
+ * Yearly promotion days of a product as a small bar ("Đã đặt 63/120 ngày"; what the number covers is explained once
+ * by daysExplained); orange close to the limit (80%), red over it. The server counts
  * every promotion of the year that is not cancelled (PromotionService.daysUsed): days already run, the whole period
  * of a running one and upcoming ones; one ended early counts up to the moment it ended.
  */
@@ -63,7 +67,7 @@ function DaysUsage({ used, max }: { used: number; max: number }) {
         />
       </span>
       <span className={`text-xs tabular-nums ${over ? 'font-semibold text-danger' : near ? 'font-semibold text-orange-800' : 'text-stone-600'}`}>
-        Đã đặt {used}/{max} ngày trong năm (gồm cả ngày sắp chạy){over ? ' · vượt giới hạn' : near ? ' · gần chạm giới hạn' : ''}
+        Đã đặt {used}/{max} ngày{over ? ' · vượt giới hạn' : near ? ' · gần giới hạn' : ''}
       </span>
     </span>
   )
@@ -180,6 +184,7 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
             </button>
           )}
         </div>
+        <p className="mt-1 text-xs text-muted">{daysExplained(usage.maxDaysPerYear)}</p>
         <ul className="mt-2 max-h-64 divide-y divide-stone-100 overflow-y-auto rounded-xl border border-stone-200">
           {products.map((p) => (
             <li key={p.id}>
@@ -461,7 +466,12 @@ export default function PromotionsPage() {
                 <th className={table.th}>Sản phẩm</th>
                 <th className={`${table.th} text-right`}>Giá</th>
                 <th className={table.th}>Thời gian</th>
-                <th className={table.th}>Ngày KM năm nay</th>
+                <th className={table.th}>
+                  <span className="inline-flex items-center gap-1">
+                    Ngày KM năm nay
+                    <InfoTip label="Cách tính ngày khuyến mại">{daysExplained(maxDays)}</InfoTip>
+                  </span>
+                </th>
                 <th className={table.th}>
                   <span className="sr-only">Thao tác</span>
                 </th>

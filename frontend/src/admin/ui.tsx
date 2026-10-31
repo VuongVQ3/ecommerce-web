@@ -1,4 +1,4 @@
-import { Ellipsis, X } from 'lucide-react'
+import { Ellipsis, Info, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useBlocker } from 'react-router'
 import { RequiredMark } from '../components/FormFields'
@@ -112,6 +112,53 @@ export function TableFrame({ className = '', children }: { className?: string; c
     <div ref={frame} className={`relative ${table.wrap} ${wide ? 'overflow-x-auto [&_thead_th]:static' : 'overflow-x-clip'} ${className}`}>
       {children}
     </div>
+  )
+}
+
+/**
+ * ⓘ next to a label: the explanation shows on hover, on keyboard focus and on tap (toggles); Esc hides it. The button
+ * is described by the text, so screen readers read it too.
+ */
+export function InfoTip({ label, children }: { label: string; children: ReactNode }) {
+  const [shown, setShown] = useState(false)
+  const [pinned, setPinned] = useState(false)
+  const id = useId()
+  const open = shown || pinned
+  return (
+    <span className="relative inline-flex align-middle" onMouseEnter={() => setShown(true)} onMouseLeave={() => setShown(false)}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-describedby={id}
+        aria-expanded={open}
+        onClick={() => setPinned((p) => !p)}
+        onFocus={() => setShown(true)}
+        onBlur={() => {
+          setShown(false)
+          setPinned(false)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && open) {
+            e.preventDefault()
+            setShown(false)
+            setPinned(false)
+          }
+        }}
+        className="flex size-6 items-center justify-center rounded-full text-stone-500 hover:bg-stone-200 hover:text-stone-800 focus-visible:outline-2 focus-visible:outline-brand-700"
+      >
+        <Info aria-hidden className="size-4" />
+      </button>
+      {/* Always in the DOM (hidden when closed) so aria-describedby points at real text */}
+      <span
+        id={id}
+        role="tooltip"
+        className={`absolute top-full left-1/2 z-30 mt-1.5 w-64 -translate-x-1/2 rounded-lg bg-stone-900 px-3 py-2 text-left text-xs leading-snug font-normal whitespace-normal text-white shadow-lg ${
+          open ? '' : 'hidden'
+        }`}
+      >
+        {children}
+      </span>
+    </span>
   )
 }
 
