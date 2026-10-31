@@ -6,6 +6,7 @@ import { ApiError } from '../lib/api'
 import { adminApi, type MovementType, type StockRow } from '../lib/adminApi'
 import { formatAdminDateTime, formatPrice } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
+import { Skeleton } from './Skeleton'
 import { btn, table } from './styles'
 import MoneyInput from './MoneyInput'
 import { ActionMenu, Badge, Dialog, EmptyState, Field, FilterBar, PageHeader, Pagination, SearchFilter, StockBadge, TableFrame } from './ui'
@@ -281,7 +282,7 @@ export default function InventoryPage() {
       {error ? (
         <ErrorMessage message={error.message} onRetry={reload} />
       ) : !data ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : data.items.length === 0 ? (
         <EmptyState title={low ? 'Không có sản phẩm nào dưới ngưỡng.' : 'Không tìm thấy sản phẩm.'} />
       ) : (

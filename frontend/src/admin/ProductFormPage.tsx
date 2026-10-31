@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from '
 import { Controller } from 'react-hook-form'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useAuthForm } from '../auth/useAuthForm'
-import { ErrorMessage, Spinner } from '../components/Feedback'
+import { ErrorMessage } from '../components/Feedback'
 import { FormError, RequiredLegend, RequiredMark, TextField } from '../components/FormFields'
 import { useToast } from '../components/Toast'
 import { ApiError } from '../lib/api'
@@ -13,6 +13,7 @@ import { NUTRIENTS, nutrientFieldLabel } from '../lib/nutrition'
 import { slugify } from '../lib/slug'
 import { useAsync } from '../lib/useAsync'
 import NotFoundPage from '../pages/NotFoundPage'
+import { Skeleton } from './Skeleton'
 import MoneyInput from './MoneyInput'
 import {
   EMPTY_PRODUCT,
@@ -611,6 +612,6 @@ export default function ProductFormPage() {
   if (id && !Number.isInteger(productId)) return <NotFoundPage />
   if (error instanceof ApiError && error.status === 404) return <NotFoundPage />
   if (error) return <ErrorMessage message={error.message} onRetry={reload} />
-  if (!data || (data.product?.id ?? null) !== productId) return <Spinner />
+  if (!data || (data.product?.id ?? null) !== productId) return <Skeleton variant="form" />
   return <ProductEditor key={productId ?? 'new'} product={data.product} categories={data.categories} />
 }

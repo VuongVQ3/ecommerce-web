@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ErrorMessage, Spinner } from '../components/Feedback'
+import { ErrorMessage } from '../components/Feedback'
 import { useToast } from '../components/Toast'
 import {
   promotionApi,
@@ -10,6 +10,7 @@ import {
 } from '../lib/adminApi'
 import { formatPrice, formatPromotionEnd } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
+import { Skeleton } from './Skeleton'
 import {
   daysInYear,
   discountPercent,
@@ -448,7 +449,7 @@ export default function PromotionsPage() {
       {list.error ? (
         <ErrorMessage message={list.error.message} onRetry={reload} />
       ) : !list.data ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : rows.length === 0 ? (
         <EmptyState title="Không có khuyến mại nào." />
       ) : (

@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { ErrorMessage, Spinner } from '../components/Feedback'
+import { ErrorMessage } from '../components/Feedback'
 import { useToast } from '../components/Toast'
 import { ApiError } from '../lib/api'
 import { adminApi, type AdminCategory } from '../lib/adminApi'
 import { slugify, SLUG_PATTERN } from '../lib/slug'
 import { useAsync } from '../lib/useAsync'
+import { Skeleton } from './Skeleton'
 import { btn, table } from './styles'
 import { Dialog, EmptyState, Field, PageHeader, TableFrame } from './ui'
 import { RequiredLegend } from '../components/FormFields'
@@ -75,7 +76,7 @@ export default function CategoriesPage() {
       {error ? (
         <ErrorMessage message={error.message} onRetry={reload} />
       ) : !data ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : data.length === 0 ? (
         <EmptyState title="Chưa có danh mục nào." />
       ) : (

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { ErrorMessage, Spinner } from '../components/Feedback'
+import { ErrorMessage } from '../components/Feedback'
 import { useToast } from '../components/Toast'
 import { ApiError, type Page } from '../lib/api'
 import { PriceTag } from '../components/Price'
@@ -9,6 +9,7 @@ import { formatPrice } from '../lib/format'
 import { categoryEmoji } from '../lib/categoryStyle'
 import { cloudinaryUrl } from '../lib/images'
 import { useAsync } from '../lib/useAsync'
+import { Skeleton } from './Skeleton'
 import { btn, table } from './styles'
 import { arrayMove, dropAnchor } from './reorder'
 import { ActionMenu, Dialog, EmptyState, FilterBar, PageHeader, Pagination, SearchFilter, TableFrame } from './ui'
@@ -396,7 +397,7 @@ export default function ProductsPage() {
       {error ? (
         <ErrorMessage message={error.message} onRetry={reload} />
       ) : !data ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : data.items.length === 0 ? (
         <EmptyState title="Không có sản phẩm nào.">
           <Link to="/admin/san-pham/moi" className={btn.link}>

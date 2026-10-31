@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
-import { ErrorMessage, Spinner } from '../components/Feedback'
+import { ErrorMessage } from '../components/Feedback'
 import OrderDetails, { StatusBadge } from '../components/OrderDetails'
 import { useToast } from '../components/Toast'
 import { ApiError, type OrderStatus, type Role } from '../lib/api'
@@ -10,6 +10,7 @@ import { formatAdminDateTime } from '../lib/format'
 import { CANCEL_REASON_LABEL, CANCELLED_BY_LABEL, type CancelReasonCode } from '../lib/orderStatus'
 import { useAsync } from '../lib/useAsync'
 import NotFoundPage from '../pages/NotFoundPage'
+import { Skeleton } from './Skeleton'
 import { FLAG_LABEL } from './labels'
 import { FlagDialog } from './phoneFlags'
 import { btn, card, input } from './styles'
@@ -495,7 +496,7 @@ export default function OrderDetailPage() {
   if (error instanceof ApiError && error.status === 404) return <NotFoundPage />
   if (error) return <ErrorMessage message={error.message} onRetry={reload} />
   const detail = updated?.order.code === code ? updated : data
-  if (!detail) return <Spinner />
+  if (!detail) return <Skeleton variant="detail" />
 
   const done = (next: AdminOrderDetail, text: string) => {
     setUpdated(next)

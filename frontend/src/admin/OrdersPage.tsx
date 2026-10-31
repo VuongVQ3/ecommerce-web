@@ -1,13 +1,14 @@
 import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { ErrorMessage, Spinner } from '../components/Feedback'
+import { ErrorMessage } from '../components/Feedback'
 import { StatusBadge } from '../components/OrderDetails'
 import type { OrderStatus } from '../lib/api'
 import { adminApi, type AdminOrderRow } from '../lib/adminApi'
 import { formatAdminDateTime, formatPrice, formatRelative, formatShortDateTime } from '../lib/format'
 import { CANCEL_REASON_LABEL, ORDER_STATUS_LABEL, ORDER_STATUSES, type CancelReasonCode } from '../lib/orderStatus'
 import { useAsync } from '../lib/useAsync'
+import { Skeleton } from './Skeleton'
 import { DateRangeFilter } from './DateField'
 import { vnTodayIso } from './dates'
 import { OVERDUE_PARAM } from './labels'
@@ -301,7 +302,7 @@ export default function OrdersPage() {
       {error ? (
         <ErrorMessage message={error.message} onRetry={reload} />
       ) : !data ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : rows.length === 0 ? (
         <EmptyState title={overdue ? 'Không có đơn nào chờ quá 24 giờ.' : 'Không có đơn hàng nào.'}>
           {(status || from || to || q || cancelReasonCode) && (
