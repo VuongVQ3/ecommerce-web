@@ -1,4 +1,18 @@
-import { Pencil, Plus, Trash2, type LucideIcon } from 'lucide-react'
+import {
+  CircleCheck,
+  CircleX,
+  ClipboardCheck,
+  Eye,
+  EyeOff,
+  Lock,
+  LockOpen,
+  PackagePlus,
+  Pencil,
+  Plus,
+  Trash2,
+  Truck,
+  type LucideIcon,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
@@ -7,7 +21,7 @@ import { formatAdminDateTime } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
 import {
   ACTION_LABEL,
-  actionKind,
+  actionIcon,
   actionLabel,
   actorText,
   changeRows,
@@ -18,7 +32,8 @@ import {
   formatAuditValue,
   rowReason,
   snapshot,
-  type ActionKind,
+  type AuditIcon,
+  type AuditTone,
   type ValueContext,
 } from './auditLabels'
 import { DateRangeFilter } from './DateField'
@@ -73,10 +88,26 @@ function ChangesTable({ row, categories }: { row: AuditRow; categories: Map<numb
   )
 }
 
-const KIND_ICON: Record<ActionKind, { icon: LucideIcon; className: string }> = {
-  add: { icon: Plus, className: 'bg-brand-100 text-brand-800' },
-  remove: { icon: Trash2, className: 'bg-red-100 text-red-700' },
-  change: { icon: Pencil, className: 'bg-blue-100 text-blue-800' },
+const ICONS: Record<AuditIcon, LucideIcon> = {
+  trash: Trash2,
+  eyeOff: EyeOff,
+  eye: Eye,
+  xCircle: CircleX,
+  lock: Lock,
+  unlock: LockOpen,
+  checkCircle: CircleCheck,
+  truck: Truck,
+  packagePlus: PackagePlus,
+  clipboardCheck: ClipboardCheck,
+  plus: Plus,
+  pencil: Pencil,
+}
+
+const TONES: Record<AuditTone, string> = {
+  red: 'bg-red-100 text-red-700',
+  gray: 'bg-stone-200 text-stone-700',
+  green: 'bg-brand-100 text-brand-800',
+  blue: 'bg-blue-100 text-blue-800',
 }
 
 /**
@@ -88,7 +119,8 @@ export function AuditEntry({ row, categories }: { row: AuditRow; categories: Map
   const link = entityLink(row)
   const reason = rowReason(row)
   const hasChanges = changeRows(row).length > 0
-  const kind = KIND_ICON[actionKind(row.action)]
+  const { icon, tone } = actionIcon(row.action)
+  const Icon = ICONS[icon]
   const full = formatAdminDateTime(row.createdAt)
   const actor = actorText(row)
   const toggle = (className: string) =>
@@ -99,8 +131,8 @@ export function AuditEntry({ row, categories }: { row: AuditRow; categories: Map
     )
   return (
     <li className="flex min-w-0 gap-3 px-3 py-1.5 text-sm sm:px-4">
-      <span aria-hidden className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full ${kind.className}`}>
-        <kind.icon className="size-3.5" strokeWidth={2.25} />
+      <span aria-hidden className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full ${TONES[tone]}`}>
+        <Icon className="size-3.5" strokeWidth={2.25} />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-3">

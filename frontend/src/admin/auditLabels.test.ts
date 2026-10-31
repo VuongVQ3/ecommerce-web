@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { actionKind, actionLabel, actorText, changeRows, dayHeading, entityLink, fieldLabel, formatAuditValue, reasonText, rowReason } from './auditLabels'
+import { actionIcon, actionLabel, actorText, changeRows, dayHeading, entityLink, fieldLabel, formatAuditValue, reasonText, rowReason } from './auditLabels'
 
 const product = { entityType: 'PRODUCT', action: 'PRODUCT_UPDATED', categories: new Map([[3, 'Hạt dinh dưỡng']]) }
 
@@ -63,17 +63,16 @@ describe('older rows', () => {
 })
 
 describe('audit timeline', () => {
-  it('sorts actions into adding, taking away and changing', () => {
-    expect(['PRODUCT_CREATED', 'PRODUCT_IMAGE_ADDED', 'USER_INVITED', 'STOCK_IMPORTED'].map(actionKind)).toEqual(['add', 'add', 'add', 'add'])
-    expect(['PRODUCT_DELETED', 'ORDER_CANCEL', 'PROMOTION_ENDED', 'PRODUCT_HIDDEN', 'USER_LOCKED', 'PHONE_FLAG_REMOVED'].map(actionKind)).toEqual([
-      'remove',
-      'remove',
-      'remove',
-      'remove',
-      'remove',
-      'remove',
-    ])
-    expect(['PRODUCT_UPDATED', 'ORDER_CONFIRM', 'USER_UNLOCKED', 'SOMETHING_NEW'].map(actionKind)).toEqual(['change', 'change', 'change', 'change'])
+  it('pictures each action by what it means', () => {
+    const icons = (codes: string[]) => codes.map((c) => `${actionIcon(c).icon}:${actionIcon(c).tone}`)
+    expect(icons(['PRODUCT_DELETED', 'PRODUCT_IMAGE_DELETED', 'PHONE_FLAG_REMOVED'])).toEqual(['trash:red', 'trash:red', 'trash:red'])
+    expect(icons(['PRODUCT_HIDDEN', 'PRODUCT_SHOWN'])).toEqual(['eyeOff:gray', 'eye:blue'])
+    expect(icons(['ORDER_CANCEL', 'PROMOTION_CANCELLED', 'PROMOTION_ENDED'])).toEqual(['xCircle:red', 'xCircle:red', 'xCircle:gray'])
+    expect(icons(['USER_LOCKED', 'USER_UNLOCKED'])).toEqual(['lock:red', 'unlock:green'])
+    expect(icons(['ORDER_CONFIRM', 'ORDER_COMPLETE'])).toEqual(['checkCircle:green', 'checkCircle:green'])
+    expect(icons(['ORDER_SHIP', 'STOCK_IMPORTED', 'STOCK_ADJUSTED'])).toEqual(['truck:blue', 'packagePlus:green', 'clipboardCheck:blue'])
+    expect(icons(['PRODUCT_CREATED', 'PRODUCT_IMAGE_ADDED', 'USER_INVITED', 'ORDER_NOTE_ADDED'])).toEqual(['plus:green', 'plus:green', 'plus:green', 'plus:green'])
+    expect(icons(['PRODUCT_UPDATED', 'CATEGORY_UPDATED', 'SOMETHING_NEW'])).toEqual(['pencil:blue', 'pencil:blue', 'pencil:blue'])
   })
 
   it('names the days of the timeline', () => {

@@ -567,17 +567,24 @@ export default function OrderDetailPage() {
           </div>
         )}
       </div>
-      <div className="mt-3 grid gap-6 lg:grid-cols-[1fr_20rem]">
-        <div className="min-w-0">
-          <OrderDetails order={order} header={false} />
-        </div>
-        <div className="min-w-0 space-y-6">
+      {/*
+        Below 1024px the customer (call / Zalo / copy) comes first, right under the actions. From 1024px: the order on
+        the left across all rows, customer / shipping / notes stacked on the right (the last row takes the leftover
+        height so the right-hand cards stay together).
+      */}
+      <div className="mt-3 grid gap-6 lg:grid-cols-[1fr_20rem] lg:grid-rows-[auto_auto_auto_1fr]">
+        <div className="min-w-0 lg:col-start-2 lg:row-start-1">
           <CustomerBlock
             detail={detail}
             role={role}
             version={statsVersion}
             onEditFlag={(current) => setOpen({ kind: 'flag', current })}
           />
+        </div>
+        <div className="min-w-0 lg:col-start-1 lg:row-span-4 lg:row-start-1">
+          <OrderDetails order={order} header={false} />
+        </div>
+        <div className="min-w-0 lg:col-start-2 lg:row-start-2">
           <section className={`${card} p-5 text-sm`} aria-labelledby="ship-title">
             <h2 id="ship-title" className="font-bold text-stone-900">
               Vận chuyển
@@ -610,6 +617,8 @@ export default function OrderDetailPage() {
               </div>
             )}
           </section>
+        </div>
+        <div className="min-w-0 lg:col-start-2 lg:row-start-3">
           <Notes detail={detail} onChange={setUpdated} />
         </div>
       </div>

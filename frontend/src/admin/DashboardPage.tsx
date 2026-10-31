@@ -362,7 +362,33 @@ function DayOrders({ day }: { day: DashboardDay }) {
       {day.orders.length === 0 ? (
         <p className={`${card} px-5 py-8 text-center text-sm text-muted`}>{NO_ORDERS}</p>
       ) : (
-        <div className={table.wrap}>
+        <>
+        {/* Below 768px: one card per order (like the order list), the whole card opens it */}
+        <ul className="space-y-3 md:hidden">
+          {day.orders.map((o) => (
+            <li key={o.code}>
+              <Link
+                to={`/admin/don-hang/${o.code}`}
+                className="block rounded-2xl border border-stone-200 bg-white p-4 hover:border-brand-300 focus-visible:outline-2 focus-visible:outline-brand-700"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-semibold text-brand-700">{o.code}</span>
+                  <StatusBadge status={o.status} />
+                </div>
+                <p className="mt-2 truncate text-sm font-medium text-stone-900" title={o.customerName}>
+                  {o.customerName}
+                </p>
+                <div className="mt-1 flex items-baseline justify-between gap-2 text-sm">
+                  <span className="font-semibold tabular-nums">{formatPrice(o.total)}</span>
+                  <time dateTime={o.createdAt} className="text-muted tabular-nums">
+                    {timeFormat.format(new Date(o.createdAt))}
+                  </time>
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <div className={`${table.wrap} hidden md:block`}>
           <table className={table.table}>
             <thead>
               <tr>
@@ -392,6 +418,7 @@ function DayOrders({ day }: { day: DashboardDay }) {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </section>
   )

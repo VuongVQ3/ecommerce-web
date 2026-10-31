@@ -230,13 +230,49 @@ export function entityLink(row: Pick<AuditRow, 'entityType' | 'entityId' | 'acti
   return null
 }
 
-export type ActionKind = 'add' | 'remove' | 'change'
+export type AuditIcon =
+  | 'trash'
+  | 'eyeOff'
+  | 'eye'
+  | 'xCircle'
+  | 'lock'
+  | 'unlock'
+  | 'checkCircle'
+  | 'truck'
+  | 'packagePlus'
+  | 'clipboardCheck'
+  | 'plus'
+  | 'pencil'
 
-/** Adding (green +), taking away (red bin: delete, cancel, hide, lock, end) or changing (blue pencil) */
-export function actionKind(action: string): ActionKind {
-  if (/_(CREATED|ADDED|INVITED|IMPORTED)$/.test(action)) return 'add'
-  if (/_(DELETED|REMOVED|CANCEL|CANCELLED|ENDED|HIDDEN|LOCKED)$/.test(action)) return 'remove'
-  return 'change'
+export type AuditTone = 'red' | 'gray' | 'green' | 'blue'
+
+/** Exact actions with their own picture; the rest go by their suffix (see actionIcon) */
+const ACTION_ICON: Record<string, { icon: AuditIcon; tone: AuditTone }> = {
+  PRODUCT_HIDDEN: { icon: 'eyeOff', tone: 'gray' },
+  PRODUCT_SHOWN: { icon: 'eye', tone: 'blue' },
+  ORDER_CANCEL: { icon: 'xCircle', tone: 'red' },
+  PROMOTION_CANCELLED: { icon: 'xCircle', tone: 'red' },
+  // Ending a promotion early is not a cancellation: same mark, quieter
+  PROMOTION_ENDED: { icon: 'xCircle', tone: 'gray' },
+  USER_LOCKED: { icon: 'lock', tone: 'red' },
+  USER_UNLOCKED: { icon: 'unlock', tone: 'green' },
+  ORDER_CONFIRM: { icon: 'checkCircle', tone: 'green' },
+  ORDER_COMPLETE: { icon: 'checkCircle', tone: 'green' },
+  USER_EMAIL_VERIFIED: { icon: 'checkCircle', tone: 'green' },
+  ORDER_SHIP: { icon: 'truck', tone: 'blue' },
+  STOCK_IMPORTED: { icon: 'packagePlus', tone: 'green' },
+  STOCK_ADJUSTED: { icon: 'clipboardCheck', tone: 'blue' },
+}
+
+/**
+ * Picture of an action in the audit timeline, by what it means: deleted / removed → bin, created / added / invited →
+ * plus, anything else (edits, notes, unknown codes) → pencil.
+ */
+export function actionIcon(action: string): { icon: AuditIcon; tone: AuditTone } {
+  if (ACTION_ICON[action]) return ACTION_ICON[action]
+  if (/_(DELETED|REMOVED)$/.test(action)) return { icon: 'trash', tone: 'red' }
+  if (/_(CREATED|ADDED|INVITED)$/.test(action)) return { icon: 'plus', tone: 'green' }
+  return { icon: 'pencil', tone: 'blue' }
 }
 
 /** "Hôm nay", "Hôm qua", "30/10" (with the year when not this year) for a Vietnam day */
