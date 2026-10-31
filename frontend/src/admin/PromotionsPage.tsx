@@ -45,7 +45,11 @@ const message = (err: unknown) => (err instanceof Error ? err.message : String(e
 
 const REMINDER = 'Kiểm tra quy định khuyến mại và thông báo với Sở Công Thương trước khi chạy chương trình.'
 
-/** Yearly promotion days of a product as a small bar; orange close to the limit (80%), red over it. */
+/**
+ * Yearly promotion days of a product as a small bar; orange close to the limit (80%), red over it. The server counts
+ * every promotion of the year that is not cancelled (PromotionService.daysUsed): days already run, the whole period
+ * of a running one and upcoming ones; one ended early counts up to the moment it ended.
+ */
 function DaysUsage({ used, max }: { used: number; max: number }) {
   const over = used > max
   const near = !over && used >= max * 0.8
@@ -58,7 +62,7 @@ function DaysUsage({ used, max }: { used: number; max: number }) {
         />
       </span>
       <span className={`text-xs tabular-nums ${over ? 'font-semibold text-danger' : near ? 'font-semibold text-orange-800' : 'text-stone-600'}`}>
-        Đã dùng {used}/{max} ngày khuyến mại trong năm{over ? ' · vượt giới hạn' : near ? ' · gần chạm giới hạn' : ''}
+        Đã đặt {used}/{max} ngày trong năm (gồm cả ngày sắp chạy){over ? ' · vượt giới hạn' : near ? ' · gần chạm giới hạn' : ''}
       </span>
     </span>
   )
