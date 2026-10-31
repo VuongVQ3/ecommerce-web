@@ -545,15 +545,19 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
             dirty || !current ? 'border-brand-200 bg-white shadow-[0_-6px_16px_rgb(0_0_0/0.08)]' : 'border-stone-200 bg-stone-50/90 backdrop-blur'
           }`}
         >
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-2">
             <p className="mr-auto flex items-center gap-2 text-sm" aria-live="polite">
               {dirty ? (
                 <>
                   <span aria-hidden className="size-2 rounded-full bg-orange-500" />
-                  <span className="font-semibold text-stone-900">Có thay đổi chưa lưu</span>
+                  <span className="font-semibold text-stone-900">
+                    <span className="max-sm:hidden">Có thay đổi chưa lưu</span>
+                    <span className="sm:hidden">Chưa lưu</span>
+                  </span>
                 </>
               ) : (
-                <span className="text-muted">{current ? 'Mọi thay đổi đã được lưu' : 'Điền thông tin rồi bấm Tạo sản phẩm'}</span>
+                // Phones: the buttons alone, on one row
+                <span className="text-muted max-sm:hidden">{current ? 'Mọi thay đổi đã được lưu' : 'Điền thông tin rồi bấm Tạo sản phẩm'}</span>
               )}
             </p>
             <button type="button" className={btn.secondary} onClick={cancel} disabled={pending}>
