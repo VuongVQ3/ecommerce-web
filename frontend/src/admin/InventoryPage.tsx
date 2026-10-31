@@ -32,6 +32,9 @@ function ImportDialog({ product, onDone, onClose }: { product: StockRow; onDone:
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value })
+  // Live summary while typing: only for a quantity that would be accepted
+  const typed = toInt(form.quantity)
+  const adding = typed !== undefined && Number.isInteger(typed) && typed > 0 ? typed : null
 
   const submit = async () => {
     const quantity = toInt(form.quantity)
@@ -71,6 +74,24 @@ function ImportDialog({ product, onDone, onClose }: { product: StockRow; onDone:
           {(p) => <MoneyInput {...p} value={unitCost} onChange={setUnitCost} />}
         </Field>
       </div>
+      {adding !== null && (
+        <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm text-stone-800" aria-live="polite">
+          <p>
+            Tồn sau khi nhập:{' '}
+            <strong className="tabular-nums">
+              {product.onHand.toLocaleString('vi-VN')} → {(product.onHand + adding).toLocaleString('vi-VN')}
+            </strong>
+          </p>
+          {unitCost !== null && unitCost > 0 && (
+            <p className="mt-1">
+              Thành tiền:{' '}
+              <span className="tabular-nums">
+                {adding.toLocaleString('vi-VN')} × {formatPrice(unitCost)} = <strong>{formatPrice(adding * unitCost)}</strong>
+              </span>
+            </p>
+          )}
+        </div>
+      )}
       <Field label="Nhà cung cấp" error={errors.supplier} hint="Không bắt buộc">
         {(p) => <input {...p} maxLength={200} value={form.supplier} onChange={set('supplier')} />}
       </Field>
