@@ -22,7 +22,7 @@ import {
 import { btn, card, input, table } from './styles'
 import { DateField } from './DateField'
 import MoneyInput from './MoneyInput'
-import { Dialog, EmptyState, Field, PageHeader, Pagination } from './ui'
+import { Dialog, EmptyState, Field, PageHeader, Pagination, TableFrame } from './ui'
 
 const TABS: { key: 'running' | 'upcoming' | 'ended'; label: string; statuses: PromotionStatus[] }[] = [
   { key: 'running', label: 'Đang chạy', statuses: ['RUNNING'] },
@@ -231,15 +231,15 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
       </fieldset>
 
       {preview.length > 0 && (
-        <div className={table.wrap}>
+        <TableFrame>
           <table className={table.table}>
             <caption className="px-4 pt-3 text-left text-sm font-semibold text-stone-900">3. Xem trước giá mới</caption>
             <thead>
               <tr>
-                <th className={table.th}>Sản phẩm</th>
-                <th className={`${table.th} text-right`}>Giá gốc</th>
-                <th className={`${table.th} text-right`}>Giá khuyến mại</th>
-                <th className={table.th}>Ngày KM trong năm sau khi tạo</th>
+                <th className={table.thStatic}>Sản phẩm</th>
+                <th className={`${table.thStatic} text-right`}>Giá gốc</th>
+                <th className={`${table.thStatic} text-right`}>Giá khuyến mại</th>
+                <th className={table.thStatic}>Ngày KM trong năm sau khi tạo</th>
               </tr>
             </thead>
             <tbody>
@@ -258,7 +258,7 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
               ))}
             </tbody>
           </table>
-        </div>
+        </TableFrame>
       )}
 
       {results && (
@@ -433,7 +433,7 @@ export default function PromotionsPage() {
         <EmptyState title="Không có khuyến mại nào." />
       ) : (
         <>
-        <div className={table.wrap}>
+        <TableFrame>
           <table className={table.table}>
             <thead>
               <tr>
@@ -485,7 +485,7 @@ export default function PromotionsPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableFrame>
         <Pagination page={shownPage} totalPages={totalPages} onChange={setPage} />
         </>
       )}

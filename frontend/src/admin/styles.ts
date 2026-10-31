@@ -31,11 +31,13 @@ export const filterInput = `${field} h-10`
 export const card = 'rounded-2xl border border-stone-200 bg-white'
 
 export const table = {
-  // A frame no taller than the window that scrolls both ways: the header row sticks to its top and a wide table
-  // scrolls sideways inside it instead of widening the page
-  wrap: 'max-h-[calc(100dvh-5rem)] overflow-auto rounded-2xl border border-stone-200 bg-white',
+  /** Frame of a table used outside TableFrame (TableFrame adds its own) */
+  wrap: 'rounded-2xl border border-stone-200 bg-white',
   table: 'w-full min-w-[640px] text-left text-sm',
-  // A shadow instead of a bottom border: collapsed borders stay behind when the header sticks
-  th: 'sticky top-0 z-10 bg-stone-50 px-4 py-3 font-semibold whitespace-nowrap text-stone-600 shadow-[inset_0_-1px_0_var(--color-stone-200)]',
+  // Sticks under the phone/tablet top bar (56px), to the top of the window from 1024px: the page scrolls, not the
+  // table. A shadow instead of a bottom border: collapsed borders stay behind when the header sticks.
+  th: 'sticky top-14 z-10 bg-stone-50 px-4 py-3 font-semibold whitespace-nowrap text-stone-600 shadow-[inset_0_-1px_0_var(--color-stone-200)] lg:top-0',
+  /** Header cell of a table inside a dialog or drawer (no page-level sticking) */
+  thStatic: 'border-b border-stone-200 bg-stone-50 px-4 py-3 font-semibold whitespace-nowrap text-stone-600',
   td: 'border-b border-stone-100 px-4 py-3 align-middle',
 }

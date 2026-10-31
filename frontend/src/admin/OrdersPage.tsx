@@ -13,7 +13,7 @@ import { vnTodayIso } from './dates'
 import { OVERDUE_PARAM } from './labels'
 import { FlagIcon } from './phoneFlags'
 import { btn, filterInput, input, table } from './styles'
-import { Dialog, EmptyState, FilterBar, PageHeader, Pagination, SearchFilter } from './ui'
+import { Dialog, EmptyState, FilterBar, PageHeader, Pagination, SearchFilter, TableFrame } from './ui'
 
 const STATUSES: { value: OrderStatus | ''; label: string }[] = [
   { value: '', label: 'Tất cả' },
@@ -108,7 +108,7 @@ function OrderCards({ rows }: { rows: AdminOrderRow[] }) {
 function OrderTable({ rows }: { rows: AdminOrderRow[] }) {
   const navigate = useNavigate()
   return (
-    <div className={`${table.wrap} hidden md:block`}>
+    <TableFrame className="hidden md:block">
       <table className="w-full text-left text-sm">
         <thead>
           <tr>
@@ -153,7 +153,7 @@ function OrderTable({ rows }: { rows: AdminOrderRow[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </TableFrame>
   )
 }
 

@@ -11,7 +11,7 @@ import { Calendar } from './DateField'
 import { OVERDUE_PARAM } from './labels'
 import { addDays, fromIso, isoToDisplay, vnTodayIso, WEEKDAY_NAMES, WEEKDAYS } from './dates'
 import { card, table } from './styles'
-import { PageHeader } from './ui'
+import { PageHeader, TableFrame } from './ui'
 
 /** The day view goes back this far (the API refuses older days) */
 const MAX_DAYS_BACK = 365
@@ -388,7 +388,7 @@ function DayOrders({ day }: { day: DashboardDay }) {
             </li>
           ))}
         </ul>
-        <div className={`${table.wrap} hidden md:block`}>
+        <TableFrame className="hidden md:block">
           <table className={table.table}>
             <thead>
               <tr>
@@ -417,7 +417,7 @@ function DayOrders({ day }: { day: DashboardDay }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableFrame>
         </>
       )}
     </section>

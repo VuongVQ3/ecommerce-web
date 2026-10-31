@@ -2,7 +2,7 @@ import { Ellipsis } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useBlocker } from 'react-router'
 import { RequiredMark } from '../components/FormFields'
-import { btn, filterBtn, filterInput, input } from './styles'
+import { btn, filterBtn, filterInput, input, table } from './styles'
 
 export function PageHeader({ title, children }: { title: string; children?: ReactNode }) {
   return (
@@ -61,6 +61,56 @@ export function SearchFilter({ initial, placeholder, label, onSearch }: { initia
         Tìm
       </button>
     </form>
+  )
+}
+
+/**
+ * Rounded frame of a data table. The page scrolls, never the frame, so the header row (table.th) sticks to the top of
+ * the window. A table wider than its frame scrolls sideways inside it; the frame then is a scroll box, where CSS
+ * sticking stops working, so the header cells are moved down with the page instead.
+ */
+export function TableFrame({ className = '', children }: { className?: string; children: ReactNode }) {
+  const frame = useRef<HTMLDivElement>(null)
+  const [wide, setWide] = useState(false)
+
+  useEffect(() => {
+    const el = frame.current
+    const content = el?.querySelector('table')
+    if (!el || !content || typeof ResizeObserver === 'undefined') return
+    const measure = () => setWide(content.offsetWidth > el.clientWidth + 1)
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    observer.observe(content)
+    measure()
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const el = frame.current
+    const cells = [...(el?.querySelectorAll<HTMLElement>('thead th') ?? [])]
+    if (!wide || !el || cells.length === 0) return
+    const follow = () => {
+      const top = window.innerWidth >= 1024 ? 0 : 56
+      const box = el.getBoundingClientRect()
+      const shift = Math.max(0, Math.min(top - box.top, box.height - cells[0].offsetHeight))
+      for (const th of cells) th.style.transform = shift > 0 ? `translateY(${shift}px)` : ''
+    }
+    follow()
+    window.addEventListener('scroll', follow, { passive: true })
+    window.addEventListener('resize', follow)
+    return () => {
+      window.removeEventListener('scroll', follow)
+      window.removeEventListener('resize', follow)
+      for (const th of cells) th.style.transform = ''
+    }
+  }, [wide])
+
+  // overflow-x clip keeps the rounded corners without making a scroll box. Scrolling sideways, CSS sticking is off
+  // (inside the scroll box its offset would add to the shift)
+  return (
+    <div ref={frame} className={`${table.wrap} ${wide ? 'overflow-x-auto [&_thead_th]:static' : 'overflow-x-clip'} ${className}`}>
+      {children}
+    </div>
   )
 }
 

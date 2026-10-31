@@ -8,7 +8,7 @@ import { formatAdminDateTime, formatPrice } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
 import { btn, table } from './styles'
 import MoneyInput from './MoneyInput'
-import { ActionMenu, Badge, Dialog, EmptyState, Field, FilterBar, PageHeader, Pagination, SearchFilter, StockBadge } from './ui'
+import { ActionMenu, Badge, Dialog, EmptyState, Field, FilterBar, PageHeader, Pagination, SearchFilter, StockBadge, TableFrame } from './ui'
 import { RequiredLegend } from '../components/FormFields'
 
 const MOVEMENT_LABEL: Record<MovementType, string> = {
@@ -149,10 +149,10 @@ function HistoryDialog({ product, onClose }: { product: StockRow; onClose: () =>
           <table className="w-full text-left text-sm">
             <thead>
               <tr>
-                <th className={table.th}>Thời gian</th>
-                <th className={table.th}>Loại</th>
-                <th className={`${table.th} text-right`}>SL</th>
-                <th className={table.th}>Chi tiết</th>
+                <th className={table.thStatic}>Thời gian</th>
+                <th className={table.thStatic}>Loại</th>
+                <th className={`${table.thStatic} text-right`}>SL</th>
+                <th className={table.thStatic}>Chi tiết</th>
               </tr>
             </thead>
             <tbody>
@@ -290,7 +290,7 @@ export default function InventoryPage() {
               </li>
             ))}
           </ul>
-        <div className={`${table.wrap} hidden md:block`}>
+        <TableFrame className="hidden md:block">
           <table className="w-full text-left text-sm">
             <thead>
               <tr>
@@ -322,7 +322,7 @@ export default function InventoryPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableFrame>
         <Pagination page={data.page} totalPages={data.totalPages} onChange={(n) => update({ page: String(n) })} />
         </div>
       )}

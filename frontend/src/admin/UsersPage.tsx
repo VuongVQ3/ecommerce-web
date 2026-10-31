@@ -10,7 +10,7 @@ import { useAsync } from '../lib/useAsync'
 import { FLAG_LABEL, FLAG_STYLE, ROLE_LABEL } from './labels'
 import { FlagDialog } from './phoneFlags'
 import { btn, filterInput, table } from './styles'
-import { EmptyState, FilterBar, PageHeader, Pagination, SearchFilter } from './ui'
+import { EmptyState, FilterBar, PageHeader, Pagination, SearchFilter, TableFrame } from './ui'
 import { AccountStatus, InviteDialog, RoleBadge, UserActions } from './userActions'
 
 type Params = ReturnType<typeof useSearchParams>
@@ -101,7 +101,7 @@ function Accounts({ params }: { params: Params }) {
 
 function UserTable({ rows, onChanged }: { rows: AdminUserRow[]; onChanged: () => void }) {
   return (
-    <div className={`${table.wrap} hidden md:block`}>
+    <TableFrame className="hidden md:block">
       <table className="w-full text-left text-sm">
         <thead>
           <tr>
@@ -145,7 +145,7 @@ function UserTable({ rows, onChanged }: { rows: AdminUserRow[]; onChanged: () =>
           ))}
         </tbody>
       </table>
-    </div>
+    </TableFrame>
   )
 }
 

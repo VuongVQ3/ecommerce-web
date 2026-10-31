@@ -6,7 +6,7 @@ import { adminApi, type AdminCategory } from '../lib/adminApi'
 import { slugify, SLUG_PATTERN } from '../lib/slug'
 import { useAsync } from '../lib/useAsync'
 import { btn, table } from './styles'
-import { Dialog, EmptyState, Field, PageHeader } from './ui'
+import { Dialog, EmptyState, Field, PageHeader, TableFrame } from './ui'
 import { RequiredLegend } from '../components/FormFields'
 
 /** Create or rename. Categories are never deleted here (products point to them). */
@@ -94,7 +94,7 @@ export default function CategoriesPage() {
               </li>
             ))}
           </ul>
-          <div className={`${table.wrap} hidden md:block`}>
+          <TableFrame className="hidden md:block">
           <table className="w-full text-left text-sm">
             <thead>
               <tr>
@@ -121,7 +121,7 @@ export default function CategoriesPage() {
               ))}
             </tbody>
           </table>
-          </div>
+          </TableFrame>
         </>
       )}
       {editing && (
