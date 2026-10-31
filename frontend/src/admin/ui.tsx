@@ -1,8 +1,8 @@
-import { Ellipsis } from 'lucide-react'
+import { Ellipsis, Info, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useBlocker } from 'react-router'
 import { RequiredMark } from '../components/FormFields'
-import { btn, filterBtn, filterInput, input } from './styles'
+import { btn, filterBtn, filterInput, input, table } from './styles'
 
 export function PageHeader({ title, children }: { title: string; children?: ReactNode }) {
   return (
@@ -61,6 +61,104 @@ export function SearchFilter({ initial, placeholder, label, onSearch }: { initia
         Tìm
       </button>
     </form>
+  )
+}
+
+/**
+ * Rounded frame of a data table. The page scrolls, never the frame, so the header row (table.th) sticks to the top of
+ * the window. A table wider than its frame scrolls sideways inside it; the frame then is a scroll box, where CSS
+ * sticking stops working, so the header cells are moved down with the page instead.
+ */
+export function TableFrame({ className = '', children }: { className?: string; children: ReactNode }) {
+  const frame = useRef<HTMLDivElement>(null)
+  const [wide, setWide] = useState(false)
+
+  useEffect(() => {
+    const el = frame.current
+    const content = el?.querySelector('table')
+    if (!el || !content || typeof ResizeObserver === 'undefined') return
+    const measure = () => setWide(content.offsetWidth > el.clientWidth + 1)
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    observer.observe(content)
+    measure()
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const el = frame.current
+    const cells = [...(el?.querySelectorAll<HTMLElement>('thead th') ?? [])]
+    if (!wide || !el || cells.length === 0) return
+    const follow = () => {
+      const top = window.innerWidth >= 1024 ? 0 : 56
+      const box = el.getBoundingClientRect()
+      const shift = Math.max(0, Math.min(top - box.top, box.height - cells[0].offsetHeight))
+      for (const th of cells) th.style.transform = shift > 0 ? `translateY(${shift}px)` : ''
+    }
+    follow()
+    window.addEventListener('scroll', follow, { passive: true })
+    window.addEventListener('resize', follow)
+    return () => {
+      window.removeEventListener('scroll', follow)
+      window.removeEventListener('resize', follow)
+      for (const th of cells) th.style.transform = ''
+    }
+  }, [wide])
+
+  // overflow-x clip keeps the rounded corners without making a scroll box. Scrolling sideways, CSS sticking is off
+  // (inside the scroll box its offset would add to the shift). relative: absolutely placed bits inside (sr-only
+  // labels) stay in the frame instead of widening the page
+  return (
+    <div ref={frame} className={`relative ${table.wrap} ${wide ? 'overflow-x-auto [&_thead_th]:static' : 'overflow-x-clip'} ${className}`}>
+      {children}
+    </div>
+  )
+}
+
+/**
+ * ⓘ next to a label: the explanation shows on hover, on keyboard focus and on tap (toggles); Esc hides it. The button
+ * is described by the text, so screen readers read it too.
+ */
+export function InfoTip({ label, children }: { label: string; children: ReactNode }) {
+  const [shown, setShown] = useState(false)
+  const [pinned, setPinned] = useState(false)
+  const id = useId()
+  const open = shown || pinned
+  return (
+    <span className="relative inline-flex align-middle" onMouseEnter={() => setShown(true)} onMouseLeave={() => setShown(false)}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-describedby={id}
+        aria-expanded={open}
+        onClick={() => setPinned((p) => !p)}
+        onFocus={() => setShown(true)}
+        onBlur={() => {
+          setShown(false)
+          setPinned(false)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && open) {
+            e.preventDefault()
+            setShown(false)
+            setPinned(false)
+          }
+        }}
+        className="flex size-6 items-center justify-center rounded-full text-stone-500 hover:bg-stone-200 hover:text-stone-800 focus-visible:outline-2 focus-visible:outline-brand-700"
+      >
+        <Info aria-hidden className="size-4" />
+      </button>
+      {/* Always in the DOM (hidden when closed) so aria-describedby points at real text */}
+      <span
+        id={id}
+        role="tooltip"
+        className={`absolute top-full left-1/2 z-30 mt-1.5 w-64 -translate-x-1/2 rounded-lg bg-stone-900 px-3 py-2 text-left text-xs leading-snug font-normal whitespace-normal text-white shadow-lg ${
+          open ? '' : 'hidden'
+        }`}
+      >
+        {children}
+      </span>
+    </span>
   )
 }
 
@@ -325,6 +423,69 @@ export function ActionMenu({ label, items }: { label: string; items: { label: st
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Side panel on the native <dialog> (focus trapped, Esc closes, the page behind is inert): from the right on screens
+ * from 640px, full screen on phones. The body scrolls between a fixed header and footer.
+ */
+export function Drawer({
+  title,
+  onClose,
+  busy = false,
+  footer,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  /** While saving: Esc and the close button do nothing */
+  busy?: boolean
+  footer?: ReactNode
+  children: ReactNode
+}) {
+  const ref = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+
+  useEffect(() => {
+    const dialog = ref.current
+    const opener = document.activeElement as HTMLElement | null
+    dialog?.showModal?.()
+    return () => {
+      dialog?.close?.()
+      opener?.focus?.()
+    }
+  }, [])
+
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby={titleId}
+      onCancel={(e) => {
+        e.preventDefault()
+        if (!busy) onClose()
+      }}
+      className="m-0 ml-auto h-dvh max-h-none w-full max-w-none bg-white p-0 shadow-2xl backdrop:bg-stone-900/50 sm:w-[min(46rem,100vw)]"
+    >
+      <div className="flex h-full flex-col">
+        <div className="flex items-center justify-between gap-3 border-b border-stone-200 px-5 py-3">
+          <h2 id={titleId} className="text-lg font-bold text-stone-900">
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            aria-label="Đóng"
+            className="flex size-10 items-center justify-center rounded-full text-stone-600 hover:bg-stone-100 disabled:opacity-50"
+          >
+            <X aria-hidden className="size-5" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">{children}</div>
+        {footer && <div className="border-t border-stone-200 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">{footer}</div>}
+      </div>
+    </dialog>
   )
 }
 

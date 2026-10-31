@@ -15,10 +15,11 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { ErrorMessage, Spinner } from '../components/Feedback'
+import { ErrorMessage } from '../components/Feedback'
 import { adminApi, userApi, type AuditRow } from '../lib/adminApi'
 import { formatAdminDateTime } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
+import { Skeleton } from './Skeleton'
 import {
   ACTION_LABEL,
   actionIcon,
@@ -299,7 +300,7 @@ export default function AuditLogPage() {
       {error && rows.length === 0 ? (
         <ErrorMessage message={error.message} onRetry={() => setReloadKey((k) => k + 1)} />
       ) : total === null ? (
-        <Spinner />
+        <Skeleton variant="list" />
       ) : rows.length === 0 ? (
         <EmptyState title="Không có thao tác nào khớp bộ lọc." />
       ) : (

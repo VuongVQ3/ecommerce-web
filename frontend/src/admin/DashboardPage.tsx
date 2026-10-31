@@ -1,17 +1,18 @@
 import { Check, ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
-import { ErrorMessage, Spinner } from '../components/Feedback'
+import { ErrorMessage } from '../components/Feedback'
 import { StatusBadge } from '../components/OrderDetails'
 import { adminApi, type DashboardDay, type DashboardDayTotals } from '../lib/adminApi'
 import { formatPrice } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
+import { Skeleton } from './Skeleton'
 import { axisTicks, shortMoney } from './chartAxis'
 import { Calendar } from './DateField'
 import { OVERDUE_PARAM } from './labels'
 import { addDays, fromIso, isoToDisplay, vnTodayIso, WEEKDAY_NAMES, WEEKDAYS } from './dates'
 import { card, table } from './styles'
-import { PageHeader } from './ui'
+import { PageHeader, TableFrame } from './ui'
 
 /** The day view goes back this far (the API refuses older days) */
 const MAX_DAYS_BACK = 365
@@ -388,7 +389,7 @@ function DayOrders({ day }: { day: DashboardDay }) {
             </li>
           ))}
         </ul>
-        <div className={`${table.wrap} hidden md:block`}>
+        <TableFrame className="hidden md:block">
           <table className={table.table}>
             <thead>
               <tr>
@@ -417,7 +418,7 @@ function DayOrders({ day }: { day: DashboardDay }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableFrame>
         </>
       )}
     </section>
@@ -484,7 +485,7 @@ export default function DashboardPage() {
         {now.error && !now.data ? (
           <ErrorMessage message={now.error.message} onRetry={now.reload} />
         ) : !now.data ? (
-          <Spinner />
+          <Skeleton variant="now-cards" />
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             <NowCard label="Đơn chờ xác nhận" value={now.data.pendingCount} to="/admin/don-hang?status=PENDING" hint="Gọi khách rồi xác nhận đơn" />
@@ -518,7 +519,7 @@ export default function DashboardPage() {
         {day.error && !shown ? (
           <ErrorMessage message={day.error.message} onRetry={day.reload} />
         ) : !shown ? (
-          <Spinner />
+          <Skeleton variant="day" slowNote={Boolean(now.data || now.error)} />
         ) : (
           <div aria-busy={day.loading} className={`space-y-6 transition-opacity ${day.loading && !dayCache.has(date) ? 'opacity-60' : ''}`}>
             <DayStats day={shown} versus={versus} />

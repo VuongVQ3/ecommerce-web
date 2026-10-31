@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ErrorMessage, Spinner } from '../components/Feedback'
+import { ErrorMessage } from '../components/Feedback'
 import { useToast } from '../components/Toast'
 import {
   promotionApi,
@@ -10,6 +10,7 @@ import {
 } from '../lib/adminApi'
 import { formatPrice, formatPromotionEnd } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
+import { Skeleton } from './Skeleton'
 import {
   daysInYear,
   discountPercent,
@@ -19,10 +20,10 @@ import {
   vnDayStart,
   vnToday,
 } from './promotionMath'
-import { btn, card, input, table } from './styles'
+import { btn, input, table } from './styles'
 import { DateField } from './DateField'
 import MoneyInput from './MoneyInput'
-import { Dialog, EmptyState, Field, PageHeader, Pagination } from './ui'
+import { Dialog, Drawer, EmptyState, Field, InfoTip, PageHeader, Pagination, TableFrame } from './ui'
 
 const TABS: { key: 'running' | 'upcoming' | 'ended'; label: string; statuses: PromotionStatus[] }[] = [
   { key: 'running', label: 'Đang chạy', statuses: ['RUNNING'] },
@@ -43,9 +44,17 @@ const PAGE_SIZE = 20
 const dmy = (day: string) => day.split('-').reverse().join('/')
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
+/** What "Đã đặt N ngày" counts, said once per screen (tooltip on the table header, a note in the drawer) */
+const daysExplained = (max: number) => `Số ngày đã đặt gồm cả ngày sắp chạy của khuyến mại đang chạy và sắp tới; tối đa ${max} ngày/năm cho mỗi sản phẩm.`
+
 const REMINDER = 'Kiểm tra quy định khuyến mại và thông báo với Sở Công Thương trước khi chạy chương trình.'
 
-/** Yearly promotion days of a product as a small bar; orange close to the limit (80%), red over it. */
+/**
+ * Yearly promotion days of a product as a small bar ("Đã đặt 63/120 ngày"; what the number covers is explained once
+ * by daysExplained); orange close to the limit (80%), red over it. The server counts
+ * every promotion of the year that is not cancelled (PromotionService.daysUsed): days already run, the whole period
+ * of a running one and upcoming ones; one ended early counts up to the moment it ended.
+ */
 function DaysUsage({ used, max }: { used: number; max: number }) {
   const over = used > max
   const near = !over && used >= max * 0.8
@@ -58,7 +67,7 @@ function DaysUsage({ used, max }: { used: number; max: number }) {
         />
       </span>
       <span className={`text-xs tabular-nums ${over ? 'font-semibold text-danger' : near ? 'font-semibold text-orange-800' : 'text-stone-600'}`}>
-        Đã dùng {used}/{max} ngày khuyến mại trong năm{over ? ' · vượt giới hạn' : near ? ' · gần chạm giới hạn' : ''}
+        Đã đặt {used}/{max} ngày{over ? ' · vượt giới hạn' : near ? ' · gần giới hạn' : ''}
       </span>
     </span>
   )
@@ -129,15 +138,25 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
   }
 
   return (
-    <section className={`${card} mb-6 space-y-5 p-5`} aria-labelledby="create-promo-title">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="create-promo-title" className="text-lg font-bold text-stone-900">
-          Tạo khuyến mại
-        </h2>
-        <button type="button" className={btn.secondary} onClick={onCancel} disabled={pending}>
-          Đóng
-        </button>
-      </div>
+    <Drawer
+      title="Tạo khuyến mại"
+      onClose={onCancel}
+      busy={pending}
+      footer={
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <p className="mr-auto text-sm text-muted max-sm:hidden">
+            {chosen.length > 0 ? `${chosen.length} sản phẩm được chọn` : 'Chưa chọn sản phẩm nào'}
+          </p>
+          <button type="button" className={btn.secondary} onClick={onCancel} disabled={pending}>
+            Huỷ
+          </button>
+          <button type="button" className={btn.primary} onClick={submit} disabled={pending} aria-busy={pending}>
+            {pending ? 'Đang lưu...' : 'Tạo khuyến mại'}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-5">
       <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900" role="note">
         {REMINDER} Giới hạn: giảm tối đa {usage.maxDiscountPercent}%, tối đa {usage.maxDaysPerYear} ngày khuyến mại mỗi sản
         phẩm trong một năm.
@@ -155,6 +174,17 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
           aria-label="Tìm sản phẩm"
           className={`${input} mt-2`}
         />
+        <div className="mt-2 flex min-h-8 items-center justify-between gap-3 text-sm">
+          <span className="text-stone-700" aria-live="polite">
+            Đã chọn <strong className="tabular-nums">{selected.length}</strong> sản phẩm
+          </span>
+          {selected.length > 0 && (
+            <button type="button" className={btn.link} onClick={() => setSelected([])}>
+              Bỏ chọn tất cả
+            </button>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-muted">{daysExplained(usage.maxDaysPerYear)}</p>
         <ul className="mt-2 max-h-64 divide-y divide-stone-100 overflow-y-auto rounded-xl border border-stone-200">
           {products.map((p) => (
             <li key={p.id}>
@@ -231,15 +261,15 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
       </fieldset>
 
       {preview.length > 0 && (
-        <div className={table.wrap}>
+        <TableFrame>
           <table className={table.table}>
             <caption className="px-4 pt-3 text-left text-sm font-semibold text-stone-900">3. Xem trước giá mới</caption>
             <thead>
               <tr>
-                <th className={table.th}>Sản phẩm</th>
-                <th className={`${table.th} text-right`}>Giá gốc</th>
-                <th className={`${table.th} text-right`}>Giá khuyến mại</th>
-                <th className={table.th}>Ngày KM trong năm sau khi tạo</th>
+                <th className={table.thStatic}>Sản phẩm</th>
+                <th className={`${table.thStatic} text-right`}>Giá gốc</th>
+                <th className={`${table.thStatic} text-right`}>Giá khuyến mại</th>
+                <th className={table.thStatic}>Ngày KM trong năm sau khi tạo</th>
               </tr>
             </thead>
             <tbody>
@@ -258,7 +288,7 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
               ))}
             </tbody>
           </table>
-        </div>
+        </TableFrame>
       )}
 
       {results && (
@@ -275,12 +305,8 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
           {error}
         </p>
       )}
-      <div className="flex justify-end">
-        <button type="button" className={btn.primary} onClick={submit} disabled={pending} aria-busy={pending}>
-          {pending ? 'Đang lưu...' : 'Tạo khuyến mại'}
-        </button>
       </div>
-    </section>
+    </Drawer>
   )
 }
 
@@ -428,19 +454,24 @@ export default function PromotionsPage() {
       {list.error ? (
         <ErrorMessage message={list.error.message} onRetry={reload} />
       ) : !list.data ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : rows.length === 0 ? (
         <EmptyState title="Không có khuyến mại nào." />
       ) : (
         <>
-        <div className={table.wrap}>
+        <TableFrame>
           <table className={table.table}>
             <thead>
               <tr>
                 <th className={table.th}>Sản phẩm</th>
                 <th className={`${table.th} text-right`}>Giá</th>
                 <th className={table.th}>Thời gian</th>
-                <th className={table.th}>Ngày KM năm nay</th>
+                <th className={table.th}>
+                  <span className="inline-flex items-center gap-1">
+                    Ngày KM năm nay
+                    <InfoTip label="Cách tính ngày khuyến mại">{daysExplained(maxDays)}</InfoTip>
+                  </span>
+                </th>
                 <th className={table.th}>
                   <span className="sr-only">Thao tác</span>
                 </th>
@@ -485,7 +516,7 @@ export default function PromotionsPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableFrame>
         <Pagination page={shownPage} totalPages={totalPages} onChange={setPage} />
         </>
       )}

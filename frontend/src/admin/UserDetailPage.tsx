@@ -1,11 +1,12 @@
 import { Link, useParams } from 'react-router'
-import { ErrorMessage, Spinner } from '../components/Feedback'
+import { ErrorMessage } from '../components/Feedback'
 import { StatusBadge } from '../components/OrderDetails'
 import { ApiError } from '../lib/api'
 import { userApi } from '../lib/adminApi'
 import { formatAdminDateTime, formatPrice } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
 import NotFoundPage from '../pages/NotFoundPage'
+import { Skeleton } from './Skeleton'
 import { card } from './styles'
 import { EmptyState } from './ui'
 import { AccountStatus, RoleBadge, UserActions } from './userActions'
@@ -17,7 +18,7 @@ export default function UserDetailPage() {
 
   if (error instanceof ApiError && (error.status === 404 || error.status === 400)) return <NotFoundPage />
   if (error) return <ErrorMessage message={error.message} onRetry={reload} />
-  if (!data) return <Spinner />
+  if (!data) return <Skeleton variant="detail" />
   const { user, orders } = data
 
   return (

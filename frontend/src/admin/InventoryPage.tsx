@@ -6,9 +6,10 @@ import { ApiError } from '../lib/api'
 import { adminApi, type MovementType, type StockRow } from '../lib/adminApi'
 import { formatAdminDateTime, formatPrice } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
+import { Skeleton } from './Skeleton'
 import { btn, table } from './styles'
 import MoneyInput from './MoneyInput'
-import { ActionMenu, Badge, Dialog, EmptyState, Field, FilterBar, PageHeader, Pagination, SearchFilter, StockBadge } from './ui'
+import { ActionMenu, Badge, Dialog, EmptyState, Field, FilterBar, PageHeader, Pagination, SearchFilter, StockBadge, TableFrame } from './ui'
 import { RequiredLegend } from '../components/FormFields'
 
 const MOVEMENT_LABEL: Record<MovementType, string> = {
@@ -32,6 +33,9 @@ function ImportDialog({ product, onDone, onClose }: { product: StockRow; onDone:
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value })
+  // Live summary while typing: only for a quantity that would be accepted
+  const typed = toInt(form.quantity)
+  const adding = typed !== undefined && Number.isInteger(typed) && typed > 0 ? typed : null
 
   const submit = async () => {
     const quantity = toInt(form.quantity)
@@ -71,6 +75,24 @@ function ImportDialog({ product, onDone, onClose }: { product: StockRow; onDone:
           {(p) => <MoneyInput {...p} value={unitCost} onChange={setUnitCost} />}
         </Field>
       </div>
+      {adding !== null && (
+        <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm text-stone-800" aria-live="polite">
+          <p>
+            Tồn sau khi nhập:{' '}
+            <strong className="tabular-nums">
+              {product.onHand.toLocaleString('vi-VN')} → {(product.onHand + adding).toLocaleString('vi-VN')}
+            </strong>
+          </p>
+          {unitCost !== null && unitCost > 0 && (
+            <p className="mt-1">
+              Thành tiền:{' '}
+              <span className="tabular-nums">
+                {adding.toLocaleString('vi-VN')} × {formatPrice(unitCost)} = <strong>{formatPrice(adding * unitCost)}</strong>
+              </span>
+            </p>
+          )}
+        </div>
+      )}
       <Field label="Nhà cung cấp" error={errors.supplier} hint="Không bắt buộc">
         {(p) => <input {...p} maxLength={200} value={form.supplier} onChange={set('supplier')} />}
       </Field>
@@ -149,10 +171,10 @@ function HistoryDialog({ product, onClose }: { product: StockRow; onClose: () =>
           <table className="w-full text-left text-sm">
             <thead>
               <tr>
-                <th className={table.th}>Thời gian</th>
-                <th className={table.th}>Loại</th>
-                <th className={`${table.th} text-right`}>SL</th>
-                <th className={table.th}>Chi tiết</th>
+                <th className={table.thStatic}>Thời gian</th>
+                <th className={table.thStatic}>Loại</th>
+                <th className={`${table.thStatic} text-right`}>SL</th>
+                <th className={table.thStatic}>Chi tiết</th>
               </tr>
             </thead>
             <tbody>
@@ -260,7 +282,7 @@ export default function InventoryPage() {
       {error ? (
         <ErrorMessage message={error.message} onRetry={reload} />
       ) : !data ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : data.items.length === 0 ? (
         <EmptyState title={low ? 'Không có sản phẩm nào dưới ngưỡng.' : 'Không tìm thấy sản phẩm.'} />
       ) : (
@@ -290,7 +312,7 @@ export default function InventoryPage() {
               </li>
             ))}
           </ul>
-        <div className={`${table.wrap} hidden md:block`}>
+        <TableFrame className="hidden md:block">
           <table className="w-full text-left text-sm">
             <thead>
               <tr>
@@ -322,7 +344,7 @@ export default function InventoryPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableFrame>
         <Pagination page={data.page} totalPages={data.totalPages} onChange={(n) => update({ page: String(n) })} />
         </div>
       )}

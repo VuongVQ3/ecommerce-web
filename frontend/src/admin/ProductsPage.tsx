@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { ErrorMessage, Spinner } from '../components/Feedback'
+import { ErrorMessage } from '../components/Feedback'
 import { useToast } from '../components/Toast'
 import { ApiError, type Page } from '../lib/api'
 import { PriceTag } from '../components/Price'
@@ -9,9 +9,10 @@ import { formatPrice } from '../lib/format'
 import { categoryEmoji } from '../lib/categoryStyle'
 import { cloudinaryUrl } from '../lib/images'
 import { useAsync } from '../lib/useAsync'
+import { Skeleton } from './Skeleton'
 import { btn, table } from './styles'
 import { arrayMove, dropAnchor } from './reorder'
-import { ActionMenu, Dialog, EmptyState, FilterBar, PageHeader, Pagination, SearchFilter } from './ui'
+import { ActionMenu, Dialog, EmptyState, FilterBar, PageHeader, Pagination, SearchFilter, TableFrame } from './ui'
 import { useDragReorder } from './useDragReorder'
 
 /** The whole catalogue fits one page, so a product can be dragged anywhere (the server allows up to 100) */
@@ -396,7 +397,7 @@ export default function ProductsPage() {
       {error ? (
         <ErrorMessage message={error.message} onRetry={reload} />
       ) : !data ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : data.items.length === 0 ? (
         <EmptyState title="Không có sản phẩm nào.">
           <Link to="/admin/san-pham/moi" className={btn.link}>
@@ -427,7 +428,7 @@ export default function ProductsPage() {
             )}
             {hidden.map((p) => card(p, null))}
           </ul>
-          <div className={`${table.wrap} hidden md:block`}>
+          <TableFrame className="hidden md:block">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr>
@@ -456,7 +457,7 @@ export default function ProductsPage() {
                 {hidden.map((p) => tableRow(p, null))}
               </tbody>
             </table>
-          </div>
+          </TableFrame>
           <Pagination page={data.page} totalPages={data.totalPages} onChange={(p) => update({ page: String(p) })} />
         </div>
       )}

@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
-import { ErrorMessage, Spinner } from '../components/Feedback'
+import { ErrorMessage } from '../components/Feedback'
 import { useToast } from '../components/Toast'
 import type { Role } from '../lib/api'
 import { adminApi, userApi, type AdminUserRow, type PhoneFlagLevel, type PhoneFlagView } from '../lib/adminApi'
 import { formatAdminDateTime, formatPrice } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
+import { Skeleton } from './Skeleton'
 import { FLAG_LABEL, FLAG_STYLE, ROLE_LABEL } from './labels'
 import { FlagDialog } from './phoneFlags'
 import { btn, filterInput, table } from './styles'
-import { EmptyState, FilterBar, PageHeader, Pagination, SearchFilter } from './ui'
+import { EmptyState, FilterBar, PageHeader, Pagination, SearchFilter, TableFrame } from './ui'
 import { AccountStatus, InviteDialog, RoleBadge, UserActions } from './userActions'
 
 type Params = ReturnType<typeof useSearchParams>
@@ -64,7 +65,7 @@ function Accounts({ params }: { params: Params }) {
       {error ? (
         <ErrorMessage message={error.message} onRetry={reload} />
       ) : !data ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : data.items.length === 0 ? (
         <EmptyState title="Không có tài khoản nào." />
       ) : (
@@ -101,7 +102,7 @@ function Accounts({ params }: { params: Params }) {
 
 function UserTable({ rows, onChanged }: { rows: AdminUserRow[]; onChanged: () => void }) {
   return (
-    <div className={`${table.wrap} hidden md:block`}>
+    <TableFrame className="hidden md:block">
       <table className="w-full text-left text-sm">
         <thead>
           <tr>
@@ -145,7 +146,7 @@ function UserTable({ rows, onChanged }: { rows: AdminUserRow[]; onChanged: () =>
           ))}
         </tbody>
       </table>
-    </div>
+    </TableFrame>
   )
 }
 
@@ -173,7 +174,7 @@ function PhoneFlags({ params }: { params: Params }) {
       {error ? (
         <ErrorMessage message={error.message} onRetry={reload} />
       ) : !data ? (
-        <Spinner />
+        <Skeleton variant="list" />
       ) : data.items.length === 0 ? (
         <EmptyState title="Chưa có số điện thoại nào bị đánh dấu.">Đánh dấu từ trang chi tiết đơn hàng, ở khối Khách hàng.</EmptyState>
       ) : (
