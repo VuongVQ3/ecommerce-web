@@ -22,3 +22,6 @@ export const ROLE_STYLE: Record<Role, string> = {
   STAFF: 'bg-sky-100 text-sky-900',
   ADMIN: 'bg-violet-100 text-violet-900',
 }
+
+/** ?qua24h=1 on the order list: pending orders placed more than 24 hours ago (the dashboard links there) */
+export const OVERDUE_PARAM = 'qua24h'

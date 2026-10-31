@@ -1,19 +1,36 @@
+import {
+  BadgePercent,
+  FolderTree,
+  History,
+  LayoutDashboard,
+  Menu,
+  Package,
+  Receipt,
+  Users,
+  Warehouse,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import type { Role } from '../lib/api'
+import { adminApi } from '../lib/adminApi'
+import { useAsync } from '../lib/useAsync'
 import { useFocusTrap } from '../lib/useFocusTrap'
 import { BRAND, usePageMeta } from '../lib/usePageMeta'
 
-const NAV: { to: string; label: string; icon: string; roles: Role[]; end?: boolean }[] = [
-  { to: '/admin', label: 'Tổng quan', icon: '📊', roles: ['STAFF', 'ADMIN'], end: true },
-  { to: '/admin/don-hang', label: 'Đơn hàng', icon: '🧾', roles: ['STAFF', 'ADMIN'] },
-  { to: '/admin/kho', label: 'Tồn kho', icon: '📦', roles: ['STAFF', 'ADMIN'] },
-  { to: '/admin/san-pham', label: 'Sản phẩm', icon: '🌰', roles: ['ADMIN'] },
-  { to: '/admin/danh-muc', label: 'Danh mục', icon: '🗂️', roles: ['ADMIN'] },
-  { to: '/admin/khuyen-mai', label: 'Khuyến mại', icon: '🏷️', roles: ['ADMIN'] },
-  { to: '/admin/nguoi-dung', label: 'Người dùng', icon: '👥', roles: ['ADMIN'] },
-  { to: '/admin/nhat-ky', label: 'Nhật ký', icon: '📜', roles: ['ADMIN'] },
+const ORDERS = '/admin/don-hang'
+
+const NAV: { to: string; label: string; icon: LucideIcon; roles: Role[]; end?: boolean }[] = [
+  { to: '/admin', label: 'Tổng quan', icon: LayoutDashboard, roles: ['STAFF', 'ADMIN'], end: true },
+  { to: ORDERS, label: 'Đơn hàng', icon: Receipt, roles: ['STAFF', 'ADMIN'] },
+  { to: '/admin/kho', label: 'Tồn kho', icon: Warehouse, roles: ['STAFF', 'ADMIN'] },
+  { to: '/admin/san-pham', label: 'Sản phẩm', icon: Package, roles: ['ADMIN'] },
+  { to: '/admin/danh-muc', label: 'Danh mục', icon: FolderTree, roles: ['ADMIN'] },
+  { to: '/admin/khuyen-mai', label: 'Khuyến mại', icon: BadgePercent, roles: ['ADMIN'] },
+  { to: '/admin/nguoi-dung', label: 'Người dùng', icon: Users, roles: ['ADMIN'] },
+  { to: '/admin/nhat-ky', label: 'Nhật ký', icon: History, roles: ['ADMIN'] },
 ]
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -27,14 +44,40 @@ function currentTitle(pathname: string) {
   return match?.label ?? 'Quản trị'
 }
 
-function NavList({ items, onNavigate }: { items: typeof NAV; onNavigate?: () => void }) {
+function Brand() {
+  return (
+    <span className="flex items-center gap-2 text-base font-extrabold whitespace-nowrap text-brand-700">
+      <img src="/brand/logo-hat-lanh-96.webp" alt="" width={30} height={28} className="h-7 w-auto shrink-0" />
+      <span>
+        Hạt Lành <span className="font-medium text-stone-500">· Quản trị</span>
+      </span>
+    </span>
+  )
+}
+
+/** pending: orders waiting for confirmation, shown as a badge on "Đơn hàng" when above 0 */
+function NavList({ items, pending, onNavigate }: { items: typeof NAV; pending: number; onNavigate?: () => void }) {
   return (
     <ul className="flex flex-col gap-1">
       {items.map((n) => (
         <li key={n.to}>
           <NavLink to={n.to} end={n.end} className={linkClass} onClick={onNavigate}>
-            <span aria-hidden="true">{n.icon}</span>
-            {n.label}
+            {({ isActive }) => (
+              <>
+                <n.icon aria-hidden className="size-5 shrink-0" strokeWidth={1.75} />
+                <span className="flex-1">{n.label}</span>
+                {n.to === ORDERS && pending > 0 && (
+                  <span
+                    className={`min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-bold tabular-nums ${
+                      isActive ? 'bg-white text-brand-800' : 'bg-amber-500 text-white'
+                    }`}
+                  >
+                    {pending}
+                    <span className="sr-only"> đơn chờ xác nhận</span>
+                  </span>
+                )}
+              </>
+            )}
           </NavLink>
         </li>
       ))}
@@ -46,7 +89,9 @@ function Account({ onLogout }: { onLogout: () => void }) {
   const { user } = useAuth()
   return (
     <div className="border-t border-stone-200 px-5 py-4 text-sm">
-      <p className="truncate font-semibold text-stone-900">{user?.fullName}</p>
+      <p className="truncate font-semibold text-stone-900" title={user?.fullName}>
+        {user?.fullName}
+      </p>
       <p className="text-muted">{user?.role === 'ADMIN' ? 'Quản trị viên' : 'Nhân viên'}</p>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
         <Link to="/tai-khoan/doi-mat-khau" className="text-stone-700 underline hover:text-brand-700">
@@ -61,7 +106,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
 }
 
 /** Phone/tablet: slide-over with the menu. Focus stays inside, Esc closes. */
-function NavDrawer({ items, onClose, onLogout }: { items: typeof NAV; onClose: () => void; onLogout: () => void }) {
+function NavDrawer({ items, pending, onClose, onLogout }: { items: typeof NAV; pending: number; onClose: () => void; onLogout: () => void }) {
   const panel = useRef<HTMLDivElement>(null)
   useFocusTrap(true, panel, onClose)
   return (
@@ -75,20 +120,20 @@ function NavDrawer({ items, onClose, onLogout }: { items: typeof NAV; onClose: (
         aria-label="Menu quản trị"
         className="absolute inset-y-0 left-0 flex w-[min(18rem,85vw)] flex-col overflow-y-auto bg-white shadow-2xl"
       >
-        <div className="flex items-center justify-between px-4 py-3">
-          <span className="text-lg font-extrabold text-brand-700">Hạt Lành</span>
+        <div className="flex items-center justify-between gap-2 py-3 pr-2 pl-4">
+          <Brand />
           <button
             type="button"
             data-autofocus
             onClick={onClose}
             aria-label="Đóng menu"
-            className="flex size-10 items-center justify-center rounded-full text-2xl text-stone-600 hover:bg-stone-100"
+            className="flex size-10 shrink-0 items-center justify-center rounded-full text-stone-600 hover:bg-stone-100"
           >
-            ×
+            <X aria-hidden className="size-5" />
           </button>
         </div>
         <nav aria-label="Quản trị" className="flex-1 px-3">
-          <NavList items={items} onNavigate={onClose} />
+          <NavList items={items} pending={pending} onNavigate={onClose} />
           <Link to="/" onClick={onClose} className="mt-3 block px-3 py-2 text-sm text-stone-600 hover:text-brand-700">
             ← Về cửa hàng
           </Link>
@@ -111,6 +156,8 @@ export default function AdminLayout() {
   // The drawer remembers the page it was opened on, so navigating closes it
   const [drawerOn, setDrawerOn] = useState<string | null>(null)
   const closeDrawer = useCallback(() => setDrawerOn(null), [])
+  // Asked again on every page change, so the badge follows confirmations made meanwhile
+  const pending = useAsync((signal) => adminApi.orders({ status: 'PENDING', size: 1 }, signal), [pathname]).data?.pendingCount ?? 0
   usePageMeta(`${currentTitle(pathname)} | Quản trị | ${BRAND}`)
 
   if (user?.passwordChangeRequired) {
@@ -119,37 +166,36 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-stone-50 lg:flex">
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-stone-200 bg-white px-3 py-2 lg:hidden">
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-stone-200 bg-white px-3 lg:hidden">
         <button
           type="button"
           onClick={() => setDrawerOn(pathname)}
           aria-label="Mở menu quản trị"
           aria-haspopup="dialog"
           aria-expanded={drawerOn === pathname}
-          className="flex size-10 items-center justify-center rounded-xl text-stone-700 hover:bg-stone-100"
+          className="relative flex size-10 items-center justify-center rounded-xl text-stone-700 hover:bg-stone-100"
         >
-          <svg aria-hidden="true" viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
-          </svg>
+          <Menu aria-hidden className="size-6" strokeWidth={1.8} />
+          {pending > 0 && <span aria-hidden className="absolute top-1.5 right-1.5 size-2.5 rounded-full bg-amber-500 ring-2 ring-white" />}
         </button>
         <p className="min-w-0 flex-1 truncate font-bold text-stone-900">{currentTitle(pathname)}</p>
         <Link to="/" className="shrink-0 text-sm text-stone-600 hover:text-brand-700">
           Cửa hàng
         </Link>
       </header>
-      {drawerOn === pathname && <NavDrawer items={items} onClose={closeDrawer} onLogout={() => void logout()} />}
+      {drawerOn === pathname && <NavDrawer items={items} pending={pending} onClose={closeDrawer} onLogout={() => void logout()} />}
 
       <aside className="hidden border-r border-stone-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-60 lg:shrink-0 lg:flex-col">
         <div className="px-5 py-5">
-          <Link to="/admin" className="text-lg font-extrabold text-brand-700">
-            Hạt Lành <span className="font-medium text-stone-500">· Quản trị</span>
+          <Link to="/admin">
+            <Brand />
           </Link>
           <Link to="/" className="mt-1 block text-sm text-stone-600 hover:text-brand-700">
             ← Về cửa hàng
           </Link>
         </div>
         <nav aria-label="Quản trị" className="flex-1 overflow-y-auto px-3">
-          <NavList items={items} />
+          <NavList items={items} pending={pending} />
         </nav>
         <Account onLogout={() => void logout()} />
       </aside>

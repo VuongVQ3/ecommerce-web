@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { StatusBadge } from '../components/OrderDetails'
@@ -8,37 +9,16 @@ import { formatAdminDateTime, formatPrice, formatRelative, formatShortDateTime }
 import { CANCEL_REASON_LABEL, ORDER_STATUS_LABEL, ORDER_STATUSES, type CancelReasonCode } from '../lib/orderStatus'
 import { useAsync } from '../lib/useAsync'
 import { DateRangeFilter } from './DateField'
+import { vnTodayIso } from './dates'
+import { OVERDUE_PARAM } from './labels'
 import { FlagIcon } from './phoneFlags'
-import { btn, input, table } from './styles'
-import { Dialog, EmptyState, PageHeader, Pagination } from './ui'
+import { btn, filterInput, input, table } from './styles'
+import { Dialog, EmptyState, FilterBar, PageHeader, Pagination, SearchFilter } from './ui'
 
 const STATUSES: { value: OrderStatus | ''; label: string }[] = [
   { value: '', label: 'Tất cả' },
   ...ORDER_STATUSES.map((s) => ({ value: s, label: ORDER_STATUS_LABEL[s] })),
 ]
-
-function SearchForm({ initial, onSearch }: { initial: string; onSearch: (q: string) => void }) {
-  const [search, setSearch] = useState(initial)
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    onSearch(search.trim())
-  }
-  return (
-    <form onSubmit={submit} role="search" className="flex gap-2">
-      <input
-        type="search"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Mã đơn (HL...) hoặc số điện thoại"
-        aria-label="Tìm theo mã đơn hoặc số điện thoại"
-        className={input}
-      />
-      <button type="submit" className={btn.primary}>
-        Tìm
-      </button>
-    </form>
-  )
-}
 
 /** Phones: search and dates in a bottom sheet, applied together. */
 function FilterSheet({
@@ -81,7 +61,9 @@ function FilterSheet({
 function Customer({ o }: { o: AdminOrderRow }) {
   return (
     <>
-      <div className="font-medium break-words text-stone-900">{o.customerName}</div>
+      <div className="max-w-64 truncate font-medium text-stone-900" title={o.customerName}>
+        {o.customerName}
+      </div>
       <div className="flex items-center gap-1 text-stone-600 tabular-nums">
         {o.phone}
         {o.flagLevel && <FlagIcon level={o.flagLevel} reason={o.flagReason} />}
@@ -142,7 +124,7 @@ function OrderTable({ rows }: { rows: AdminOrderRow[] }) {
           {rows.map((o) => (
             <tr
               key={o.code}
-              className="cursor-pointer hover:bg-stone-50"
+              className="cursor-pointer transition-colors hover:bg-brand-50/60 focus-within:bg-brand-50/60"
               onClick={(e) => {
                 // The link handles its own clicks (and middle/ctrl-click)
                 if (!(e.target as HTMLElement).closest('a')) navigate(`/admin/don-hang/${o.code}`)
@@ -184,13 +166,26 @@ export default function OrdersPage() {
   const q = params.get('q') ?? ''
   const cancelReasonCode = (params.get('cancelReasonCode') ?? '') as CancelReasonCode | ''
   const page = Number(params.get('page') ?? 0)
+  // From the dashboard: pending orders older than 24 hours. The API filters by day, so it is asked for the days up
+  // to the cutoff and the few later orders of the cutoff day are left out here.
+  const overdue = status === 'PENDING' && params.get(OVERDUE_PARAM) === '1'
+  const [cutoff] = useState(() => Date.now() - 24 * 3600_000)
+  const cutoffDay = vnTodayIso(new Date(cutoff))
+  const listTo = overdue && (!to || to > cutoffDay) ? cutoffDay : to
   const [sheetOpen, setSheetOpen] = useState(false)
   const chips = useRef<HTMLDivElement>(null)
 
   const { data, error, loading, reload } = useAsync(
-    (signal) => adminApi.orders({ status, from, to, q, cancelReasonCode, page }, signal),
-    [status, from, to, q, cancelReasonCode, page],
+    (signal) => adminApi.orders({ status, from, to: listTo, q, cancelReasonCode, page }, signal),
+    [status, from, listTo, q, cancelReasonCode, page],
   )
+  // Number of orders behind each status chip, for the same search and dates (one tiny request per status)
+  const counts = useAsync(
+    (signal) =>
+      Promise.all(STATUSES.map((s) => adminApi.orders({ status: s.value, from, to, q, size: 1 }, signal).then((r) => r.page.totalItems))),
+    [from, to, q],
+  ).data
+  const rows = data ? (overdue ? data.page.items.filter((o) => new Date(o.createdAt).getTime() <= cutoff) : data.page.items) : []
 
   // Keep the selected status chip visible when the row scrolls sideways
   useEffect(() => {
@@ -206,6 +201,7 @@ export default function OrdersPage() {
     if (!('page' in changes)) next.delete('page')
     // The cancel reason filter only exists next to "Đã huỷ"
     if ('status' in changes && changes.status !== 'CANCELLED') next.delete('cancelReasonCode')
+    if ('status' in changes) next.delete(OVERDUE_PARAM)
     setParams(next)
   }
 
@@ -216,7 +212,7 @@ export default function OrdersPage() {
       <PageHeader title="Đơn hàng">
         {data && data.pendingCount > 0 && (
           <button type="button" className={btn.secondary} onClick={() => update({ status: 'PENDING' })}>
-            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white tabular-nums">
+            <span className="rounded-full bg-orange-500 px-2 py-0.5 text-xs font-bold text-white tabular-nums">
               {data.pendingCount}
             </span>
             đơn chờ xác nhận
@@ -225,7 +221,7 @@ export default function OrdersPage() {
       </PageHeader>
 
       <div ref={chips} className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0" role="group" aria-label="Lọc theo trạng thái">
-        {STATUSES.map((s) => (
+        {STATUSES.map((s, i) => (
           <button
             key={s.value}
             type="button"
@@ -236,17 +232,49 @@ export default function OrdersPage() {
             }`}
           >
             {s.label}
+            {counts && <span className={`ml-1 tabular-nums ${status === s.value ? 'text-stone-300' : 'text-stone-500'}`}>({counts[i]})</span>}
           </button>
         ))}
       </div>
+      {overdue && (
+        <p className="mb-4 flex flex-wrap items-center gap-2 text-sm text-stone-700">
+          Đang xem đơn chờ xác nhận đặt cách đây hơn 24 giờ
+          <button
+            type="button"
+            onClick={() => update({ [OVERDUE_PARAM]: '' })}
+            className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-900 hover:bg-orange-200"
+          >
+            Chờ quá 24 giờ
+            <X aria-hidden className="size-3.5" />
+            <span className="sr-only">: bỏ lọc</span>
+          </button>
+        </p>
+      )}
 
+      <div className="mb-4 md:hidden">
+        <button type="button" className={`${btn.secondary} w-full`} onClick={() => setSheetOpen(true)} aria-haspopup="dialog">
+          Bộ lọc{activeFilters > 0 && ` (${activeFilters})`}
+        </button>
+      </div>
+      <div className="max-md:hidden">
+        <FilterBar>
+          <SearchFilter
+            key={q}
+            initial={q}
+            placeholder="Mã đơn (HL...) hoặc số điện thoại"
+            label="Tìm theo mã đơn hoặc số điện thoại"
+            onSearch={(text) => update({ q: text })}
+          />
+          <DateRangeFilter variant="bar" from={from} to={to} onChange={(r) => update(r)} />
+        </FilterBar>
+      </div>
       {status === 'CANCELLED' && (
-        <div className="mb-4 max-w-sm">
+        <div className="mb-4 md:max-w-xs">
           <select
             aria-label="Lý do huỷ"
             value={cancelReasonCode}
             onChange={(e) => update({ cancelReasonCode: e.target.value })}
-            className={input}
+            className={filterInput}
           >
             <option value="">Mọi lý do huỷ</option>
             {(Object.keys(CANCEL_REASON_LABEL) as CancelReasonCode[]).map((c) => (
@@ -257,15 +285,6 @@ export default function OrdersPage() {
           </select>
         </div>
       )}
-      <div className="mb-4 md:hidden">
-        <button type="button" className={`${btn.secondary} w-full`} onClick={() => setSheetOpen(true)} aria-haspopup="dialog">
-          Bộ lọc{activeFilters > 0 && ` (${activeFilters})`}
-        </button>
-      </div>
-      <div className="mb-4 hidden gap-4 md:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-        <SearchForm key={q} initial={q} onSearch={(text) => update({ q: text })} />
-        <DateRangeFilter from={from} to={to} onChange={(r) => update(r)} />
-      </div>
       {sheetOpen && (
         <FilterSheet
           q={q}
@@ -283,8 +302,8 @@ export default function OrdersPage() {
         <ErrorMessage message={error.message} onRetry={reload} />
       ) : !data ? (
         <Spinner />
-      ) : data.page.items.length === 0 ? (
-        <EmptyState title="Không có đơn hàng nào.">
+      ) : rows.length === 0 ? (
+        <EmptyState title={overdue ? 'Không có đơn nào chờ quá 24 giờ.' : 'Không có đơn hàng nào.'}>
           {(status || from || to || q || cancelReasonCode) && (
             <button type="button" className={btn.link} onClick={() => setParams(new URLSearchParams())}>
               Xoá bộ lọc
@@ -293,8 +312,8 @@ export default function OrdersPage() {
         </EmptyState>
       ) : (
         <div aria-busy={loading}>
-          <OrderCards rows={data.page.items} />
-          <OrderTable rows={data.page.items} />
+          <OrderCards rows={rows} />
+          <OrderTable rows={rows} />
           <Pagination page={data.page.page} totalPages={data.page.totalPages} onChange={(p) => update({ page: String(p) })} />
         </div>
       )}

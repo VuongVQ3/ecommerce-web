@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { ErrorMessage, Spinner } from '../components/Feedback'
-import OrderDetails from '../components/OrderDetails'
+import OrderDetails, { StatusBadge } from '../components/OrderDetails'
 import { useToast } from '../components/Toast'
 import { ApiError, type OrderStatus, type Role } from '../lib/api'
 import { adminApi, type AdminOrderDetail, type ContactResult, type OrderAction, type PhoneFlagView } from '../lib/adminApi'
@@ -521,6 +521,7 @@ export default function OrderDetailPage() {
 
   const can = (a: OrderAction) => detail.allowedActions.includes(a)
   const hasActions = detail.allowedActions.length > 0
+  const { order } = detail
   const buttons = (
     <>
       {can('CONFIRM') && (
@@ -547,24 +548,43 @@ export default function OrderDetailPage() {
   )
 
   return (
-    <div className={`mx-auto max-w-5xl ${hasActions ? 'pb-24 lg:pb-0' : ''}`}>
+    <div className="mx-auto max-w-5xl">
       <Link to="/admin/don-hang" className="text-sm text-stone-600 hover:text-brand-700">
         ← Danh sách đơn hàng
       </Link>
-      <div className="mt-4 grid gap-6 lg:grid-cols-[1fr_20rem]">
+      {/* Code, status and what can be done next stay in view while scrolling (from 1024px) */}
+      <div className="z-20 -mx-2 mt-2 flex flex-wrap items-center justify-between gap-3 bg-stone-50/95 px-2 py-3 backdrop-blur lg:sticky lg:top-0">
         <div className="min-w-0">
-          <OrderDetails
-            order={detail.order}
-            actions={hasActions ? <div className="hidden flex-wrap gap-2 lg:flex">{buttons}</div> : undefined}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-extrabold tracking-wider text-stone-900">{order.code}</h1>
+            <StatusBadge status={order.status} size="lg" />
+          </div>
+          <p className="text-sm text-muted">Đặt lúc {formatAdminDateTime(order.createdAt)}</p>
         </div>
-        <div className="min-w-0 space-y-6">
+        {hasActions && (
+          <div role="toolbar" aria-label="Thao tác đơn hàng" className="flex w-full flex-wrap gap-2 sm:w-auto">
+            {buttons}
+          </div>
+        )}
+      </div>
+      {/*
+        Below 1024px the customer (call / Zalo / copy) comes first, right under the actions. From 1024px: the order on
+        the left across all rows, customer / shipping / notes stacked on the right (the last row takes the leftover
+        height so the right-hand cards stay together).
+      */}
+      <div className="mt-3 grid gap-6 lg:grid-cols-[1fr_20rem] lg:grid-rows-[auto_auto_auto_1fr]">
+        <div className="min-w-0 lg:col-start-2 lg:row-start-1">
           <CustomerBlock
             detail={detail}
             role={role}
             version={statsVersion}
             onEditFlag={(current) => setOpen({ kind: 'flag', current })}
           />
+        </div>
+        <div className="min-w-0 lg:col-start-1 lg:row-span-4 lg:row-start-1">
+          <OrderDetails order={order} header={false} />
+        </div>
+        <div className="min-w-0 lg:col-start-2 lg:row-start-2">
           <section className={`${card} p-5 text-sm`} aria-labelledby="ship-title">
             <h2 id="ship-title" className="font-bold text-stone-900">
               Vận chuyển
@@ -597,15 +617,11 @@ export default function OrderDetailPage() {
               </div>
             )}
           </section>
+        </div>
+        <div className="min-w-0 lg:col-start-2 lg:row-start-3">
           <Notes detail={detail} onChange={setUpdated} />
         </div>
       </div>
-
-      {hasActions && (
-        <div role="toolbar" aria-label="Thao tác đơn hàng" className="fixed inset-x-0 bottom-0 z-20 border-t border-stone-200 bg-white/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgb(0_0_0/0.06)] backdrop-blur lg:hidden">
-          <div className="mx-auto flex max-w-5xl gap-2">{buttons}</div>
-        </div>
-      )}
 
       {open?.kind === 'confirm' && (
         <ConfirmDialog

@@ -1,16 +1,17 @@
-import { useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { useToast } from '../components/Toast'
 import { ApiError, type Page } from '../lib/api'
-import { adminApi, type AdminProductRow } from '../lib/adminApi'
+import { PriceTag } from '../components/Price'
+import { adminApi, promotionApi, type AdminProductRow, type PromotionRow } from '../lib/adminApi'
 import { formatPrice } from '../lib/format'
 import { categoryEmoji } from '../lib/categoryStyle'
 import { cloudinaryUrl } from '../lib/images'
 import { useAsync } from '../lib/useAsync'
-import { btn, input, table } from './styles'
+import { btn, table } from './styles'
 import { arrayMove, dropAnchor } from './reorder'
-import { ActionMenu, Dialog, EmptyState, PageHeader, Pagination } from './ui'
+import { ActionMenu, Dialog, EmptyState, FilterBar, PageHeader, Pagination, SearchFilter } from './ui'
 import { useDragReorder } from './useDragReorder'
 
 /** The whole catalogue fits one page, so a product can be dragged anywhere (the server allows up to 100) */
@@ -175,8 +176,20 @@ function Thumb({ url, categorySlug }: { url: string | null; categorySlug: string
   )
 }
 
-/** The price, or "Chưa có giá" for a product still being prepared (price 0) */
-function PriceCell({ price }: { price: number }) {
+/**
+ * The price, or "Chưa có giá" for a product still being prepared (price 0). During a promotion: the sale price in red,
+ * the regular price struck through and the discount, as on the storefront.
+ */
+function PriceCell({ price, promotion, inline = false }: { price: number; promotion?: PromotionRow; inline?: boolean }) {
+  if (price > 0 && promotion && promotion.salePrice < price)
+    return (
+      <span className={`inline-flex ${inline ? 'flex-wrap items-baseline gap-x-2' : 'flex-col items-end'}`}>
+        <PriceTag price={promotion.salePrice} regularPrice={price} className="font-semibold" regularClassName="text-xs text-muted" />
+        <span className="mt-0.5 rounded-full bg-red-700 px-1.5 text-xs font-bold text-white">
+          <span className="sr-only">Giảm </span>-{promotion.discountPercent}%
+        </span>
+      </span>
+    )
   return price > 0 ? (
     <>{formatPrice(price)}</>
   ) : (
@@ -198,15 +211,16 @@ export default function ProductsPage() {
   const filter = (params.get('active') ?? '') as Filter
   const active = filter === 'notReady' ? '' : filter
   const page = Number(params.get('page') ?? 0)
-  const [search, setSearch] = useState(q)
   const [toggle, setToggle] = useState<AdminProductRow | null>(null)
   const [remove, setRemove] = useState<AdminProductRow | null>(null)
   const toast = useToast()
-  const navigate = useNavigate()
   const { data, error, loading, reload } = useAsync(
     (signal) => adminApi.products(q, active, page, signal, filter === 'notReady', PAGE_SIZE),
     [q, active, filter, page],
   )
+  // Running promotions, to show sale prices; the list still works without them
+  const promotions = useAsync((signal) => promotionApi.list(signal).catch(() => [] as PromotionRow[]), []).data
+  const runningPromotion = new Map((promotions ?? []).filter((r) => r.status === 'RUNNING').map((r) => [r.productId, r]))
 
   // Order of the products on sale shown after a move, before the server confirms it; tied to the data it was made
   // from, so fresh data wins
@@ -253,6 +267,22 @@ export default function ProductsPage() {
   const { dragging, rowProps, handleProps } = useDragReorder(onSale, (p) => p.id, onMove)
   const showDivider = onSale.length > 0 && hidden.length > 0
 
+  /** "Sửa" is the main action; hiding and deleting (in red, both confirmed in a dialog) wait in the "⋯" menu */
+  const actions = (p: AdminProductRow) => (
+    <div className="flex shrink-0 justify-end gap-2">
+      <Link to={`/admin/san-pham/${p.id}`} className={btn.secondary}>
+        Sửa
+      </Link>
+      <ActionMenu
+        label={`Thao tác khác với ${p.name}`}
+        items={[
+          { label: p.active ? 'Ẩn sản phẩm' : 'Hiện sản phẩm', onSelect: () => setToggle(p) },
+          { label: 'Xoá sản phẩm', onSelect: () => setRemove(p), danger: true },
+        ]}
+      />
+    </div>
+  )
+
   /** index: position among the products on sale; null for a hidden product (no handle, an empty slot instead) */
   const card = (p: AdminProductRow, index: number | null) => (
     <li
@@ -269,28 +299,21 @@ export default function ProductsPage() {
       )}
       <Thumb url={p.imageUrl} categorySlug={p.categorySlug} />
       <div className="min-w-0 flex-1 text-sm">
-        <Link to={`/admin/san-pham/${p.id}`} className="font-medium break-words text-stone-900 hover:text-brand-700 hover:underline">
+        <Link to={`/admin/san-pham/${p.id}`} className="line-clamp-2 font-medium break-words text-stone-900 hover:text-brand-700 hover:underline" title={p.name}>
           {p.name}
         </Link>
         <p className="text-xs text-muted">{p.categoryName}</p>
         <p className="mt-1 tabular-nums">
           <span className="font-semibold">
-            <PriceCell price={p.price} />
+            <PriceCell price={p.price} promotion={runningPromotion.get(p.id)} inline />
           </span>
           <span className={`text-muted ${p.lowStock ? 'font-semibold text-amber-900' : ''}`}> · còn {p.available}</span>
         </p>
-        <div className="mt-1.5">
+        <div className="mt-2 flex items-center justify-between gap-2">
           <ActiveBadge active={p.active} />
+          {actions(p)}
         </div>
       </div>
-      <ActionMenu
-        label={`Thao tác với ${p.name}`}
-        items={[
-          { label: 'Sửa', onSelect: () => navigate(`/admin/san-pham/${p.id}`) },
-          { label: p.active ? 'Ẩn sản phẩm' : 'Hiện sản phẩm', onSelect: () => setToggle(p), danger: p.active },
-          { label: 'Xoá sản phẩm', onSelect: () => setRemove(p), danger: true },
-        ]}
-      />
     </li>
   )
 
@@ -311,7 +334,11 @@ export default function ProductsPage() {
         <div className="flex items-center gap-3">
           <Thumb url={p.imageUrl} categorySlug={p.categorySlug} />
           <div className="min-w-0">
-            <Link to={`/admin/san-pham/${p.id}`} className="font-medium text-stone-900 hover:text-brand-700 hover:underline">
+            <Link
+              to={`/admin/san-pham/${p.id}`}
+              title={p.name}
+              className="block max-w-44 truncate font-medium text-stone-900 hover:text-brand-700 hover:underline xl:max-w-80"
+            >
               {p.name}
             </Link>
             <div className="text-xs text-muted">{p.categoryName}</div>
@@ -319,25 +346,13 @@ export default function ProductsPage() {
         </div>
       </td>
       <td className={`${table.td} text-right tabular-nums`}>
-        <PriceCell price={p.price} />
+        <PriceCell price={p.price} promotion={runningPromotion.get(p.id)} />
       </td>
       <td className={`${table.td} text-right tabular-nums ${p.lowStock ? 'font-semibold text-amber-900' : ''}`}>{p.available}</td>
-      <td className={table.td}>
+      <td className={`${table.td} hidden xl:table-cell`}>
         <ActiveBadge active={p.active} />
       </td>
-      <td className={`${table.td} text-right`}>
-        <div className="flex justify-end gap-2">
-          <Link to={`/admin/san-pham/${p.id}`} className={btn.secondary}>
-            Sửa
-          </Link>
-          <button type="button" className={btn.secondary} onClick={() => setToggle(p)}>
-            {p.active ? 'Ẩn' : 'Hiện'}
-          </button>
-          <button type="button" className={`${btn.secondary} text-danger`} onClick={() => setRemove(p)}>
-            Xoá
-          </button>
-        </div>
-      </td>
+      <td className={`${table.td} text-right`}>{actions(p)}</td>
     </tr>
   )
 
@@ -351,11 +366,6 @@ export default function ProductsPage() {
     setParams(next)
   }
 
-  const onSearch = (e: FormEvent) => {
-    e.preventDefault()
-    update({ q: search.trim() })
-  }
-
   return (
     <>
       <PageHeader title="Sản phẩm">
@@ -364,21 +374,9 @@ export default function ProductsPage() {
         </Link>
       </PageHeader>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <form onSubmit={onSearch} role="search" className="flex min-w-0 flex-1 basis-64 gap-2">
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tên hoặc slug"
-            aria-label="Tìm sản phẩm"
-            className={input}
-          />
-          <button type="submit" className={btn.primary}>
-            Tìm
-          </button>
-        </form>
-        <div className="flex gap-2 overflow-x-auto" role="group" aria-label="Lọc theo trạng thái">
+      <FilterBar>
+        <SearchFilter key={q} initial={q} placeholder="Tên hoặc slug" label="Tìm sản phẩm" onSearch={(text) => update({ q: text })} />
+        <div className="flex gap-2 overflow-x-auto md:h-10 md:items-center" role="group" aria-label="Lọc theo trạng thái">
           {FILTERS.map((f) => (
             <button
               key={f.value}
@@ -393,7 +391,7 @@ export default function ProductsPage() {
             </button>
           ))}
         </div>
-      </div>
+      </FilterBar>
 
       {error ? (
         <ErrorMessage message={error.message} onRetry={reload} />
@@ -439,7 +437,8 @@ export default function ProductsPage() {
                   <th className={table.th}>Sản phẩm</th>
                   <th className={`${table.th} text-right`}>Giá</th>
                   <th className={`${table.th} text-right`}>Có thể bán</th>
-                  <th className={table.th}>Trạng thái</th>
+                  {/* Below 1280px the hidden products are told apart by their divider and grey rows */}
+                  <th className={`${table.th} hidden xl:table-cell`}>Trạng thái</th>
                   <th className={table.th}>
                     <span className="sr-only">Thao tác</span>
                   </th>

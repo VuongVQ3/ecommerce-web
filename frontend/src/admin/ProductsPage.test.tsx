@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, type Page } from '../lib/api'
-import { adminApi, type AdminProductRow } from '../lib/adminApi'
+import { adminApi, promotionApi, type AdminProductRow, type PromotionRow } from '../lib/adminApi'
 import ProductsPage from './ProductsPage'
 import { arrayMove, dropAnchor, dropIndex, shiftOf } from './reorder'
 
@@ -103,9 +103,10 @@ const page = (items: AdminProductRow[]): Page<AdminProductRow> => ({
 
 const PRODUCTS = [row(1, 'Mắc ca', { onHand: 5 }), row(2, 'Hạt điều'), row(3, 'Óc chó')]
 
-function renderPage(items = PRODUCTS, url = '/admin/san-pham') {
+function renderPage(items = PRODUCTS, url = '/admin/san-pham', promotions: PromotionRow[] = []) {
   // A fresh page object on every load, as the network would give
   const products = vi.spyOn(adminApi, 'products').mockImplementation(async () => page(items))
+  vi.spyOn(promotionApi, 'list').mockResolvedValue(promotions)
   const router = createMemoryRouter([{ path: '/admin/san-pham', element: <ProductsPage /> }], {
     initialEntries: [url],
   })
@@ -129,6 +130,12 @@ const tableRows = () =>
     .getAllByRole('row')
     .slice(1)
     .map((tr) => tr.querySelector('button[aria-label^="Đổi thứ tự"]') ? 'kéo' : (tr.querySelector('a')?.textContent ?? tr.textContent))
+
+/** Picks an entry of a table row's "⋯" menu */
+const rowAction = (name: string, item: string) => {
+  fireEvent.click(within(screen.getByRole('table')).getByRole('button', { name: `Thao tác khác với ${name}` }))
+  fireEvent.click(screen.getByRole('menuitem', { name: item }))
+}
 
 const handle = (name: string) => within(screen.getByRole('table')).getByRole('button', { name: `Đổi thứ tự: ${name}` })
 
@@ -217,7 +224,7 @@ describe('products page', () => {
     const { products } = renderPage()
     await screen.findByRole('table')
 
-    fireEvent.click(within(screen.getByRole('table')).getAllByRole('button', { name: 'Xoá' })[0])
+    rowAction('Mắc ca', 'Xoá sản phẩm')
     const dialog = screen.getByRole('dialog')
     expect(dialog.textContent).toContain('Trong kho vẫn còn 5 sản phẩm')
     expect(dialog.textContent).toContain('Chỉ muốn ngừng bán? Hãy ẩn')
@@ -235,7 +242,7 @@ describe('products page', () => {
     renderPage()
     await screen.findByRole('table')
 
-    fireEvent.click(within(screen.getByRole('table')).getAllByRole('button', { name: 'Xoá' })[1])
+    rowAction('Hạt điều', 'Xoá sản phẩm')
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xoá vĩnh viễn' }))
 
     const hide = await screen.findByRole('button', { name: 'Ẩn sản phẩm thay vì xoá' })
@@ -300,12 +307,24 @@ describe('products page', () => {
     expect(screen.queryAllByRole('button', { name: /Đổi thứ tự/ })).toHaveLength(0)
   })
 
+  it('shows the sale price of a running promotion like the storefront', async () => {
+    const sale = { id: 'p1', productId: 2, productName: 'Hạt điều', productSlug: 'hat-dieu', regularPrice: 150000, salePrice: 120000, discountPercent: 20, startsAt: '', endsAt: '', status: 'RUNNING', productDaysThisYear: 3 } as PromotionRow
+    renderPage(PRODUCTS, '/admin/san-pham', [sale, { ...sale, id: 'p2', productId: 1, status: 'UPCOMING' }])
+    await screen.findByRole('table')
+    const rowText = (name: string) => within(screen.getByRole('table')).getAllByRole('row').find((tr) => tr.textContent?.includes(name))!.textContent
+    await waitFor(() => expect(rowText('Hạt điều')).toContain('Giá khuyến mại 120.000₫'))
+    expect(rowText('Hạt điều')).toContain('Giá gốc')
+    expect(rowText('Hạt điều')).toContain('-20%')
+    // Only running promotions count
+    expect(rowText('Mắc ca')).not.toContain('Giá khuyến mại')
+  })
+
   it('says where a product shown again goes', async () => {
     vi.spyOn(adminApi, 'setActive').mockResolvedValue({} as never)
     const { products } = renderPage(MIXED)
     await screen.findByRole('table')
 
-    fireEvent.click(within(screen.getByRole('table')).getAllByRole('button', { name: 'Hiện' })[0])
+    rowAction('Ánh dương', 'Hiện sản phẩm')
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Hiện sản phẩm' }))
 
     await waitFor(() =>

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { ErrorMessage, Spinner } from '../components/Feedback'
@@ -9,8 +9,8 @@ import { formatAdminDateTime, formatPrice } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
 import { FLAG_LABEL, FLAG_STYLE, ROLE_LABEL } from './labels'
 import { FlagDialog } from './phoneFlags'
-import { btn, input, table } from './styles'
-import { EmptyState, PageHeader, Pagination } from './ui'
+import { btn, filterInput, table } from './styles'
+import { EmptyState, FilterBar, PageHeader, Pagination, SearchFilter } from './ui'
 import { AccountStatus, InviteDialog, RoleBadge, UserActions } from './userActions'
 
 type Params = ReturnType<typeof useSearchParams>
@@ -27,22 +27,6 @@ function useUpdate([params, setParams]: Params) {
   }
 }
 
-function SearchBox({ initial, placeholder, onSearch }: { initial: string; placeholder: string; onSearch: (q: string) => void }) {
-  const [text, setText] = useState(initial)
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    onSearch(text.trim())
-  }
-  return (
-    <form onSubmit={submit} role="search" className="flex gap-2">
-      <input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label={placeholder} className={input} />
-      <button type="submit" className={btn.primary}>
-        Tìm
-      </button>
-    </form>
-  )
-}
-
 function Accounts({ params }: { params: Params }) {
   const update = useUpdate(params)
   const p = params[0]
@@ -54,9 +38,15 @@ function Accounts({ params }: { params: Params }) {
 
   return (
     <>
-      <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
-        <SearchBox key={q} initial={q} placeholder="Tên, email hoặc số điện thoại" onSearch={(text) => update({ q: text })} />
-        <select aria-label="Lọc theo vai trò" value={role} onChange={(e) => update({ role: e.target.value })} className={`${input} md:w-44`}>
+      <FilterBar>
+        <SearchFilter
+          key={q}
+          initial={q}
+          placeholder="Tên, email hoặc số điện thoại"
+          label="Tìm theo tên, email hoặc số điện thoại"
+          onSearch={(text) => update({ q: text })}
+        />
+        <select aria-label="Lọc theo vai trò" value={role} onChange={(e) => update({ role: e.target.value })} className={`${filterInput} md:w-44`}>
           <option value="">Mọi vai trò</option>
           {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
             <option key={r} value={r}>
@@ -64,12 +54,12 @@ function Accounts({ params }: { params: Params }) {
             </option>
           ))}
         </select>
-        <select aria-label="Lọc theo trạng thái" value={active} onChange={(e) => update({ active: e.target.value })} className={`${input} md:w-44`}>
+        <select aria-label="Lọc theo trạng thái" value={active} onChange={(e) => update({ active: e.target.value })} className={`${filterInput} md:w-44`}>
           <option value="">Mọi trạng thái</option>
           <option value="true">Hoạt động</option>
           <option value="false">Đã khoá</option>
         </select>
-      </div>
+      </FilterBar>
 
       {error ? (
         <ErrorMessage message={error.message} onRetry={reload} />
@@ -83,12 +73,14 @@ function Accounts({ params }: { params: Params }) {
             {data.items.map((u) => (
               <li key={u.id} className="rounded-2xl border border-stone-200 bg-white p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <Link to={`/admin/nguoi-dung/${u.id}`} className="min-w-0 font-semibold break-words text-brand-700 hover:underline">
+                  <Link to={`/admin/nguoi-dung/${u.id}`} title={u.fullName} className="min-w-0 truncate font-semibold text-brand-700 hover:underline">
                     {u.fullName}
                   </Link>
                   <UserActions user={u} onChanged={reload} />
                 </div>
-                <p className="text-sm break-all text-stone-600">{u.email}</p>
+                <p className="truncate text-sm text-stone-600" title={u.email}>
+                  {u.email}
+                </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <RoleBadge role={u.role} />
                   <AccountStatus user={u} />
@@ -126,11 +118,13 @@ function UserTable({ rows, onChanged }: { rows: AdminUserRow[]; onChanged: () =>
         <tbody>
           {rows.map((u) => (
             <tr key={u.id} className="hover:bg-stone-50">
-              <td className={`${table.td} max-w-64`}>
-                <Link to={`/admin/nguoi-dung/${u.id}`} className="font-semibold break-words text-brand-700 hover:underline">
+              <td className={table.td}>
+                <Link to={`/admin/nguoi-dung/${u.id}`} title={u.fullName} className="block max-w-72 truncate font-semibold text-brand-700 hover:underline">
                   {u.fullName}
                 </Link>
-                <div className="break-all text-stone-600">{u.email}</div>
+                <div className="max-w-72 truncate text-stone-600" title={u.email}>
+                  {u.email}
+                </div>
                 {u.phone && <div className="text-stone-600 tabular-nums">{u.phone}</div>}
               </td>
               <td className={table.td}>
@@ -168,14 +162,14 @@ function PhoneFlags({ params }: { params: Params }) {
 
   return (
     <>
-      <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-        <SearchBox key={q} initial={q} placeholder="Số điện thoại" onSearch={(text) => update({ q: text })} />
-        <select aria-label="Lọc theo mức" value={level} onChange={(e) => update({ level: e.target.value })} className={`${input} md:w-44`}>
+      <FilterBar>
+        <SearchFilter key={q} initial={q} placeholder="Số điện thoại" label="Tìm số điện thoại" onSearch={(text) => update({ q: text })} />
+        <select aria-label="Lọc theo mức" value={level} onChange={(e) => update({ level: e.target.value })} className={`${filterInput} md:w-44`}>
           <option value="">Mọi mức</option>
           <option value="WATCH">{FLAG_LABEL.WATCH}</option>
           <option value="BLOCK_COD">{FLAG_LABEL.BLOCK_COD}</option>
         </select>
-      </div>
+      </FilterBar>
       {error ? (
         <ErrorMessage message={error.message} onRetry={reload} />
       ) : !data ? (

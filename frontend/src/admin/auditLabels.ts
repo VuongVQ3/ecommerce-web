@@ -2,6 +2,7 @@ import type { AuditRow } from '../lib/adminApi'
 import { formatAdminDateTime, formatPrice, formatPromotionEnd } from '../lib/format'
 import { CANCEL_REASON_LABEL, ORDER_STATUS_LABEL, type CancelReasonCode } from '../lib/orderStatus'
 import type { OrderStatus, Role } from '../lib/api'
+import { addDays, isoToDisplay } from './dates'
 import { ROLE_LABEL } from './labels'
 
 /**
@@ -227,4 +228,57 @@ export function entityLink(row: Pick<AuditRow, 'entityType' | 'entityId' | 'acti
   if (row.entityType === 'USER') return `/admin/nguoi-dung/${id}`
   if (row.entityType === 'PHONE') return `/admin/don-hang?q=${id}`
   return null
+}
+
+export type AuditIcon =
+  | 'trash'
+  | 'eyeOff'
+  | 'eye'
+  | 'xCircle'
+  | 'lock'
+  | 'unlock'
+  | 'checkCircle'
+  | 'truck'
+  | 'packagePlus'
+  | 'clipboardCheck'
+  | 'plus'
+  | 'pencil'
+
+export type AuditTone = 'red' | 'gray' | 'green' | 'blue'
+
+/** Exact actions with their own picture; the rest go by their suffix (see actionIcon) */
+const ACTION_ICON: Record<string, { icon: AuditIcon; tone: AuditTone }> = {
+  PRODUCT_HIDDEN: { icon: 'eyeOff', tone: 'gray' },
+  PRODUCT_SHOWN: { icon: 'eye', tone: 'blue' },
+  ORDER_CANCEL: { icon: 'xCircle', tone: 'red' },
+  PROMOTION_CANCELLED: { icon: 'xCircle', tone: 'red' },
+  // Ending a promotion early is not a cancellation: same mark, quieter
+  PROMOTION_ENDED: { icon: 'xCircle', tone: 'gray' },
+  USER_LOCKED: { icon: 'lock', tone: 'red' },
+  USER_UNLOCKED: { icon: 'unlock', tone: 'green' },
+  ORDER_CONFIRM: { icon: 'checkCircle', tone: 'green' },
+  ORDER_COMPLETE: { icon: 'checkCircle', tone: 'green' },
+  USER_EMAIL_VERIFIED: { icon: 'checkCircle', tone: 'green' },
+  ORDER_SHIP: { icon: 'truck', tone: 'blue' },
+  STOCK_IMPORTED: { icon: 'packagePlus', tone: 'green' },
+  STOCK_ADJUSTED: { icon: 'clipboardCheck', tone: 'blue' },
+}
+
+/**
+ * Picture of an action in the audit timeline, by what it means: deleted / removed → bin, created / added / invited →
+ * plus, anything else (edits, notes, unknown codes) → pencil.
+ */
+export function actionIcon(action: string): { icon: AuditIcon; tone: AuditTone } {
+  if (ACTION_ICON[action]) return ACTION_ICON[action]
+  if (/_(DELETED|REMOVED)$/.test(action)) return { icon: 'trash', tone: 'red' }
+  if (/_(CREATED|ADDED|INVITED)$/.test(action)) return { icon: 'plus', tone: 'green' }
+  return { icon: 'pencil', tone: 'blue' }
+}
+
+/** "Hôm nay", "Hôm qua", "30/10" (with the year when not this year) for a Vietnam day */
+export function dayHeading(day: string, today: string): string {
+  if (day === today) return 'Hôm nay'
+  if (day === addDays(today, -1)) return 'Hôm qua'
+  const display = isoToDisplay(day)
+  return day.slice(0, 4) === today.slice(0, 4) ? display.slice(0, 5) : display
 }

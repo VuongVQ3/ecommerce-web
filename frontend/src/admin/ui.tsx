@@ -1,7 +1,8 @@
+import { Ellipsis } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useBlocker } from 'react-router'
 import { RequiredMark } from '../components/FormFields'
-import { btn, input } from './styles'
+import { btn, filterBtn, filterInput, input } from './styles'
 
 export function PageHeader({ title, children }: { title: string; children?: ReactNode }) {
   return (
@@ -36,6 +37,48 @@ export function Pagination({ page, totalPages, onChange }: { page: number; total
       </button>
     </nav>
   )
+}
+
+/**
+ * Row of list filters. Every control in it is 40px high (filterInput / filterBtn / DateField compact) and they line
+ * up on their bottom edge, so a control with a visible label sits level with those without one. Stacked on phones.
+ */
+export function FilterBar({ children }: { children: ReactNode }) {
+  return <div className="mb-4 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">{children}</div>
+}
+
+/** Search box + "Tìm" for a FilterBar. Give it key={current query} so it follows outside changes. */
+export function SearchFilter({ initial, placeholder, label, onSearch }: { initial: string; placeholder: string; label: string; onSearch: (q: string) => void }) {
+  const [text, setText] = useState(initial)
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    onSearch(text.trim())
+  }
+  return (
+    <form onSubmit={submit} role="search" className="flex min-w-0 gap-2 md:max-w-xl md:flex-1 md:basis-72">
+      <input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label={label} className={filterInput} />
+      <button type="submit" className={`${filterBtn.primary} shrink-0`}>
+        Tìm
+      </button>
+    </form>
+  )
+}
+
+/** Pill-shaped status label. */
+export function Badge({ tone, children }: { tone: 'gray' | 'green' | 'amber' | 'red'; children: ReactNode }) {
+  const tones = {
+    gray: 'bg-stone-200 text-stone-700',
+    green: 'bg-brand-100 text-brand-800',
+    amber: 'bg-amber-100 text-amber-900',
+    red: 'bg-red-100 text-red-800',
+  }
+  return <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${tones[tone]}`}>{children}</span>
+}
+
+/** "Hết hàng" (nothing left to sell) or "Sắp hết" (at or under the warning threshold); nothing otherwise. */
+export function StockBadge({ available, lowStock }: { available: number; lowStock: boolean }) {
+  if (available <= 0) return <Badge tone="red">Hết hàng</Badge>
+  return lowStock ? <Badge tone="amber">Sắp hết</Badge> : null
 }
 
 /** Small labelled field for admin forms and dialogs. */
@@ -185,21 +228,41 @@ export function Dialog({
   )
 }
 
-/** "⋯" menu for row actions on small screens. Arrow keys move, Esc closes and returns focus to the button. */
+/**
+ * "⋯" menu for row actions. Arrow keys / Home / End move, Esc closes and returns focus to the button. The list is
+ * positioned against the window, so a table frame never cuts it off; it opens upwards near the bottom of the screen
+ * and closes when the page scrolls.
+ */
 export function ActionMenu({ label, items }: { label: string; items: { label: string; onSelect: () => void; danger?: boolean }[] }) {
-  const [open, setOpen] = useState(false)
+  const [position, setPosition] = useState<CSSProperties | null>(null)
+  const open = position !== null
   const button = useRef<HTMLButtonElement>(null)
   const menu = useRef<HTMLDivElement>(null)
   const menuId = useId()
+
+  const toggle = () => {
+    if (open || !button.current) return setPosition(null)
+    const r = button.current.getBoundingClientRect()
+    const right = Math.max(8, window.innerWidth - r.right)
+    const below = window.innerHeight - r.bottom
+    setPosition(below < 48 * items.length + 16 && r.top > below ? { right, bottom: window.innerHeight - r.top + 4 } : { right, top: r.bottom + 4 })
+  }
 
   useEffect(() => {
     if (!open) return
     menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
     const onPointer = (e: PointerEvent) => {
-      if (!menu.current?.contains(e.target as Node) && e.target !== button.current) setOpen(false)
+      if (!menu.current?.contains(e.target as Node) && !button.current?.contains(e.target as Node)) setPosition(null)
     }
+    const close = () => setPosition(null)
     document.addEventListener('pointerdown', onPointer)
-    return () => document.removeEventListener('pointerdown', onPointer)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
   }, [open])
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -208,9 +271,12 @@ export function ActionMenu({ label, items }: { label: string; items: { label: st
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
       entries[(i + (e.key === 'ArrowDown' ? 1 : -1) + entries.length) % entries.length]?.focus()
+    } else if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault()
+      entries[e.key === 'Home' ? 0 : entries.length - 1]?.focus()
     } else if (e.key === 'Escape' || e.key === 'Tab') {
       if (e.key === 'Escape') e.preventDefault()
-      setOpen(false)
+      setPosition(null)
       button.current?.focus()
     }
   }
@@ -224,10 +290,10 @@ export function ActionMenu({ label, items }: { label: string; items: { label: st
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        onClick={() => setOpen((o) => !o)}
-        className="flex size-10 items-center justify-center rounded-xl border border-stone-300 bg-white text-xl leading-none text-stone-700 hover:bg-stone-50"
+        onClick={toggle}
+        className="flex size-10 items-center justify-center rounded-xl border border-stone-300 bg-white text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
       >
-        ⋯
+        <Ellipsis aria-hidden className="size-5" />
       </button>
       {open && (
         <div
@@ -236,7 +302,8 @@ export function ActionMenu({ label, items }: { label: string; items: { label: st
           role="menu"
           aria-label={label}
           onKeyDown={onKeyDown}
-          className="absolute right-0 z-30 mt-1 min-w-44 rounded-xl border border-stone-200 bg-white p-1 shadow-lg"
+          style={position}
+          className="fixed z-50 min-w-44 rounded-xl border border-stone-200 bg-white p-1 shadow-lg"
         >
           {items.map((item) => (
             <button
@@ -245,11 +312,11 @@ export function ActionMenu({ label, items }: { label: string; items: { label: st
               role="menuitem"
               tabIndex={-1}
               onClick={() => {
-                setOpen(false)
+                setPosition(null)
                 item.onSelect()
               }}
-              className={`block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium hover:bg-stone-100 focus:bg-stone-100 focus:outline-none ${
-                item.danger ? 'text-danger' : 'text-stone-800'
+              className={`block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium focus:outline-none ${
+                item.danger ? 'text-danger hover:bg-red-50 focus:bg-red-50' : 'text-stone-800 hover:bg-stone-100 focus:bg-stone-100'
               }`}
             >
               {item.label}

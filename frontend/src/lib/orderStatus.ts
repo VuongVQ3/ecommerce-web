@@ -12,12 +12,22 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   CANCELLED: 'Đã huỷ',
 }
 
+/** One hue per status, told apart at a glance (text on its tint is at least 7:1) */
 export const ORDER_STATUS_STYLE: Record<OrderStatus, string> = {
-  PENDING: 'bg-amber-100 text-amber-900',
-  CONFIRMED: 'bg-sky-100 text-sky-900',
-  SHIPPING: 'bg-indigo-100 text-indigo-900',
+  PENDING: 'bg-orange-100 text-orange-900',
+  CONFIRMED: 'bg-blue-100 text-blue-900',
+  SHIPPING: 'bg-purple-100 text-purple-900',
   COMPLETED: 'bg-brand-100 text-brand-800',
   CANCELLED: 'bg-stone-200 text-stone-700',
+}
+
+/** Dot drawn before the label, so the status does not rely on the tint alone */
+export const ORDER_STATUS_DOT: Record<OrderStatus, string> = {
+  PENDING: 'bg-orange-500',
+  CONFIRMED: 'bg-blue-600',
+  SHIPPING: 'bg-purple-600',
+  COMPLETED: 'bg-brand-600',
+  CANCELLED: 'bg-stone-500',
 }
 
 /** In lifecycle order (filters, progress bars). */

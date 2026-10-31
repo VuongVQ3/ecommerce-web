@@ -46,6 +46,8 @@ export interface OrderFilters {
   /** Only orders cancelled with this reason */
   cancelReasonCode?: CancelReasonCode | ''
   page?: number
+  /** Rows per page (server default 20); 1 when only the counts are needed */
+  size?: number
 }
 
 export interface StockRow {
@@ -203,7 +205,7 @@ export const adminApi = {
 
   orders: (f: OrderFilters, signal?: AbortSignal) =>
     apiRequest<{ page: Page<AdminOrderRow>; pendingCount: number }>(
-      `/api/admin/orders${query({ status: f.status, from: f.from, to: f.to, q: f.q, cancelReasonCode: f.cancelReasonCode, page: f.page })}`,
+      `/api/admin/orders${query({ status: f.status, from: f.from, to: f.to, q: f.q, cancelReasonCode: f.cancelReasonCode, page: f.page, size: f.size })}`,
       { signal },
     ),
   order: (code: string, signal?: AbortSignal) => apiRequest<AdminOrderDetail>(order(code), { signal }),
@@ -229,8 +231,8 @@ export const adminApi = {
     apiRequest<void>(`/api/admin/phone-flags/${encodeURIComponent(phone)}/remove`, post({ reason })),
   addNote: (code: string, body: string) => apiRequest<AdminOrderDetail>(`${order(code)}/notes`, post({ body })),
 
-  inventory: (q: string, low: boolean, signal?: AbortSignal) =>
-    apiRequest<Page<StockRow>>(`/api/admin/inventory${query({ q, low, size: 100 })}`, { signal }),
+  inventory: (q: string, low: boolean, signal?: AbortSignal, page = 0) =>
+    apiRequest<Page<StockRow>>(`/api/admin/inventory${query({ q, low, page, size: 100 })}`, { signal }),
   importStock: (productId: number, input: { quantity: number; unitCost?: number; supplier?: string; note?: string }) =>
     apiRequest<StockRow>(`/api/admin/inventory/${productId}/import`, post(input)),
   stocktake: (productId: number, counted: number, reason: string) =>
