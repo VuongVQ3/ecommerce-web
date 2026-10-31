@@ -106,9 +106,10 @@ export function TableFrame({ className = '', children }: { className?: string; c
   }, [wide])
 
   // overflow-x clip keeps the rounded corners without making a scroll box. Scrolling sideways, CSS sticking is off
-  // (inside the scroll box its offset would add to the shift)
+  // (inside the scroll box its offset would add to the shift). relative: absolutely placed bits inside (sr-only
+  // labels) stay in the frame instead of widening the page
   return (
-    <div ref={frame} className={`${table.wrap} ${wide ? 'overflow-x-auto [&_thead_th]:static' : 'overflow-x-clip'} ${className}`}>
+    <div ref={frame} className={`relative ${table.wrap} ${wide ? 'overflow-x-auto [&_thead_th]:static' : 'overflow-x-clip'} ${className}`}>
       {children}
     </div>
   )
