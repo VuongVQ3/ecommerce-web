@@ -38,10 +38,16 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? 'bg-brand-600 text-white' : 'text-stone-700 hover:bg-stone-100'
   }`
 
-/** Title of the current admin page for the phone/tablet top bar. */
-function currentTitle(pathname: string) {
-  const match = [...NAV].sort((a, b) => b.to.length - a.to.length).find((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to)))
-  return match?.label ?? 'Quản trị'
+/**
+ * Name of the menu entry the page belongs to (for the tab title and the phone/tablet top bar), matched on whole path
+ * segments ("/admin/khong-co" is not under "/admin/kho"). null for a path outside the menu: the not-found page
+ * then keeps its own tab title instead of "Quản trị | Quản trị | Hạt Lành".
+ */
+function currentTitle(pathname: string): string | null {
+  const match = [...NAV]
+    .sort((a, b) => b.to.length - a.to.length)
+    .find((n) => pathname === n.to || (!n.end && pathname.startsWith(`${n.to}/`)))
+  return match?.label ?? null
 }
 
 function Brand() {
@@ -158,7 +164,9 @@ export default function AdminLayout() {
   const closeDrawer = useCallback(() => setDrawerOn(null), [])
   // Asked again on every page change, so the badge follows confirmations made meanwhile
   const pending = useAsync((signal) => adminApi.orders({ status: 'PENDING', size: 1 }, signal), [pathname]).data?.pendingCount ?? 0
-  usePageMeta(`${currentTitle(pathname)} | Quản trị | ${BRAND}`)
+  const title = currentTitle(pathname)
+  // Effects run child first: a page outside the menu (not found) has set its own title, so leave it
+  usePageMeta(title ? `${title} | Quản trị | ${BRAND}` : null)
 
   if (user?.passwordChangeRequired) {
     return <Navigate to={`/tai-khoan/doi-mat-khau?next=${encodeURIComponent(pathname)}`} replace />
@@ -178,7 +186,7 @@ export default function AdminLayout() {
           <Menu aria-hidden className="size-6" strokeWidth={1.8} />
           {pending > 0 && <span aria-hidden className="absolute top-1.5 right-1.5 size-2.5 rounded-full bg-amber-500 ring-2 ring-white" />}
         </button>
-        <p className="min-w-0 flex-1 truncate font-bold text-stone-900">{currentTitle(pathname)}</p>
+        <p className="min-w-0 flex-1 truncate font-bold text-stone-900">{title ?? 'Quản trị'}</p>
         <Link to="/" className="shrink-0 text-sm text-stone-600 hover:text-brand-700">
           Cửa hàng
         </Link>
