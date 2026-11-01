@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { axisTicks, shortMoney } from './chartAxis'
+import { axisTicks, chartSource, chartWindow, shortMoney } from './chartAxis'
 
 describe('revenue chart axis', () => {
   it('shortens amounts to k and tr', () => {
@@ -18,5 +18,29 @@ describe('revenue chart axis', () => {
   it('keeps a 1tr scale for a quiet week, even with no revenue at all', () => {
     expect(axisTicks(0)).toEqual([0, 250_000, 500_000, 750_000, 1_000_000])
     expect(axisTicks(120_000)).toEqual([0, 250_000, 500_000, 750_000, 1_000_000])
+  })
+})
+
+describe('revenue chart window', () => {
+  it('puts the selected day in the middle, three days on each side', () => {
+    expect(chartWindow('2026-10-29', '2026-11-01').map((d) => `${d.date.slice(5)}${d.future ? '*' : ''}`)).toEqual([
+      '10-26',
+      '10-27',
+      '10-28',
+      '10-29',
+      '10-30',
+      '10-31',
+      '11-01',
+    ])
+  })
+
+  it('marks the days after today as not come yet', () => {
+    expect(chartWindow('2026-11-01', '2026-11-01').filter((d) => d.future).map((d) => d.date)).toEqual(['2026-11-02', '2026-11-03', '2026-11-04'])
+  })
+
+  it('asks the API for the last day shown, never after today', () => {
+    expect(chartSource('2026-10-20', '2026-11-01')).toBe('2026-10-23')
+    expect(chartSource('2026-10-30', '2026-11-01')).toBe('2026-11-01')
+    expect(chartSource('2026-11-01', '2026-11-01')).toBe('2026-11-01')
   })
 })

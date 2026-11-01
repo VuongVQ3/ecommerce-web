@@ -1,5 +1,5 @@
-import { Check, ChevronRight } from 'lucide-react'
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
 import { ErrorMessage } from '../components/Feedback'
 import { StatusBadge } from '../components/OrderDetails'
@@ -7,20 +7,31 @@ import { adminApi, type DashboardDay, type DashboardDayTotals } from '../lib/adm
 import { formatPrice } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
 import { Skeleton } from './Skeleton'
-import { axisTicks, shortMoney } from './chartAxis'
+import { axisTicks, chartSource, chartWindow, shortMoney } from './chartAxis'
 import { Calendar } from './DateField'
 import { OVERDUE_PARAM } from './labels'
 import { addDays, fromIso, isoToDisplay, vnTodayIso, WEEKDAY_NAMES, WEEKDAYS } from './dates'
 import { card, table } from './styles'
-import { PageHeader, TableFrame } from './ui'
+import { PageHeader } from './ui'
 
 /** The day view goes back this far (the API refuses older days) */
 const MAX_DAYS_BACK = 365
-const DAY_ORDERS = 20
+/** Rows in "Bán chạy" and "Đơn của ngày" */
+const LIST_ROWS = 5
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 
 /** Days already loaded in this session: switching back shows them at once while they refresh. */
 const dayCache = new Map<string, DashboardDay>()
+/**
+ * Revenue per day from every answer loaded (each brings the 7 days ending on its day), so moving along the chart
+ * rarely needs a request for the chart alone.
+ */
+const revenueCache = new Map<string, { revenue: number; orders: number }>()
+
+function remember(day: DashboardDay) {
+  dayCache.set(day.date, day)
+  for (const d of day.last7Days) revenueCache.set(d.date, { revenue: d.revenue, orders: d.orders })
+}
 
 const timeFormat = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' })
 const dayMonth = (iso: string) => isoToDisplay(iso).slice(0, 5)
@@ -28,13 +39,9 @@ const weekday = (iso: string) => (fromIso(iso).getUTCDay() + 6) % 7
 const shortWeekday = (iso: string) => WEEKDAYS[weekday(iso)]
 /** "Thứ Bảy, 18/10/2026" */
 const longDay = (iso: string) => `${WEEKDAY_NAMES[weekday(iso)]}, ${isoToDisplay(iso)}`
-
-/** "Hôm nay", "Hôm qua", or the weekday and date. */
-function dayName(iso: string, today: string): string | null {
-  if (iso === today) return 'Hôm nay'
-  if (iso === addDays(today, -1)) return 'Hôm qua'
-  return null
-}
+/** "CN, 01/11" */
+const shortDay = (iso: string) => `${shortWeekday(iso)}, ${dayMonth(iso)}`
+const daysBetween = (from: string, to: string) => Math.round((fromIso(to).getTime() - fromIso(from).getTime()) / 86_400_000)
 
 /** Orange while something waits (value > 0), faded with a ✓ when there is nothing to do. The whole card opens the list. */
 function NowCard({ label, value, to, hint }: { label: string; value: number; to: string; hint?: string }) {
@@ -121,28 +128,14 @@ function DayStats({ day, versus }: { day: DashboardDayTotals & { previous: Dashb
   )
 }
 
-function ChevronIcon({ dir }: { dir: 'prev' | 'next' }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" className="size-4">
-      <path d={dir === 'prev' ? 'M12.5 4.5 7 10l5.5 5.5' : 'M7.5 4.5 13 10l-5.5 5.5'} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
 const roundBtn =
   'flex size-10 shrink-0 items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white'
-const quickBtn = (active: boolean) =>
-  `shrink-0 rounded-full px-3 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${
-    active ? 'bg-stone-900 text-white' : 'border border-stone-300 bg-white text-stone-700 hover:bg-stone-50'
-  }`
 
-/** ‹ "Hôm nay · Thứ Bảy, 18/10/2026" › + Hôm nay / Hôm qua + calendar. Phones: one row, short label, no "Hôm qua". */
-function DayPicker({ date, today, min, onChange }: { date: string; today: string; min: string; onChange: (iso: string) => void }) {
+/** ‹ [Thứ Bảy, 01/11/2026] › + "Hôm nay" (only away from today) + calendar */
+function DayControls({ date, today, min, onChange }: { date: string; today: string; min: string; onChange: (iso: string) => void }) {
   const [calendarOpen, setCalendarOpen] = useState(false)
   const wrapper = useRef<HTMLDivElement>(null)
   const calendarButton = useRef<HTMLButtonElement>(null)
-  const yesterday = addDays(today, -1)
-  const name = dayName(date, today)
 
   useEffect(() => {
     if (!calendarOpen) return
@@ -156,24 +149,24 @@ function DayPicker({ date, today, min, onChange }: { date: string; today: string
   return (
     <div ref={wrapper} className="relative flex items-center gap-2">
       <button type="button" onClick={() => onChange(addDays(date, -1))} disabled={date <= min} aria-label="Ngày trước" className={roundBtn}>
-        <ChevronIcon dir="prev" />
+        <ChevronLeft aria-hidden className="size-4" strokeWidth={2.25} />
       </button>
-      <p aria-live="polite" className="min-w-0 text-center text-sm font-semibold whitespace-nowrap text-stone-900 tabular-nums sm:min-w-64 sm:text-base">
-        <span className="sm:hidden">{name ?? `${shortWeekday(date)}, ${dayMonth(date)}`}</span>
-        <span className="max-sm:hidden">
-          {name && `${name} · `}
-          {longDay(date)}
-        </span>
+      <p aria-live="polite" className="min-w-0 text-center text-sm font-semibold whitespace-nowrap text-stone-900 tabular-nums sm:min-w-44">
+        <span className="sm:hidden">{shortDay(date)}</span>
+        <span className="max-sm:hidden">{longDay(date)}</span>
       </p>
       <button type="button" onClick={() => onChange(addDays(date, 1))} disabled={date >= today} aria-label="Ngày sau" className={roundBtn}>
-        <ChevronIcon dir="next" />
+        <ChevronRight aria-hidden className="size-4" strokeWidth={2.25} />
       </button>
-      <button type="button" onClick={() => onChange(today)} aria-pressed={date === today} className={`${quickBtn(date === today)} ml-auto sm:ml-2`}>
-        Hôm nay
-      </button>
-      <button type="button" onClick={() => onChange(yesterday)} aria-pressed={date === yesterday} className={`${quickBtn(date === yesterday)} max-sm:hidden`}>
-        Hôm qua
-      </button>
+      {date !== today && (
+        <button
+          type="button"
+          onClick={() => onChange(today)}
+          className="shrink-0 rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+        >
+          Hôm nay
+        </button>
+      )}
       <button
         ref={calendarButton}
         type="button"
@@ -181,15 +174,12 @@ function DayPicker({ date, today, min, onChange }: { date: string; today: string
         aria-label="Chọn ngày từ lịch"
         aria-expanded={calendarOpen}
         aria-haspopup="dialog"
-        className={roundBtn}
+        className={`${roundBtn} ml-auto sm:ml-0`}
       >
-        <svg aria-hidden="true" viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.6">
-          <rect x="3" y="4.5" width="14" height="12" rx="2" />
-          <path d="M3 8.5h14M7 3v3M13 3v3" strokeLinecap="round" />
-        </svg>
+        <CalendarDays aria-hidden className="size-4.5" strokeWidth={1.75} />
       </button>
       {calendarOpen && (
-        <div className="absolute top-full left-0 z-40">
+        <div className="absolute top-full right-0 z-40">
           <Calendar
             label="ngày"
             value={date}
@@ -211,110 +201,166 @@ function DayPicker({ date, today, min, onChange }: { date: string; today: string
   )
 }
 
+type ChartPoint = { date: string; future: boolean; revenue?: number; orders?: number }
+
 /**
- * 7 columns ending on the selected day (drawn darker), over a money axis. Each column is a button that selects its
- * day; pointing at it (or focusing it) shows the amount and the number of orders. A day without revenue keeps a faint
- * hatched stub, so it reads as "0" rather than as missing data.
+ * "Doanh thu theo ngày" with the day picker in its header: 7 columns, the selected day always in the middle (3 days
+ * before, 3 after; days not come yet are dashed and cannot be picked). Each column is a button picking its day; ←/→
+ * while the chart has focus move a day. On a change the columns slide (250ms) to bring the new day to the middle.
  */
-function RevenueChart({ days, selected, min, onSelect }: { days: DashboardDay['last7Days']; selected: string; min: string; onSelect: (iso: string) => void }) {
-  const ticks = axisTicks(Math.max(...days.map((d) => d.revenue)))
+function DayChart({ points, date, today, min, onSelect }: { points: ChartPoint[]; date: string; today: string; min: string; onSelect: (iso: string) => void }) {
+  const known = points.filter((p) => !p.future && p.revenue !== undefined)
+  const ticks = axisTicks(Math.max(0, ...known.map((p) => p.revenue!)))
   const top = ticks[ticks.length - 1]
-  const total = days.reduce((sum, d) => sum + d.revenue, 0)
-  const orders = days.reduce((sum, d) => sum + d.orders, 0)
-  const [pointed, setPointed] = useState<string | null>(null)
-  // Narrow screens scroll the chart: keep the selected day (the last column) in view
-  const scroller = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (scroller.current) scroller.current.scrollLeft = scroller.current.scrollWidth
-  }, [selected])
+  const total = known.reduce((sum, p) => sum + p.revenue!, 0)
+  const orders = known.reduce((sum, p) => sum + p.orders!, 0)
+  const loading = points.some((p) => !p.future && p.revenue === undefined)
+  // Hover details are for a mouse: a tap selects the day, which shows its amount anyway. Tied to the selected day it
+  // was set under, so a change of day drops it
+  const [hover, setHover] = useState<{ day: string; under: string } | null>(null)
+  const pointed = hover?.under === date ? hover.day : null
+  const setPointed = (day: string | null) => setHover(day ? { day, under: date } : null)
   const pct = (v: number) => `${(v / top) * 100}%`
+
+  // Slide the columns from where the new middle day was, unless motion is reduced; keep focus on the middle column
+  const track = useRef<HTMLOListElement>(null)
+  const previous = useRef(date)
+  useLayoutEffect(() => {
+    const el = track.current
+    const delta = daysBetween(previous.current, date)
+    previous.current = date
+    if (!el || delta === 0) return
+    if (el.contains(document.activeElement)) el.children[3]?.querySelector('button')?.focus({ preventScroll: true })
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (reduced || Math.abs(delta) > 6 || !el.animate) return
+    const columns = el.children
+    const step = columns.length > 1 ? (columns[1] as HTMLElement).offsetLeft - (columns[0] as HTMLElement).offsetLeft : 0
+    el.animate([{ transform: `translateX(${delta * step}px)` }, { transform: 'translateX(0)' }], { duration: 250, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' })
+  }, [date])
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.altKey || e.ctrlKey || e.metaKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return
+    e.preventDefault()
+    onSelect(addDays(date, e.key === 'ArrowLeft' ? -1 : 1))
+  }
+
+  const first = points[0].date
+  const last = points[points.length - 1].date
   return (
-    <section className={`${card} p-5`} aria-labelledby="revenue-title">
-      <h2 id="revenue-title" className="font-semibold text-stone-900">
-        Doanh thu theo ngày
-      </h2>
-      <p className="text-sm text-muted">Chỉ tính đơn đã giao thành công, theo ngày hoàn tất.</p>
-      <p className="mt-2 text-sm text-stone-700 tabular-nums">
-        7 ngày đến {dayMonth(selected)}: <strong className="text-stone-900">{formatPrice(total)}</strong> · {orders} đơn
-      </p>
-      <div ref={scroller} className="-mx-1 mt-1 overflow-x-auto px-1 pb-1">
-        {/* pt-12 leaves room for the tooltip of the tallest column */}
-        <div className="flex min-w-[18rem] gap-1.5 pt-12 sm:gap-2">
-          <div aria-hidden className="relative h-44 w-9 shrink-0 text-right text-xs text-muted tabular-nums">
+    <section className={`${card} p-5`} aria-labelledby="day-title">
+      {/* Phones: title, then the picker on its own line */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <h2 id="day-title" className="font-semibold text-stone-900">
+            Doanh thu theo ngày
+          </h2>
+          <p className="mt-0.5 text-sm text-stone-700 tabular-nums">
+            {dayMonth(first)} – {dayMonth(last)}:{' '}
+            {loading ? <span className="text-muted">đang tải…</span> : <><strong className="text-stone-900">{formatPrice(total)}</strong> · {orders} đơn</>}
+          </p>
+          <p className="text-xs text-muted">Chỉ tính đơn đã giao thành công, theo ngày hoàn tất.</p>
+        </div>
+        <DayControls date={date} today={today} min={min} onChange={onSelect} />
+      </div>
+
+      <div className="mt-4 flex gap-1.5 sm:gap-2" onKeyDown={onKeyDown}>
+        {/* The axis lines up with the bar area: below the 2.5rem kept for the amount over the selected column */}
+        <div aria-hidden className="relative mt-10 h-44 w-9 shrink-0 text-right text-xs text-muted tabular-nums">
+          {ticks.map((t) => (
+            <span key={t} className="absolute right-0 translate-y-1/2 leading-none" style={{ bottom: pct(t) }}>
+              {shortMoney(t)}
+            </span>
+          ))}
+        </div>
+        <div className="relative min-w-0 flex-1 overflow-hidden">
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-10 h-44">
             {ticks.map((t) => (
-              <span key={t} className="absolute right-0 translate-y-1/2 leading-none" style={{ bottom: pct(t) }}>
-                {shortMoney(t)}
-              </span>
+              <span
+                key={t}
+                className={`absolute inset-x-0 border-t ${t === 0 ? 'border-stone-300' : 'border-dashed border-stone-200'}`}
+                style={{ bottom: pct(t) }}
+              />
             ))}
           </div>
-          <div className="relative min-w-0 flex-1">
-            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-44">
-              {ticks.map((t) => (
-                <span
-                  key={t}
-                  className={`absolute inset-x-0 border-t ${t === 0 ? 'border-stone-300' : 'border-dashed border-stone-200'}`}
-                  style={{ bottom: pct(t) }}
-                />
-              ))}
-            </div>
-            <ol className="relative flex gap-1 sm:gap-2" aria-label="Biểu đồ doanh thu 7 ngày" onPointerLeave={() => setPointed(null)}>
-              {days.map((d, i) => {
-                const active = d.date === selected
-                return (
-                  <li key={d.date} className="flex min-w-0 flex-1">
-                    <button
-                      type="button"
-                      onClick={() => onSelect(d.date)}
-                      onPointerEnter={() => setPointed(d.date)}
-                      onFocus={() => setPointed(d.date)}
-                      onBlur={() => setPointed(null)}
-                      disabled={d.date < min}
-                      aria-pressed={active}
-                      aria-label={`Xem ngày ${dayMonth(d.date)}: ${formatPrice(d.revenue)}, ${d.orders} đơn`}
-                      className="group flex w-full flex-col items-center gap-1 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed"
+          <ol ref={track} className="relative flex gap-1 sm:gap-2" aria-label={`Doanh thu 7 ngày quanh ${shortDay(date)}`} onPointerLeave={() => setPointed(null)}>
+            {points.map((p, i) => {
+              const active = p.date === date
+              const blocked = p.future || p.date < min
+              const amount = p.revenue !== undefined ? formatPrice(p.revenue) : null
+              const label = `${shortWeekday(p.date)} ${dayMonth(p.date)}`
+              // Columns are keyed by position: the DOM stays put and the whole row slides
+              return (
+                <li key={i} className="flex min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => onSelect(p.date)}
+                    onPointerEnter={(e) => e.pointerType === 'mouse' && setPointed(p.date)}
+                    onFocus={(e) => e.currentTarget.matches(':focus-visible') && setPointed(p.date)}
+                    onBlur={() => setPointed(null)}
+                    disabled={blocked}
+                    aria-pressed={active}
+                    aria-label={p.future ? `${label}, chưa tới` : `Chọn ${label}, doanh thu ${amount ?? 'đang tải'}`}
+                    className="group relative flex w-full flex-col items-center rounded-xl pb-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-default"
+                  >
+                    {/* Pale band behind the selected day, the full height of the chart */}
+                    {active && <span aria-hidden className="absolute inset-0 rounded-xl bg-brand-50" />}
+                    <span aria-hidden className="relative mt-10 flex h-44 w-full max-w-12 items-end px-1 sm:px-0">
+                      {p.future ? (
+                        <span className="h-full w-full rounded-t-lg border border-b-0 border-dashed border-stone-300" />
+                      ) : p.revenue === undefined ? (
+                        <span className="h-1/3 w-full animate-pulse rounded-t-lg bg-stone-200" />
+                      ) : p.revenue === 0 ? (
+                        // Short, hatched and faint: "nothing" at a glance, never mistaken for a value
+                        <span
+                          className={`h-[12%] w-full rounded-t-lg border border-b-0 border-dashed bg-[repeating-linear-gradient(135deg,var(--color-stone-200)_0_3px,transparent_3px_7px)] ${
+                            active ? 'border-stone-500' : 'border-stone-300 group-hover:border-stone-400'
+                          }`}
+                        />
+                      ) : (
+                        <span
+                          className={`w-full rounded-t-lg transition-colors ${active ? 'bg-brand-700' : 'bg-brand-500/40 group-hover:bg-brand-500/70'}`}
+                          style={{ height: pct(p.revenue) }}
+                        />
+                      )}
+                      {/* The selected day always shows its amount; the others on hover / focus */}
+                      {amount !== null && !p.future && (active || pointed === p.date) && (
+                        <span
+                          className={`absolute z-10 mb-1 text-xs whitespace-nowrap tabular-nums ${
+                            active ? 'left-1/2 -translate-x-1/2 font-bold text-brand-800 max-sm:text-[0.6875rem]' : `rounded-lg bg-stone-900 px-2.5 py-1.5 text-left text-white shadow-lg ${
+                              i === 0 ? 'left-0' : i === points.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'
+                            }`
+                          }`}
+                          style={{ bottom: p.revenue === 0 ? '12%' : pct(p.revenue!) }}
+                        >
+                          {active ? (
+                            amount
+                          ) : (
+                            <>
+                              <span className="block font-semibold">{amount}</span>
+                              <span className="block text-stone-300">{p.revenue === 0 ? 'Không có đơn giao xong' : `${p.orders} đơn`}</span>
+                            </>
+                          )}
+                        </span>
+                      )}
+                    </span>
+                    {/* Weekday over the date on phones, side by side from 640px; a dot under the selected day */}
+                    <span
+                      aria-hidden
+                      className={`relative mt-1 flex flex-col items-center text-xs leading-tight whitespace-nowrap tabular-nums sm:flex-row sm:gap-1 ${
+                        active ? 'font-bold text-stone-900' : p.future ? 'text-stone-400' : 'text-stone-600'
+                      }`}
                     >
-                      <span aria-hidden className="relative flex h-44 w-full max-w-12 items-end">
-                        {d.revenue === 0 ? (
-                          // Short, hatched and faint: "nothing" at a glance, never mistaken for a value
-                          <span
-                            className={`h-[12%] w-full rounded-t-lg border border-b-0 border-dashed bg-[repeating-linear-gradient(135deg,var(--color-stone-200)_0_3px,transparent_3px_7px)] ${
-                              active ? 'border-stone-500' : 'border-stone-300 group-hover:border-stone-400'
-                            }`}
-                          />
-                        ) : (
-                          <span
-                            className={`w-full rounded-t-lg transition-colors ${active ? 'bg-brand-700' : 'bg-brand-500/45 group-hover:bg-brand-500'}`}
-                            style={{ height: pct(d.revenue) }}
-                          />
-                        )}
-                        {pointed === d.date && (
-                          <span
-                            className={`absolute z-10 mb-1.5 rounded-lg bg-stone-900 px-2.5 py-1.5 text-left text-xs whitespace-nowrap text-white shadow-lg ${
-                              i === 0 ? 'left-0' : i === days.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'
-                            }`}
-                            style={{ bottom: d.revenue === 0 ? '12%' : pct(d.revenue) }}
-                          >
-                            <span className="block font-semibold tabular-nums">{formatPrice(d.revenue)}</span>
-                            <span className="block text-stone-300">{d.revenue === 0 ? 'Không có đơn giao xong' : `${d.orders} đơn`}</span>
-                          </span>
-                        )}
-                      </span>
-                      {/* Weekday over the date on phones, side by side from 640px */}
-                      <span
-                        aria-hidden
-                        className={`flex flex-col items-center text-xs leading-tight whitespace-nowrap tabular-nums sm:flex-row sm:gap-1 ${
-                          active ? 'font-bold text-stone-900' : 'text-stone-600'
-                        }`}
-                      >
-                        <span>{shortWeekday(d.date)}</span>
-                        <span>{dayMonth(d.date)}</span>
-                      </span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ol>
-          </div>
+                      <span>{shortWeekday(p.date)}</span>
+                      <span>{dayMonth(p.date)}</span>
+                    </span>
+                    <span aria-hidden className="relative flex h-4 items-center text-[0.6875rem] leading-none text-stone-400">
+                      {p.future ? 'chưa tới' : active ? <span className="size-1.5 rounded-full bg-brand-700" /> : null}
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ol>
         </div>
       </div>
     </section>
@@ -323,111 +369,146 @@ function RevenueChart({ days, selected, min, onSelect }: { days: DashboardDay['l
 
 const NO_ORDERS = 'Không có đơn nào trong ngày này'
 
-function TopProducts({ items }: { items: DashboardDay['topProducts'] }) {
+/** Shared frame of "Bán chạy trong ngày" and "Đơn của ngày": header with the day and a link, same rows, same empty state. */
+function DayListCard({
+  id,
+  title,
+  date,
+  link,
+  empty,
+  children,
+}: {
+  id: string
+  title: string
+  date: string
+  link?: { to: string; label: string }
+  empty: boolean
+  children: ReactNode
+}) {
   return (
-    <section className={`${card} p-5`} aria-labelledby="top-title">
-      <h2 id="top-title" className="font-semibold text-stone-900">
-        Bán chạy trong ngày
-      </h2>
-      {items.length === 0 ? (
-        <p className="mt-3 text-sm text-muted">{NO_ORDERS}</p>
+    <section className={`${card} flex h-full min-w-0 flex-col`} aria-labelledby={id}>
+      <div className="flex items-start justify-between gap-3 border-b border-stone-100 px-5 py-4">
+        <div className="min-w-0">
+          <h2 id={id} className="font-semibold text-stone-900">
+            {title}
+          </h2>
+          <p className="text-xs text-muted tabular-nums">{shortDay(date)}</p>
+        </div>
+        {link && !empty && (
+          <Link to={link.to} className="shrink-0 text-sm font-semibold text-brand-700 hover:underline">
+            {link.label} →
+          </Link>
+        )}
+      </div>
+      {empty ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 py-10 text-center text-sm text-muted">
+          <Inbox aria-hidden className="size-8 text-stone-300" strokeWidth={1.5} />
+          {NO_ORDERS}
+        </div>
       ) : (
-        <ol className="mt-3 divide-y divide-stone-100">
-          {items.map((p, i) => (
-            <li key={p.productId} className="flex items-baseline gap-3 py-2 text-sm">
-              <span className="w-4 shrink-0 text-muted tabular-nums">{i + 1}</span>
-              <span className="min-w-0 flex-1 truncate text-stone-900">{p.name}</span>
-              <span className="shrink-0 text-stone-600 tabular-nums">×{p.quantity}</span>
-              <span className="w-24 shrink-0 text-right font-semibold text-stone-900 tabular-nums">{formatPrice(p.amount)}</span>
-            </li>
-          ))}
-        </ol>
+        <div className="min-w-0 flex-1">{children}</div>
       )}
     </section>
+  )
+}
+
+const ordersLink = (date: string) => `/admin/don-hang?from=${date}&to=${date}`
+
+function TopProducts({ day }: { day: DashboardDay }) {
+  return (
+    <DayListCard id="top-title" title="Bán chạy trong ngày" date={day.date} link={{ to: ordersLink(day.date), label: 'Xem đơn' }} empty={day.topProducts.length === 0}>
+      <ol>
+        {day.topProducts.slice(0, LIST_ROWS).map((p, i) => (
+          <li key={p.productId} className="flex h-12 items-center gap-3 border-b border-stone-100 px-5 text-sm last:border-0">
+            <span className="w-4 shrink-0 text-muted tabular-nums">{i + 1}</span>
+            <span className="min-w-0 flex-1 truncate text-stone-900" title={p.name}>
+              {p.name}
+            </span>
+            <span className="shrink-0 text-stone-600 tabular-nums">×{p.quantity}</span>
+            <span className="w-24 shrink-0 text-right font-semibold text-stone-900 tabular-nums">{formatPrice(p.amount)}</span>
+          </li>
+        ))}
+      </ol>
+    </DayListCard>
   )
 }
 
 function DayOrders({ day }: { day: DashboardDay }) {
+  const rows = day.orders.slice(0, LIST_ROWS)
   return (
-    <section aria-labelledby="day-orders-title">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 id="day-orders-title" className="font-semibold text-stone-900">
-          Đơn của ngày
-        </h2>
-        {day.ordersCreated > 0 && (
-          <Link to={`/admin/don-hang?from=${day.date}&to=${day.date}`} className="text-sm font-semibold text-brand-700 hover:underline">
-            Xem tất cả{day.ordersCreated > DAY_ORDERS ? ` (${day.ordersCreated})` : ''} →
-          </Link>
-        )}
-      </div>
-      {day.orders.length === 0 ? (
-        <p className={`${card} px-5 py-8 text-center text-sm text-muted`}>{NO_ORDERS}</p>
-      ) : (
-        <>
-        {/* Below 768px: one card per order (like the order list), the whole card opens it */}
-        <ul className="space-y-3 md:hidden">
-          {day.orders.map((o) => (
-            <li key={o.code}>
-              <Link
-                to={`/admin/don-hang/${o.code}`}
-                className="block rounded-2xl border border-stone-200 bg-white p-4 hover:border-brand-300 focus-visible:outline-2 focus-visible:outline-brand-700"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono font-semibold text-brand-700">{o.code}</span>
-                  <StatusBadge status={o.status} />
-                </div>
-                <p className="mt-2 truncate text-sm font-medium text-stone-900" title={o.customerName}>
-                  {o.customerName}
-                </p>
-                <div className="mt-1 flex items-baseline justify-between gap-2 text-sm">
-                  <span className="font-semibold tabular-nums">{formatPrice(o.total)}</span>
-                  <time dateTime={o.createdAt} className="text-muted tabular-nums">
-                    {timeFormat.format(new Date(o.createdAt))}
-                  </time>
-                </div>
-              </Link>
-            </li>
+    <DayListCard
+      id="day-orders-title"
+      title="Đơn của ngày"
+      date={day.date}
+      link={{ to: ordersLink(day.date), label: day.ordersCreated > LIST_ROWS ? `Xem tất cả (${day.ordersCreated})` : 'Xem tất cả' }}
+      empty={rows.length === 0}
+    >
+      {/* Below 768px: one card per order (like the order list), the whole card opens it */}
+      <ul className="space-y-3 p-4 md:hidden">
+        {rows.map((o) => (
+          <li key={o.code}>
+            <Link
+              to={`/admin/don-hang/${o.code}`}
+              className="block rounded-2xl border border-stone-200 bg-white p-4 hover:border-brand-300 focus-visible:outline-2 focus-visible:outline-brand-700"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono font-semibold text-brand-700">{o.code}</span>
+                <StatusBadge status={o.status} />
+              </div>
+              <p className="mt-2 truncate text-sm font-medium text-stone-900" title={o.customerName}>
+                {o.customerName}
+              </p>
+              <div className="mt-1 flex items-baseline justify-between gap-2 text-sm">
+                <span className="font-semibold tabular-nums">{formatPrice(o.total)}</span>
+                <time dateTime={o.createdAt} className="text-muted tabular-nums">
+                  {timeFormat.format(new Date(o.createdAt))}
+                </time>
+              </div>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {/* 7/12 of a 1024px screen is narrow: the table scrolls sideways inside the card rather than widening the page */}
+      <div className="hidden overflow-x-auto md:block">
+      <table className="w-full text-left text-sm">
+        <thead>
+          <tr>
+            <th className={table.thStatic}>Mã đơn</th>
+            <th className={table.thStatic}>Giờ</th>
+            <th className={table.thStatic}>Khách</th>
+            <th className={`${table.thStatic} text-right`}>Tổng tiền</th>
+            <th className={table.thStatic}>Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((o) => (
+            <tr key={o.code} className="h-12">
+              <td className="border-b border-stone-100 px-4">
+                <Link to={`/admin/don-hang/${o.code}`} className="font-semibold text-brand-700 hover:underline">
+                  {o.code}
+                </Link>
+              </td>
+              <td className="border-b border-stone-100 px-4 tabular-nums">{timeFormat.format(new Date(o.createdAt))}</td>
+              <td className="max-w-32 truncate border-b border-stone-100 px-4 xl:max-w-48" title={o.customerName}>
+                {o.customerName}
+              </td>
+              <td className="border-b border-stone-100 px-4 text-right whitespace-nowrap tabular-nums">{formatPrice(o.total)}</td>
+              <td className="border-b border-stone-100 px-4">
+                <StatusBadge status={o.status} />
+              </td>
+            </tr>
           ))}
-        </ul>
-        <TableFrame className="hidden md:block">
-          <table className={table.table}>
-            <thead>
-              <tr>
-                <th className={table.th}>Mã đơn</th>
-                <th className={table.th}>Giờ</th>
-                <th className={table.th}>Khách</th>
-                <th className={`${table.th} text-right`}>Tổng tiền</th>
-                <th className={table.th}>Trạng thái</th>
-              </tr>
-            </thead>
-            <tbody>
-              {day.orders.map((o) => (
-                <tr key={o.code}>
-                  <td className={table.td}>
-                    <Link to={`/admin/don-hang/${o.code}`} className="font-semibold text-brand-700 hover:underline">
-                      {o.code}
-                    </Link>
-                  </td>
-                  <td className={`${table.td} tabular-nums`}>{timeFormat.format(new Date(o.createdAt))}</td>
-                  <td className={table.td}>{o.customerName}</td>
-                  <td className={`${table.td} text-right tabular-nums`}>{formatPrice(o.total)}</td>
-                  <td className={table.td}>
-                    <StatusBadge status={o.status} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableFrame>
-        </>
-      )}
-    </section>
+        </tbody>
+      </table>
+      </div>
+    </DayListCard>
   )
 }
 
 /**
- * Back-office home. "Cần xử lý ngay" (pending orders, low stock) does not depend on the day; "Tổng quan ngày" shows
- * one Vietnam day, kept in the URL (?ngay=yyyy-MM-dd, none for today). ← / → inside it move a day.
+ * Back-office home. "Cần xử lý ngay" (pending orders, low stock) does not depend on the day; below it everything
+ * follows one Vietnam day, kept in the URL (?ngay=yyyy-MM-dd, none for today): the revenue chart with the day picker,
+ * the day's totals, best sellers and orders.
  */
 export default function DashboardPage() {
   const [params, setParams] = useSearchParams()
@@ -439,16 +520,32 @@ export default function DashboardPage() {
   const date = valid && raw ? raw : today
 
   const now = useAsync((signal) => adminApi.dashboardNow(signal), [])
+  // The selected day: its totals and lists, and the 7 days up to it (the left half of the chart)
   const day = useAsync(
     async (signal) => {
       const value = await adminApi.dashboardDay(date, signal)
-      dayCache.set(date, value)
+      remember(value)
       return value
     },
     [date],
   )
+  // The right half of the chart (the days after the selected one, up to today), unless already known
+  const shownDays = chartWindow(date, today)
+  const chart = useAsync(
+    async (signal) => {
+      const source = chartSource(date, today)
+      if (source === date || shownDays.every((d) => d.future || d.date > source || revenueCache.has(d.date))) return source
+      remember(await adminApi.dashboardDay(source, signal))
+      return source
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [date],
+  )
   // While a new day loads: that day from the cache, else the previous day's numbers (dimmed)
   const shown = dayCache.get(date) ?? day.data
+  // Re-read on every render: day.data / chart.data changing re-renders once the cache has the new days
+  void chart.data
+  const points: ChartPoint[] = shownDays.map((d) => ({ ...d, ...(d.future ? {} : revenueCache.get(d.date)) }))
 
   const select = (iso: string) => {
     if (iso < min || iso > today) return
@@ -456,15 +553,6 @@ export default function DashboardPage() {
     if (iso === today) next.delete('ngay')
     else next.set('ngay', iso)
     setParams(next, { preventScrollReset: true })
-  }
-
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return
-    if ((e.target as HTMLElement).closest('input, textarea, select, [role="dialog"]')) return
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      e.preventDefault()
-      select(addDays(date, e.key === 'ArrowLeft' ? -1 : 1))
-    }
   }
 
   if (!valid || raw === today) {
@@ -505,17 +593,8 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* Arrow keys anywhere in here (outside text fields and the calendar) move a day */}
-      <section aria-labelledby="day-title" onKeyDown={onKeyDown} className="mt-8">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 id="day-title" className="font-semibold text-stone-900">
-            Tổng quan ngày
-          </h2>
-          <div className="w-full sm:w-auto">
-            <DayPicker date={date} today={today} min={min} onChange={select} />
-          </div>
-        </div>
-
+      <div className="mt-8 space-y-6">
+        <DayChart points={points} date={date} today={today} min={min} onSelect={select} />
         {day.error && !shown ? (
           <ErrorMessage message={day.error.message} onRetry={day.reload} />
         ) : !shown ? (
@@ -523,14 +602,17 @@ export default function DashboardPage() {
         ) : (
           <div aria-busy={day.loading} className={`space-y-6 transition-opacity ${day.loading && !dayCache.has(date) ? 'opacity-60' : ''}`}>
             <DayStats day={shown} versus={versus} />
-            <RevenueChart days={shown.last7Days} selected={date} min={min} onSelect={select} />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-              <TopProducts items={shown.topProducts} />
-              <DayOrders day={shown} />
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+              <div className="min-w-0 lg:col-span-5">
+                <TopProducts day={shown} />
+              </div>
+              <div className="min-w-0 lg:col-span-7">
+                <DayOrders day={shown} />
+              </div>
             </div>
           </div>
         )}
-      </section>
+      </div>
     </>
   )
 }
