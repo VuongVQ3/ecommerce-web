@@ -87,14 +87,15 @@ function Change({ now, before, money = false, upIsBad = false, versus }: { now: 
 }
 
 /**
- * One day total. Its height does not depend on the day (the comparison keeps two lines on phones, where it may wrap,
+ * One day total. The amount is never cut (one line; 2×2 below 1280px leaves it room, phones scale the size); only
+ * the extra line is truncated. Its height does not depend on the day (the comparison keeps two lines on phones, where it may wrap,
  * and a card with an extra line keeps it, blank when empty), so changing the day never moves what is below.
  */
 function DayStat({ label, children, change, extra }: { label: string; children: string; change: ReactNode; extra?: string | null }) {
   return (
     <div className={`${card} min-w-0 p-4 sm:p-5`}>
       <p className="text-sm text-stone-600">{label}</p>
-      <p className="mt-1 truncate text-xl font-bold text-stone-900 tabular-nums sm:text-2xl">{children}</p>
+      <p className="mt-1 text-[clamp(1.0625rem,5vw,1.25rem)] font-bold whitespace-nowrap text-stone-900 tabular-nums sm:text-2xl">{children}</p>
       <div className="max-sm:min-h-9">{change}</div>
       {extra !== undefined && <p className="mt-1 truncate text-xs text-muted">{extra || <>&nbsp;</>}</p>}
     </div>
@@ -104,7 +105,7 @@ function DayStat({ label, children, change, extra }: { label: string; children: 
 function DayStats({ day, versus }: { day: DashboardDayTotals & { previous: DashboardDayTotals }; versus: string }) {
   const p = day.previous
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
       <DayStat label="Đơn mới" change={<Change now={day.ordersCreated} before={p.ordersCreated} versus={versus} />}>
         {String(day.ordersCreated)}
       </DayStat>
@@ -390,6 +391,8 @@ function TopProducts({ day }: { day: DashboardDay }) {
   )
 }
 
+const cell = 'border-b border-stone-100 px-4 xl:px-3'
+
 function DayOrders({ day }: { day: DashboardDay }) {
   const rows = day.orders.slice(0, LIST_ROWS)
   return (
@@ -425,32 +428,33 @@ function DayOrders({ day }: { day: DashboardDay }) {
           </li>
         ))}
       </ul>
-      {/* 7/12 of a 1024px screen is narrow: the table scrolls sideways inside the card rather than widening the page */}
+      {/* Full width below 1280px, 7/12 from there: the frame only scrolls sideways if the table ever overflows */}
       <div className="hidden overflow-x-auto md:block">
       <table className="w-full text-left text-sm">
         <thead>
           <tr>
-            <th className={table.thStatic}>Mã đơn</th>
-            <th className={table.thStatic}>Giờ</th>
-            <th className={table.thStatic}>Khách</th>
-            <th className={`${table.thStatic} text-right`}>Tổng tiền</th>
-            <th className={table.thStatic}>Trạng thái</th>
+            <th className={`${table.thStatic} xl:px-3`}>Mã đơn</th>
+            <th className={`${table.thStatic} xl:px-3`}>Giờ</th>
+            {/* Takes what the other columns leave (w-full + max-w-0) and cuts the name, so the table always fits */}
+            <th className={`${table.thStatic} w-full xl:px-3`}>Khách</th>
+            <th className={`${table.thStatic} text-right xl:px-3`}>Tổng tiền</th>
+            <th className={`${table.thStatic} xl:px-3`}>Trạng thái</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((o) => (
             <tr key={o.code} className="h-12">
-              <td className="border-b border-stone-100 px-4">
-                <Link to={`/admin/don-hang/${o.code}`} className="font-semibold text-brand-700 hover:underline">
+              <td className={cell}>
+                <Link to={`/admin/don-hang/${o.code}`} className="font-semibold whitespace-nowrap text-brand-700 hover:underline">
                   {o.code}
                 </Link>
               </td>
-              <td className="border-b border-stone-100 px-4 tabular-nums">{timeFormat.format(new Date(o.createdAt))}</td>
-              <td className="max-w-32 truncate border-b border-stone-100 px-4 xl:max-w-48" title={o.customerName}>
+              <td className={`${cell} tabular-nums`}>{timeFormat.format(new Date(o.createdAt))}</td>
+              <td className={`${cell} w-full max-w-0 truncate`} title={o.customerName}>
                 {o.customerName}
               </td>
-              <td className="border-b border-stone-100 px-4 text-right whitespace-nowrap tabular-nums">{formatPrice(o.total)}</td>
-              <td className="border-b border-stone-100 px-4">
+              <td className={`${cell} text-right whitespace-nowrap tabular-nums`}>{formatPrice(o.total)}</td>
+              <td className={cell}>
                 <StatusBadge status={o.status} />
               </td>
             </tr>
@@ -624,7 +628,7 @@ export default function DashboardPage() {
               {shown?.date === date && (
                 <>
                   {' '}
-                  · Doanh thu {formatPrice(shown.revenue)} · {shown.ordersCreated} đơn
+                  · Doanh thu {formatPrice(shown.revenue)} · {shown.ordersCreated} đơn mới
                 </>
               )}
             </p>
@@ -657,11 +661,11 @@ export default function DashboardPage() {
         ) : (
           <div aria-busy={day.loading} className={`space-y-6 transition-opacity ${day.loading && !dayCache.has(date) ? 'opacity-60' : ''}`}>
             <DayStats day={shown} versus={versus} />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-              <div className="min-w-0 lg:col-span-5">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+              <div className="min-w-0 xl:col-span-5">
                 <TopProducts day={shown} />
               </div>
-              <div className="min-w-0 lg:col-span-7">
+              <div className="min-w-0 xl:col-span-7">
                 <DayOrders day={shown} />
               </div>
             </div>
