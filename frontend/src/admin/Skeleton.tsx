@@ -64,7 +64,7 @@ const VARIANTS = {
       ))}
     </div>
   ),
-  /** Dashboard: day totals, revenue chart, best sellers and the day's orders */
+  /** Dashboard, under the chart: day totals, best sellers and the day's orders */
   day: () => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
@@ -76,23 +76,15 @@ const VARIANTS = {
           </Box>
         ))}
       </div>
-      <Box className="space-y-3">
-        <Bar className="h-4 w-40" />
-        <Bar className="h-3 w-64 max-w-full" />
-        <div className="flex h-44 items-end gap-2 pt-4 pl-11">
-          {[45, 0, 30, 80, 20, 0, 60].map((h, i) => (
-            <Bar key={i} className="flex-1 rounded-b-none" style={{ height: `${Math.max(h, 8)}%` }} />
-          ))}
-        </div>
-      </Box>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        <Box className="space-y-3">
-          <Bar className="h-4 w-36" />
-          {[0, 1, 2].map((i) => (
-            <Bar key={i} className="h-4" />
-          ))}
-        </Box>
-        <TableRows rows={4} />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {[5, 7].map((span) => (
+          <Box key={span} className={`space-y-4 ${span === 5 ? 'lg:col-span-5' : 'lg:col-span-7'}`}>
+            <Bar className="h-4 w-36" />
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Bar key={i} className="h-5" />
+            ))}
+          </Box>
+        ))}
       </div>
     </div>
   ),
