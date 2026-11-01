@@ -1,5 +1,5 @@
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Check, ChevronRight, Inbox } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type ReactNode, type Ref } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
 import { ErrorMessage } from '../components/Feedback'
 import { StatusBadge } from '../components/OrderDetails'
@@ -8,9 +8,9 @@ import { formatPrice } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
 import { Skeleton } from './Skeleton'
 import { axisTicks, chartSource, chartWindow, shortMoney } from './chartAxis'
-import { Calendar } from './DateField'
 import { OVERDUE_PARAM } from './labels'
-import { addDays, fromIso, isoToDisplay, vnTodayIso, WEEKDAY_NAMES, WEEKDAYS } from './dates'
+import { DayPicker } from './DayPicker'
+import { addDays, dayMonth, fromIso, shortDay, shortWeekday, vnTodayIso } from './dates'
 import { card, table } from './styles'
 import { PageHeader } from './ui'
 
@@ -34,13 +34,6 @@ function remember(day: DashboardDay) {
 }
 
 const timeFormat = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' })
-const dayMonth = (iso: string) => isoToDisplay(iso).slice(0, 5)
-const weekday = (iso: string) => (fromIso(iso).getUTCDay() + 6) % 7
-const shortWeekday = (iso: string) => WEEKDAYS[weekday(iso)]
-/** "Thứ Bảy, 18/10/2026" */
-const longDay = (iso: string) => `${WEEKDAY_NAMES[weekday(iso)]}, ${isoToDisplay(iso)}`
-/** "CN, 01/11" */
-const shortDay = (iso: string) => `${shortWeekday(iso)}, ${dayMonth(iso)}`
 const daysBetween = (from: string, to: string) => Math.round((fromIso(to).getTime() - fromIso(from).getTime()) / 86_400_000)
 
 /** Orange while something waits (value > 0), faded with a ✓ when there is nothing to do. The whole card opens the list. */
@@ -93,13 +86,17 @@ function Change({ now, before, money = false, upIsBad = false, versus }: { now: 
   )
 }
 
+/**
+ * One day total. Its height does not depend on the day (the comparison keeps two lines on phones, where it may wrap,
+ * and a card with an extra line keeps it, blank when empty), so changing the day never moves what is below.
+ */
 function DayStat({ label, children, change, extra }: { label: string; children: string; change: ReactNode; extra?: string | null }) {
   return (
     <div className={`${card} min-w-0 p-4 sm:p-5`}>
       <p className="text-sm text-stone-600">{label}</p>
       <p className="mt-1 truncate text-xl font-bold text-stone-900 tabular-nums sm:text-2xl">{children}</p>
-      {change}
-      {extra && <p className="mt-1 truncate text-xs text-muted">{extra}</p>}
+      <div className="max-sm:min-h-9">{change}</div>
+      {extra !== undefined && <p className="mt-1 truncate text-xs text-muted">{extra || <>&nbsp;</>}</p>}
     </div>
   )
 }
@@ -128,104 +125,6 @@ function DayStats({ day, versus }: { day: DashboardDayTotals & { previous: Dashb
   )
 }
 
-const roundBtn =
-  'flex size-10 shrink-0 items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white'
-
-/**
- * Labels the picker could show at their widest, for sizing it: every weekday with every digit. The shop font has no
- * tabular figures (tabular-nums changes nothing), so "25/10" is wider than "01/11".
- */
-const DIGITS = [...'0123456789']
-const SIZER_LONG = WEEKDAY_NAMES.flatMap((name) => DIGITS.map((d) => `${name}, ${d}${d}/${d}${d}/${d}${d}${d}${d}`))
-const SIZER_SHORT = WEEKDAYS.flatMap((day) => DIGITS.map((d) => `${day}, ${d}${d}/${d}${d}`))
-
-/** Text of `current` in a box as wide as the widest of `sizes` (invisible copies stacked in the same grid cell) */
-function FixedLabel({ current, sizes, className = '' }: { current: string; sizes: string[]; className?: string }) {
-  return (
-    <span className={`grid text-center ${className}`}>
-      {sizes.map((s) => (
-        <span key={s} aria-hidden className="invisible [grid-area:1/1]">
-          {s}
-        </span>
-      ))}
-      <span className="[grid-area:1/1]">{current}</span>
-    </span>
-  )
-}
-
-/**
- * ‹ [Thứ Bảy, 01/11/2026] › [Hôm nay] [calendar], right-aligned. Nothing moves when the day changes: the label keeps
- * the width of the longest one and "Hôm nay" stays in place, disabled on today.
- */
-function DayControls({ date, today, min, onChange }: { date: string; today: string; min: string; onChange: (iso: string) => void }) {
-  const [calendarOpen, setCalendarOpen] = useState(false)
-  const wrapper = useRef<HTMLDivElement>(null)
-  const calendarButton = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    if (!calendarOpen) return
-    const onPointer = (e: PointerEvent) => {
-      if (!wrapper.current?.contains(e.target as Node)) setCalendarOpen(false)
-    }
-    document.addEventListener('pointerdown', onPointer)
-    return () => document.removeEventListener('pointerdown', onPointer)
-  }, [calendarOpen])
-
-  return (
-    <div ref={wrapper} className="relative flex shrink-0 items-center gap-2 self-end md:self-auto">
-      <button type="button" onClick={() => onChange(addDays(date, -1))} disabled={date <= min} aria-label="Ngày trước" className={roundBtn}>
-        <ChevronLeft aria-hidden className="size-4" strokeWidth={2.25} />
-      </button>
-      <p aria-live="polite" className="text-sm font-semibold whitespace-nowrap text-stone-900 tabular-nums">
-        <FixedLabel current={shortDay(date)} sizes={SIZER_SHORT} className="sm:hidden" />
-        <FixedLabel current={longDay(date)} sizes={SIZER_LONG} className="max-sm:hidden" />
-      </p>
-      <button type="button" onClick={() => onChange(addDays(date, 1))} disabled={date >= today} aria-label="Ngày sau" className={roundBtn}>
-        <ChevronRight aria-hidden className="size-4" strokeWidth={2.25} />
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange(today)}
-        disabled={date === today}
-        aria-disabled={date === today || undefined}
-        className="shrink-0 rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:text-stone-400 disabled:opacity-60 disabled:hover:bg-white"
-      >
-        Hôm nay
-      </button>
-      <button
-        ref={calendarButton}
-        type="button"
-        onClick={() => setCalendarOpen((o) => !o)}
-        aria-label="Chọn ngày từ lịch"
-        aria-expanded={calendarOpen}
-        aria-haspopup="dialog"
-        className={roundBtn}
-      >
-        <CalendarDays aria-hidden className="size-4.5" strokeWidth={1.75} />
-      </button>
-      {calendarOpen && (
-        <div className="absolute top-full right-0 z-40">
-          <Calendar
-            label="ngày"
-            value={date}
-            min={min}
-            max={today}
-            onPick={(iso) => {
-              setCalendarOpen(false)
-              onChange(iso)
-              calendarButton.current?.focus()
-            }}
-            onClose={() => {
-              setCalendarOpen(false)
-              calendarButton.current?.focus()
-            }}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
-
 type ChartPoint = { date: string; future: boolean; revenue?: number; orders?: number }
 
 /**
@@ -233,7 +132,27 @@ type ChartPoint = { date: string; future: boolean; revenue?: number; orders?: nu
  * before, 3 after; days not come yet are dashed and cannot be picked). Each column is a button picking its day; ←/→
  * while the chart has focus move a day. On a change the columns slide (250ms) to bring the new day to the middle.
  */
-function DayChart({ points, date, today, min, onSelect }: { points: ChartPoint[]; date: string; today: string; min: string; onSelect: (iso: string) => void }) {
+function DayChart({
+  points,
+  date,
+  today,
+  min,
+  onSelect,
+  headerRef,
+  pickerRef,
+  picker,
+}: {
+  points: ChartPoint[]
+  date: string
+  today: string
+  min: string
+  onSelect: (iso: string) => void
+  /** The card header, watched to know when the sticky bar should take over */
+  headerRef: Ref<HTMLDivElement>
+  /** Wrapper of the picker in the header: inert while the sticky bar is the live one */
+  pickerRef: Ref<HTMLDivElement>
+  picker: { hidden: boolean; onFocus: (e: FocusEvent) => void; onBlur: (e: FocusEvent) => void }
+}) {
   const known = points.filter((p) => !p.future && p.revenue !== undefined)
   const ticks = axisTicks(Math.max(0, ...known.map((p) => p.revenue!)))
   const top = ticks[ticks.length - 1]
@@ -274,7 +193,7 @@ function DayChart({ points, date, today, min, onSelect }: { points: ChartPoint[]
   return (
     <section className={`${card} p-5`} aria-labelledby="day-title">
       {/* Phones: title, then the picker on its own line */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <div ref={headerRef} className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <h2 id="day-title" className="font-semibold text-stone-900">
             Doanh thu theo ngày
@@ -285,7 +204,16 @@ function DayChart({ points, date, today, min, onSelect }: { points: ChartPoint[]
           </p>
           <p className="text-xs text-muted">Chỉ tính đơn đã giao thành công, theo ngày hoàn tất.</p>
         </div>
-        <DayControls date={date} today={today} min={min} onChange={onSelect} />
+        <div
+          ref={pickerRef}
+          inert={picker.hidden}
+          aria-hidden={picker.hidden || undefined}
+          onFocus={picker.onFocus}
+          onBlur={picker.onBlur}
+          className="shrink-0 self-end md:self-auto"
+        >
+          <DayPicker date={date} today={today} min={min} onChange={onSelect} />
+        </div>
       </div>
 
       <div className="mt-4 flex gap-1.5 sm:gap-2" onKeyDown={onKeyDown}>
@@ -425,13 +353,17 @@ function DayListCard({
           </Link>
         )}
       </div>
+      {/*
+        From 768px the body keeps the room of 5 rows (and the table header), empty or not: changing the day never
+        changes the height of the page, so the scroll position and the sticky bar stay put
+      */}
       {empty ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 py-10 text-center text-sm text-muted">
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 py-10 text-center text-sm text-muted md:min-h-71">
           <Inbox aria-hidden className="size-8 text-stone-300" strokeWidth={1.5} />
           {NO_ORDERS}
         </div>
       ) : (
-        <div className="min-w-0 flex-1">{children}</div>
+        <div className="min-w-0 flex-1 md:min-h-71">{children}</div>
       )}
     </section>
   )
@@ -572,6 +504,61 @@ export default function DashboardPage() {
   void chart.data
   const points: ChartPoint[] = shownDays.map((d) => ({ ...d, ...(d.future ? {} : revenueCache.get(d.date)) }))
 
+  // The sticky bar takes over once the chart header has scrolled out of view (under the 56px top bar below 1024px)
+  const [chartHeader, setChartHeader] = useState<HTMLDivElement | null>(null)
+  const [stuck, setStuck] = useState(false)
+  // Changing the day from the sticky bar must not move the page: a shorter day (fewer orders) would shrink it and the
+  // browser would pull the scroll up. The section keeps its height until the chart header is back in view.
+  const daySection = useRef<HTMLDivElement>(null)
+  const [heldHeight, setHeldHeight] = useState<number | undefined>()
+  useEffect(() => {
+    if (!chartHeader || typeof IntersectionObserver === 'undefined') return
+    const wide = window.matchMedia('(min-width: 1024px)')
+    let observer: IntersectionObserver | undefined
+    const watch = () => {
+      observer?.disconnect()
+      const top = wide.matches ? 0 : 56
+      observer = new IntersectionObserver(([entry]) => {
+        const hidden = !entry.isIntersecting && entry.boundingClientRect.top < top
+        setStuck(hidden)
+        if (!hidden) setHeldHeight(undefined)
+      }, {
+        rootMargin: `-${top}px 0px 0px 0px`,
+      })
+      observer.observe(chartHeader)
+    }
+    watch()
+    wide.addEventListener('change', watch)
+    return () => {
+      observer?.disconnect()
+      wide.removeEventListener('change', watch)
+    }
+  }, [chartHeader])
+
+  // Only one picker is live (the other is inert and hidden from screen readers). Focus in the one going away moves to
+  // the same button of the other: in this layout effect the newly inert copy still holds it.
+  const cardPicker = useRef<HTMLDivElement>(null)
+  const barPicker = useRef<HTMLDivElement>(null)
+  const lastFocus = useRef<{ where: 'card' | 'bar'; part: string | null } | null>(null)
+  const pickerFocus = (where: 'card' | 'bar') => ({
+    onFocus: (e: FocusEvent) => {
+      lastFocus.current = { where, part: (e.target as HTMLElement).closest<HTMLElement>('[data-part]')?.dataset.part ?? null }
+    },
+    // Focus going to another element (not just dropped) ends the hand-over
+    onBlur: (e: FocusEvent) => {
+      if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) lastFocus.current = null
+    },
+  })
+  useLayoutEffect(() => {
+    const [from, to] = stuck ? [cardPicker.current, barPicker.current] : [barPicker.current, cardPicker.current]
+    const active = document.activeElement
+    const held = from?.contains(active) || (active === document.body && lastFocus.current?.where === (stuck ? 'card' : 'bar'))
+    if (!to || !held) return
+    const part = lastFocus.current?.part
+    const target = (part && to.querySelector<HTMLElement>(`[data-part="${part}"]:not(:disabled)`)) || to.querySelector<HTMLElement>('button:not(:disabled)')
+    target?.focus({ preventScroll: true })
+  }, [stuck])
+
   const select = (iso: string) => {
     if (iso < min || iso > today) return
     const next = new URLSearchParams(params)
@@ -618,8 +605,51 @@ export default function DashboardPage() {
         )}
       </section>
 
-      <div className="mt-8 space-y-6">
-        <DayChart points={points} date={date} today={today} min={min} onSelect={select} />
+      {/* Everything below follows the selected day; the sticky bar lives in here, so it stops at the end */}
+      <div className="mt-8">
+        {/* Zero-height sticky anchor: takes no room while the bar is hidden */}
+        <div className="sticky top-14 z-20 h-0 lg:top-0">
+          <div
+            ref={barPicker}
+            inert={!stuck}
+            aria-hidden={!stuck || undefined}
+            {...pickerFocus('bar')}
+            className={`absolute inset-x-0 -mx-4 flex h-14 items-center justify-end gap-4 border-b border-stone-200 bg-white/95 px-[37px] shadow-[0_4px_12px_rgb(0_0_0/0.06)] backdrop-blur transition duration-150 ease-out motion-reduce:transition-none md:-mx-6 md:px-[45px] lg:-mx-8 lg:px-[53px] ${
+              stuck ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-full opacity-0'
+            }`}
+          >
+            {/* Phones: the picker alone (short label), on the right */}
+            <p className="mr-auto min-w-0 truncate text-sm text-stone-700 tabular-nums max-sm:hidden">
+              <strong className="font-semibold text-stone-900">{shortDay(date)}</strong>
+              {shown?.date === date && (
+                <>
+                  {' '}
+                  · Doanh thu {formatPrice(shown.revenue)} · {shown.ordersCreated} đơn
+                </>
+              )}
+            </p>
+            <DayPicker
+              date={date}
+              today={today}
+              min={min}
+              onChange={(iso) => {
+                setHeldHeight((h) => Math.max(h ?? 0, daySection.current?.offsetHeight ?? 0))
+                select(iso)
+              }}
+            />
+          </div>
+        </div>
+      <div ref={daySection} className="space-y-6" style={heldHeight ? { minHeight: heldHeight } : undefined}>
+        <DayChart
+          points={points}
+          date={date}
+          today={today}
+          min={min}
+          onSelect={select}
+          headerRef={setChartHeader}
+          pickerRef={cardPicker}
+          picker={{ hidden: stuck, ...pickerFocus('card') }}
+        />
         {day.error && !shown ? (
           <ErrorMessage message={day.error.message} onRetry={day.reload} />
         ) : !shown ? (
@@ -637,6 +667,7 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </>
   )

@@ -55,3 +55,13 @@ export function quickRange(kind: 'today' | 'last7' | 'thisMonth', now: Date = ne
       return { from: `${today.slice(0, 8)}01`, to: today }
   }
 }
+
+/** "18/10" */
+export const dayMonth = (iso: string) => isoToDisplay(iso).slice(0, 5)
+const weekdayIndex = (iso: string) => (fromIso(iso).getUTCDay() + 6) % 7
+/** "T7" */
+export const shortWeekday = (iso: string) => WEEKDAYS[weekdayIndex(iso)]
+/** "Thứ Bảy, 18/10/2026" */
+export const longDay = (iso: string) => `${WEEKDAY_NAMES[weekdayIndex(iso)]}, ${isoToDisplay(iso)}`
+/** "CN, 01/11" */
+export const shortDay = (iso: string) => `${shortWeekday(iso)}, ${dayMonth(iso)}`
