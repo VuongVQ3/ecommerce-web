@@ -131,7 +131,32 @@ function DayStats({ day, versus }: { day: DashboardDayTotals & { previous: Dashb
 const roundBtn =
   'flex size-10 shrink-0 items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white'
 
-/** ‹ [Thứ Bảy, 01/11/2026] › + "Hôm nay" (only away from today) + calendar */
+/**
+ * Labels the picker could show at their widest, for sizing it: every weekday with every digit. The shop font has no
+ * tabular figures (tabular-nums changes nothing), so "25/10" is wider than "01/11".
+ */
+const DIGITS = [...'0123456789']
+const SIZER_LONG = WEEKDAY_NAMES.flatMap((name) => DIGITS.map((d) => `${name}, ${d}${d}/${d}${d}/${d}${d}${d}${d}`))
+const SIZER_SHORT = WEEKDAYS.flatMap((day) => DIGITS.map((d) => `${day}, ${d}${d}/${d}${d}`))
+
+/** Text of `current` in a box as wide as the widest of `sizes` (invisible copies stacked in the same grid cell) */
+function FixedLabel({ current, sizes, className = '' }: { current: string; sizes: string[]; className?: string }) {
+  return (
+    <span className={`grid text-center ${className}`}>
+      {sizes.map((s) => (
+        <span key={s} aria-hidden className="invisible [grid-area:1/1]">
+          {s}
+        </span>
+      ))}
+      <span className="[grid-area:1/1]">{current}</span>
+    </span>
+  )
+}
+
+/**
+ * ‹ [Thứ Bảy, 01/11/2026] › [Hôm nay] [calendar], right-aligned. Nothing moves when the day changes: the label keeps
+ * the width of the longest one and "Hôm nay" stays in place, disabled on today.
+ */
 function DayControls({ date, today, min, onChange }: { date: string; today: string; min: string; onChange: (iso: string) => void }) {
   const [calendarOpen, setCalendarOpen] = useState(false)
   const wrapper = useRef<HTMLDivElement>(null)
@@ -147,26 +172,26 @@ function DayControls({ date, today, min, onChange }: { date: string; today: stri
   }, [calendarOpen])
 
   return (
-    <div ref={wrapper} className="relative flex items-center gap-2">
+    <div ref={wrapper} className="relative flex shrink-0 items-center gap-2 self-end md:self-auto">
       <button type="button" onClick={() => onChange(addDays(date, -1))} disabled={date <= min} aria-label="Ngày trước" className={roundBtn}>
         <ChevronLeft aria-hidden className="size-4" strokeWidth={2.25} />
       </button>
-      <p aria-live="polite" className="min-w-0 text-center text-sm font-semibold whitespace-nowrap text-stone-900 tabular-nums sm:min-w-44">
-        <span className="sm:hidden">{shortDay(date)}</span>
-        <span className="max-sm:hidden">{longDay(date)}</span>
+      <p aria-live="polite" className="text-sm font-semibold whitespace-nowrap text-stone-900 tabular-nums">
+        <FixedLabel current={shortDay(date)} sizes={SIZER_SHORT} className="sm:hidden" />
+        <FixedLabel current={longDay(date)} sizes={SIZER_LONG} className="max-sm:hidden" />
       </p>
       <button type="button" onClick={() => onChange(addDays(date, 1))} disabled={date >= today} aria-label="Ngày sau" className={roundBtn}>
         <ChevronRight aria-hidden className="size-4" strokeWidth={2.25} />
       </button>
-      {date !== today && (
-        <button
-          type="button"
-          onClick={() => onChange(today)}
-          className="shrink-0 rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
-        >
-          Hôm nay
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => onChange(today)}
+        disabled={date === today}
+        aria-disabled={date === today || undefined}
+        className="shrink-0 rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:text-stone-400 disabled:opacity-60 disabled:hover:bg-white"
+      >
+        Hôm nay
+      </button>
       <button
         ref={calendarButton}
         type="button"
@@ -174,7 +199,7 @@ function DayControls({ date, today, min, onChange }: { date: string; today: stri
         aria-label="Chọn ngày từ lịch"
         aria-expanded={calendarOpen}
         aria-haspopup="dialog"
-        className={`${roundBtn} ml-auto sm:ml-0`}
+        className={roundBtn}
       >
         <CalendarDays aria-hidden className="size-4.5" strokeWidth={1.75} />
       </button>
