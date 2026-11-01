@@ -11,7 +11,7 @@ import { axisTicks, chartSource, chartWindow, shortMoney } from './chartAxis'
 import { OVERDUE_PARAM } from './labels'
 import { DayPicker } from './DayPicker'
 import { addDays, dayMonth, fromIso, shortDay, shortWeekday, vnTodayIso } from './dates'
-import { card, table } from './styles'
+import { card } from './styles'
 import { PageHeader } from './ui'
 
 /** The day view goes back this far (the API refuses older days) */
@@ -88,16 +88,15 @@ function Change({ now, before, money = false, upIsBad = false, versus }: { now: 
 
 /**
  * One day total. The amount is never cut (one line; 2×2 below 1280px leaves it room, phones scale the size); only
- * the extra line is truncated. Its height does not depend on the day (the comparison keeps two lines on phones, where it may wrap,
- * and a card with an extra line keeps it, blank when empty), so changing the day never moves what is below.
+ * the extra line is truncated.
  */
 function DayStat({ label, children, change, extra }: { label: string; children: string; change: ReactNode; extra?: string | null }) {
   return (
     <div className={`${card} min-w-0 p-4 sm:p-5`}>
       <p className="text-sm text-stone-600">{label}</p>
       <p className="mt-1 text-[clamp(1.0625rem,5vw,1.25rem)] font-bold whitespace-nowrap text-stone-900 tabular-nums sm:text-2xl">{children}</p>
-      <div className="max-sm:min-h-9">{change}</div>
-      {extra !== undefined && <p className="mt-1 truncate text-xs text-muted">{extra || <>&nbsp;</>}</p>}
+      {change}
+      {extra && <p className="mt-1 truncate text-xs text-muted">{extra}</p>}
     </div>
   )
 }
@@ -324,6 +323,14 @@ function DayChart({
 const NO_ORDERS = 'Không có đơn nào trong ngày này'
 
 /** Shared frame of "Bán chạy trong ngày" and "Đơn của ngày": header with the day and a link, same rows, same empty state. */
+/** Header row and rows shared by both lists: 36px header, 40px rows, 20px at the outer edges like the card header */
+const listTh = 'h-9 border-b border-stone-200 bg-stone-50 px-3 text-xs font-semibold whitespace-nowrap text-stone-600 first:pl-5 last:pr-5'
+const listTd = 'h-10 border-b border-stone-100 px-3 first:pl-5 last:pr-5'
+
+/**
+ * Shared frame of "Bán chạy trong ngày" and "Đơn của ngày": "Title · CN, 01/11" and a link in the header, then the
+ * rows (as many as there are, up to 5), or a 160px empty state without column headers.
+ */
 function DayListCard({
   id,
   title,
@@ -340,31 +347,29 @@ function DayListCard({
   children: ReactNode
 }) {
   return (
-    <section className={`${card} flex h-full min-w-0 flex-col`} aria-labelledby={id}>
-      <div className="flex items-start justify-between gap-3 border-b border-stone-100 px-5 py-4">
-        <div className="min-w-0">
-          <h2 id={id} className="font-semibold text-stone-900">
-            {title}
-          </h2>
-          <p className="text-xs text-muted tabular-nums">{shortDay(date)}</p>
-        </div>
+    <section className={`${card} min-w-0`} aria-labelledby={id}>
+      <div className="flex items-center justify-between gap-3 border-b border-stone-100 px-5 py-4">
+        {/* Title and day on one line; the day wraps under it on a narrow phone */}
+        <h2 id={id} className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 font-semibold text-stone-900">
+          {title}
+          <span className="text-xs font-normal text-muted tabular-nums">
+            <span aria-hidden>· </span>
+            {shortDay(date)}
+          </span>
+        </h2>
         {link && !empty && (
           <Link to={link.to} className="shrink-0 text-sm font-semibold text-brand-700 hover:underline">
             {link.label} →
           </Link>
         )}
       </div>
-      {/*
-        From 768px the body keeps the room of 5 rows (and the table header), empty or not: changing the day never
-        changes the height of the page, so the scroll position and the sticky bar stay put
-      */}
       {empty ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 py-10 text-center text-sm text-muted md:min-h-71">
+        <div className="flex h-40 flex-col items-center justify-center gap-2 px-5 text-center text-sm text-muted">
           <Inbox aria-hidden className="size-8 text-stone-300" strokeWidth={1.5} />
           {NO_ORDERS}
         </div>
       ) : (
-        <div className="min-w-0 flex-1 md:min-h-71">{children}</div>
+        children
       )}
     </section>
   )
@@ -375,23 +380,32 @@ const ordersLink = (date: string) => `/admin/don-hang?from=${date}&to=${date}`
 function TopProducts({ day }: { day: DashboardDay }) {
   return (
     <DayListCard id="top-title" title="Bán chạy trong ngày" date={day.date} link={{ to: ordersLink(day.date), label: 'Xem đơn' }} empty={day.topProducts.length === 0}>
-      <ol>
-        {day.topProducts.slice(0, LIST_ROWS).map((p, i) => (
-          <li key={p.productId} className="flex h-12 items-center gap-3 border-b border-stone-100 px-5 text-sm last:border-0">
-            <span className="w-4 shrink-0 text-muted tabular-nums">{i + 1}</span>
-            <span className="min-w-0 flex-1 truncate text-stone-900" title={p.name}>
-              {p.name}
-            </span>
-            <span className="shrink-0 text-stone-600 tabular-nums">×{p.quantity}</span>
-            <span className="w-24 shrink-0 text-right font-semibold text-stone-900 tabular-nums">{formatPrice(p.amount)}</span>
-          </li>
-        ))}
-      </ol>
+      <table className="w-full text-left text-sm">
+        <thead>
+          <tr>
+            <th className={listTh}>#</th>
+            <th className={`${listTh} w-full`}>Sản phẩm</th>
+            <th className={`${listTh} text-right`}>SL</th>
+            <th className={`${listTh} text-right`}>Doanh thu</th>
+          </tr>
+        </thead>
+        <tbody className="[&>tr:last-child>td]:border-0">
+          {day.topProducts.slice(0, LIST_ROWS).map((p, i) => (
+            <tr key={p.productId}>
+              <td className={`${listTd} text-muted tabular-nums`}>{i + 1}</td>
+              {/* Takes the room left (w-full + max-w-0) and cuts a long name */}
+              <td className={`${listTd} w-full max-w-0 truncate text-stone-900`} title={p.name}>
+                {p.name}
+              </td>
+              <td className={`${listTd} text-right text-stone-600 tabular-nums`}>{p.quantity}</td>
+              <td className={`${listTd} text-right font-semibold whitespace-nowrap text-stone-900 tabular-nums`}>{formatPrice(p.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </DayListCard>
   )
 }
-
-const cell = 'border-b border-stone-100 px-4 xl:px-3'
 
 function DayOrders({ day }: { day: DashboardDay }) {
   const rows = day.orders.slice(0, LIST_ROWS)
@@ -404,21 +418,21 @@ function DayOrders({ day }: { day: DashboardDay }) {
       empty={rows.length === 0}
     >
       {/* Below 768px: one card per order (like the order list), the whole card opens it */}
-      <ul className="space-y-3 p-4 md:hidden">
+      <ul className="space-y-2 p-3 md:hidden">
         {rows.map((o) => (
           <li key={o.code}>
             <Link
               to={`/admin/don-hang/${o.code}`}
-              className="block rounded-2xl border border-stone-200 bg-white p-4 hover:border-brand-300 focus-visible:outline-2 focus-visible:outline-brand-700"
+              className="block rounded-xl border border-stone-200 bg-white p-3 hover:border-brand-300 focus-visible:outline-2 focus-visible:outline-brand-700"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono font-semibold text-brand-700">{o.code}</span>
                 <StatusBadge status={o.status} />
               </div>
-              <p className="mt-2 truncate text-sm font-medium text-stone-900" title={o.customerName}>
+              <p className="mt-1.5 truncate text-sm font-medium text-stone-900" title={o.customerName}>
                 {o.customerName}
               </p>
-              <div className="mt-1 flex items-baseline justify-between gap-2 text-sm">
+              <div className="mt-0.5 flex items-baseline justify-between gap-2 text-sm">
                 <span className="font-semibold tabular-nums">{formatPrice(o.total)}</span>
                 <time dateTime={o.createdAt} className="text-muted tabular-nums">
                   {timeFormat.format(new Date(o.createdAt))}
@@ -430,37 +444,37 @@ function DayOrders({ day }: { day: DashboardDay }) {
       </ul>
       {/* Full width below 1280px, 7/12 from there: the frame only scrolls sideways if the table ever overflows */}
       <div className="hidden overflow-x-auto md:block">
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr>
-            <th className={`${table.thStatic} xl:px-3`}>Mã đơn</th>
-            <th className={`${table.thStatic} xl:px-3`}>Giờ</th>
-            {/* Takes what the other columns leave (w-full + max-w-0) and cuts the name, so the table always fits */}
-            <th className={`${table.thStatic} w-full xl:px-3`}>Khách</th>
-            <th className={`${table.thStatic} text-right xl:px-3`}>Tổng tiền</th>
-            <th className={`${table.thStatic} xl:px-3`}>Trạng thái</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((o) => (
-            <tr key={o.code} className="h-12">
-              <td className={cell}>
-                <Link to={`/admin/don-hang/${o.code}`} className="font-semibold whitespace-nowrap text-brand-700 hover:underline">
-                  {o.code}
-                </Link>
-              </td>
-              <td className={`${cell} tabular-nums`}>{timeFormat.format(new Date(o.createdAt))}</td>
-              <td className={`${cell} w-full max-w-0 truncate`} title={o.customerName}>
-                {o.customerName}
-              </td>
-              <td className={`${cell} text-right whitespace-nowrap tabular-nums`}>{formatPrice(o.total)}</td>
-              <td className={cell}>
-                <StatusBadge status={o.status} />
-              </td>
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr>
+              <th className={listTh}>Mã đơn</th>
+              <th className={listTh}>Giờ</th>
+              {/* Takes what the other columns leave (w-full + max-w-0) and cuts the name, so the table always fits */}
+              <th className={`${listTh} w-full`}>Khách</th>
+              <th className={`${listTh} text-right`}>Tổng tiền</th>
+              <th className={listTh}>Trạng thái</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="[&>tr:last-child>td]:border-0">
+            {rows.map((o) => (
+              <tr key={o.code}>
+                <td className={listTd}>
+                  <Link to={`/admin/don-hang/${o.code}`} className="font-semibold whitespace-nowrap text-brand-700 hover:underline">
+                    {o.code}
+                  </Link>
+                </td>
+                <td className={`${listTd} tabular-nums`}>{timeFormat.format(new Date(o.createdAt))}</td>
+                <td className={`${listTd} w-full max-w-0 truncate`} title={o.customerName}>
+                  {o.customerName}
+                </td>
+                <td className={`${listTd} text-right whitespace-nowrap tabular-nums`}>{formatPrice(o.total)}</td>
+                <td className={listTd}>
+                  <StatusBadge status={o.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </DayListCard>
   )
@@ -661,7 +675,7 @@ export default function DashboardPage() {
         ) : (
           <div aria-busy={day.loading} className={`space-y-6 transition-opacity ${day.loading && !dayCache.has(date) ? 'opacity-60' : ''}`}>
             <DayStats day={shown} versus={versus} />
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+            <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
               <div className="min-w-0 xl:col-span-5">
                 <TopProducts day={shown} />
               </div>
