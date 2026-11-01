@@ -52,36 +52,54 @@ function TableRows({ rows }: { rows: number }) {
 }
 
 const VARIANTS = {
-  /** Dashboard: the three "Cần xử lý ngay" cards */
+  /** Dashboard: the "Việc cần làm" card, three cells side by side (stacked when narrow) */
   'now-cards': () => (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-      {[0, 1, 2].map((i) => (
-        <Box key={i} className="space-y-3">
-          <Bar className="h-3.5 w-1/2" />
-          <Bar className="h-8 w-12" />
-          <Bar className="h-3 w-3/4" />
-        </Box>
-      ))}
-    </div>
-  ),
-  /** Dashboard, under the chart: day totals, best sellers and the day's orders */
-  day: () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
-          <Box key={i} className="space-y-3 p-4 sm:p-5">
-            <Bar className="h-3.5 w-1/2" />
-            <Bar className="h-7 w-3/4" />
-            <Bar className="h-3 w-2/3" />
-          </Box>
+    <div className={`${card} overflow-hidden`}>
+      <div className="-mt-px -ml-px flex flex-wrap">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex min-h-17 min-w-[260px] flex-1 items-center gap-3 border-t border-l border-stone-200 px-4 py-3">
+            <Bar className="size-10 shrink-0 rounded-lg" />
+            <div className="flex-1 space-y-1.5">
+              <Bar className="h-3.5 w-1/2" />
+              <Bar className="h-3 w-3/4" />
+            </div>
+          </div>
         ))}
       </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+    </div>
+  ),
+  /** Dashboard, the day: card with 4 totals, 7 columns and a footer; then best sellers and the day's orders */
+  day: () => (
+    <div className="space-y-6">
+      <div className={`${card} @container overflow-hidden`}>
+        <div className="flex items-center justify-between gap-3 px-5 py-4">
+          <Bar className="h-4 w-48" />
+          <Bar className="h-8 w-56 rounded-xl" />
+        </div>
+        <div className="grid grid-cols-2 gap-px border-y border-stone-200 bg-stone-200 @min-[48rem]:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="space-y-2.5 bg-white px-5 py-4">
+              <Bar className="h-3.5 w-2/3" />
+              <Bar className="h-6 w-3/4" />
+              <Bar className="h-3 w-1/2" />
+            </div>
+          ))}
+        </div>
+        <div className="flex h-60 items-end gap-1 px-3 pt-11 pb-10 sm:gap-2 sm:px-5">
+          {[45, 0, 30, 80, 20, 0, 60].map((h, i) => (
+            <Bar key={i} className="flex-1 rounded-b-none" style={{ height: `${Math.max(h, 8)}%` }} />
+          ))}
+        </div>
+        <div className="border-t border-stone-100 px-5 py-3.5">
+          <Bar className="h-3.5 w-64 max-w-full" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
         {[5, 7].map((span) => (
-          <Box key={span} className={`space-y-4 ${span === 5 ? 'lg:col-span-5' : 'lg:col-span-7'}`}>
-            <Bar className="h-4 w-36" />
+          <Box key={span} className={`space-y-3 ${span === 5 ? 'xl:col-span-5' : 'xl:col-span-7'}`}>
+            <Bar className="h-4 w-48" />
             {[0, 1, 2, 3, 4].map((i) => (
-              <Bar key={i} className="h-5" />
+              <Bar key={i} className="h-6" />
             ))}
           </Box>
         ))}
