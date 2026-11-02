@@ -44,9 +44,10 @@ Render kiểm tra sức khoẻ service qua `GET /api/health` (public, trả `{"s
 ## Trước khi có khách thật
 - **Turnstile đang dùng test key của Cloudflare (luôn pass), tức là chưa chống bot thật.** Tạo widget trên Cloudflare cho domain của bạn, rồi đặt `TURNSTILE_SECRET_KEY` (biến runtime) và `VITE_TURNSTILE_SITE_KEY` (biến build) trên Render.
 - **Chưa có `RESEND_API_KEY`:** link đặt lại mật khẩu chỉ được ghi vào log của Render.
-- **Các trang chính sách** (`/chinh-sach-doi-tra`, `/chinh-sach-van-chuyen`, `/chinh-sach-bao-mat`,
-  `/dieu-khoan-su-dung`, `/lien-he`) là bản nháp: điền các chỗ đánh dấu **[CẦN ĐIỀN]** trong
-  `frontend/src/pages/PolicyPages.tsx` và đặt các biến `BUSINESS_*`.
+- **Các trang chính sách** (`/chinh-sach-doi-tra`, `/chinh-sach-van-chuyen`, `/dieu-khoan-giao-dich`,
+  `/lien-he`) đã có nội dung chính thức (`frontend/src/pages/PolicyPages.tsx`, thông tin liên hệ trong
+  `frontend/src/lib/shopContact.ts`). Còn thiếu tên chủ sở hữu và mã số thuế/ĐKKD: khi có thì đặt
+  `BUSINESS_OWNER_NAME`, `BUSINESS_REGISTRATION_NUMBER` (hiện ở chân trang).
 - Gói free tự ngủ khi không có truy cập. Muốn chạy liên tục thì nâng cấp gói (Starter khoảng 7 USD/tháng).
 
 ## Chạy image trên máy

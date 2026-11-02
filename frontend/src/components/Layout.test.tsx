@@ -25,15 +25,33 @@ function renderLayout(path = '/') {
 }
 
 describe('Layout', () => {
-  it('shows only configured business details, hotline as a tel: link', () => {
+  it('shows the published contact details and the policy links', () => {
     renderLayout()
     const footer = screen.getByRole('contentinfo')
-    expect(within(footer).getByRole('link', { name: '0912 345 678' }).getAttribute('href')).toBe('tel:0912345678')
+    expect(within(footer).getByRole('link', { name: '0898 98 68 21' }).getAttribute('href')).toBe('tel:0898986821')
+    expect(within(footer).getByRole('link', { name: 'hatlanhstore@gmail.com' }).getAttribute('href')).toBe('mailto:hatlanhstore@gmail.com')
+    const fanpage = within(footer).getByRole('link', { name: /Fanpage Facebook/ })
+    expect(fanpage.getAttribute('href')).toBe('https://www.facebook.com/profile.php?id=61596137600993')
+    expect(fanpage.getAttribute('target')).toBe('_blank')
+    expect(fanpage.getAttribute('rel')).toBe('noopener noreferrer')
+    expect(footer.textContent).toContain('Thứ 2 - Thứ 7, 08:30 - 17:00')
+    expect(footer.textContent).toContain('© 2026 Hạt Lành · Chung cư Đạt Gia - Số 43, đường Cây Keo, Phường Tam Bình, Tp Hồ Chí Minh')
+
+    const policy = ['Chính sách đổi trả', 'Chính sách vận chuyển', 'Điều khoản giao dịch chung', 'Liên hệ'].map(
+      (name) => within(footer).getByRole('link', { name }).getAttribute('href'),
+    )
+    expect(policy).toEqual(['/chinh-sach-doi-tra', '/chinh-sach-van-chuyen', '/dieu-khoan-giao-dich', '/lien-he'])
+    expect(within(footer).queryByRole('link', { name: 'Điều khoản sử dụng' })).toBeNull()
+    expect(within(footer).queryByRole('link', { name: 'Chính sách bảo mật' })).toBeNull()
+  })
+
+  it('shows the owner details only once configured on the server', () => {
+    renderLayout()
+    const footer = screen.getByRole('contentinfo')
+    // Configured in this test: the registration number only
     expect(footer.textContent).toContain('Mã số ĐKKD: 0123456789')
-    expect(footer.textContent).not.toContain('Email:')
-    expect(footer.textContent).not.toContain('Địa chỉ:')
-    expect(footer.textContent).not.toContain('0900 000 000')
-    expect(within(footer).getByRole('link', { name: 'Chính sách đổi trả' }).getAttribute('href')).toBe('/chinh-sach-doi-tra')
+    expect(footer.textContent).not.toContain('Chủ sở hữu:')
+    expect(within(footer).queryByRole('link', { name: /Bộ Công Thương/ })).toBeNull()
   })
 
   it('keeps the cart drawer button (no hover preview) on touch screens', () => {

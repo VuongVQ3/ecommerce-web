@@ -1,6 +1,6 @@
 import { StrictMode, type ComponentType } from 'react'
 import { createRoot } from 'react-dom/client'
-import { createBrowserRouter, Outlet, RouterProvider, ScrollRestoration } from 'react-router'
+import { createBrowserRouter, Navigate, Outlet, RouterProvider, ScrollRestoration } from 'react-router'
 import { AuthProvider } from './auth/AuthContext'
 import RequireAuth from './auth/RequireAuth'
 import { RequireRole } from './admin/RequireRole'
@@ -14,7 +14,7 @@ import { AccountInfoPage, AccountLayout } from './pages/AccountPages'
 import CheckoutPage from './pages/CheckoutPage'
 import { MyOrderDetailPage, MyOrdersPage, OrderLookupPage, OrderSuccessPage } from './pages/OrderPages'
 import { LoginPage } from './pages/AuthPages'
-import { ContactPage, PrivacyPage, ReturnPolicyPage, ShippingPolicyPage, TermsPage } from './pages/PolicyPages'
+import { ContactPage, ReturnPolicyPage, ShippingPolicyPage, TermsPage } from './pages/PolicyPages'
 import { RegisterPage } from './pages/RegisterPage'
 import HomePage from './pages/HomePage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -95,11 +95,13 @@ const router = createBrowserRouter([
           { path: '/xac-minh-email', element: <VerifyEmailPage /> },
           { path: '/dat-mat-khau', element: <AcceptInvitePage /> },
           { path: '/danh-muc/:slug', element: <ProductsPage /> },
-          { path: '/dieu-khoan-su-dung', element: <TermsPage /> },
+          { path: '/dieu-khoan-giao-dich', element: <TermsPage /> },
+          // Terms and privacy are one page now (the server answers these two with a 301 as well)
+          { path: '/dieu-khoan-su-dung', element: <Navigate to="/dieu-khoan-giao-dich" replace /> },
+          { path: '/chinh-sach-bao-mat', element: <Navigate to="/dieu-khoan-giao-dich#bao-mat" replace /> },
           { path: '/chinh-sach-doi-tra', element: <ReturnPolicyPage /> },
           { path: '/chinh-sach-van-chuyen', element: <ShippingPolicyPage /> },
           { path: '/lien-he', element: <ContactPage /> },
-          { path: '/chinh-sach-bao-mat', element: <PrivacyPage /> },
           {
             // /tai-khoan/*: signed-in users only
             element: <RequireAuth />,

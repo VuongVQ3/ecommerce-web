@@ -43,35 +43,29 @@ function renderAt(path: string) {
 const links = () => screen.queryAllByRole('link').map((a) => [a.getAttribute('aria-label'), a.getAttribute('href')])
 
 describe('FloatingContact', () => {
-  it('shows the configured channels in order, top to bottom', () => {
+  it('shows Facebook, Zalo, Messenger and the hotline, top to bottom; no Shopee or TikTok', () => {
     site.info = FULL
     renderAt('/san-pham')
     expect(links()).toEqual([
-      ['Hạt Lành trên Facebook', 'https://www.facebook.com/hatlanh'],
-      ['Hạt Lành trên Shopee', 'https://shopee.vn/hatlanh'],
-      ['Hạt Lành trên Zalo', 'https://zalo.me/0912345678'],
-      ['Hạt Lành trên TikTok', 'https://www.tiktok.com/@hatlanh'],
+      ['Hạt Lành trên Facebook', 'https://www.facebook.com/profile.php?id=61596137600993'],
+      ['Nhắn Zalo cho Hạt Lành', 'https://zalo.me/0898986821'],
       ['Nhắn Messenger cho Hạt Lành', 'https://m.me/hatlanh'],
-      ['Gọi Hạt Lành 0912 345 678', 'tel:0912345678'],
+      ['Gọi Hạt Lành 0898 98 68 21', 'tel:0898986821'],
     ])
     expect(screen.queryByRole('button', { name: 'Liên hệ Hạt Lành' })).toBeNull()
   })
 
-  it('always shows Facebook, Shopee, Zalo and TikTok; unconfigured ones lead to /lien-he', () => {
-    site.info = { ...FULL, contact: { zaloUrl: null, messengerUrl: null, hotline: null }, social: { ...FULL.social!, zaloUrl: null, tiktokUrl: null } }
+  it('uses the published details whatever the server config; Messenger only when configured', () => {
+    // The server still sends its own (older) links: they are not used any more
+    site.info = { ...FULL, contact: { zaloUrl: 'https://zalo.me/0365314221', messengerUrl: null, hotline: '0365 314 221' } }
     renderAt('/')
-    expect(links()).toEqual([
-      ['Hạt Lành trên Facebook', 'https://www.facebook.com/hatlanh'],
-      ['Hạt Lành trên Shopee', 'https://shopee.vn/hatlanh'],
-      ['Hạt Lành trên Zalo: đang cập nhật, xem trang Liên hệ', '/lien-he'],
-      ['Hạt Lành trên TikTok: đang cập nhật, xem trang Liên hệ', '/lien-he'],
-    ])
+    expect(links().map((l) => l[1])).toEqual(['https://www.facebook.com/profile.php?id=61596137600993', 'https://zalo.me/0898986821', 'tel:0898986821'])
     cleanup()
 
-    // Nothing configured, or /api/site unavailable: still the four icons
+    // /api/site unavailable: the same three channels
     site.info = null
     renderAt('/')
-    expect(links().map((l) => l[1])).toEqual(['/lien-he', '/lien-he', '/lien-he', '/lien-he'])
+    expect(links()).toHaveLength(3)
   })
 
   it('phones: one button opens the channels; Esc closes and gives focus back', () => {
@@ -100,7 +94,7 @@ describe('FloatingContact', () => {
   it('is on every storefront page but not in the back office', () => {
     site.info = FULL
     renderAt('/thanh-toan')
-    expect(screen.getAllByRole('link')).toHaveLength(6)
+    expect(screen.getAllByRole('link')).toHaveLength(4)
     // "Lên đầu trang" shares the corner; hidden (aria-hidden, out of the Tab order) at the top of the page
     const toTop = document.querySelector<HTMLButtonElement>('button[aria-label="Lên đầu trang"]')!
     expect(toTop.getAttribute('aria-hidden')).toBe('true')

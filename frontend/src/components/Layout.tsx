@@ -8,7 +8,8 @@ import QuickCart from '../cart/QuickCart'
 import { LOGIN_PATH, REGISTER_PATH } from '../lib/redirect'
 import { FINE_POINTER, useMediaQuery } from '../lib/media'
 import { useRecentOrders } from '../lib/recentOrders'
-import { telHref, useSiteInfo } from '../lib/siteInfo'
+import { useSiteInfo } from '../lib/siteInfo'
+import { SHOP } from '../lib/shopContact'
 import FloatingContact from './FloatingContact'
 import { useFocusTrap } from '../lib/useFocusTrap'
 import SearchBox from './SearchBox'
@@ -192,8 +193,7 @@ function AccountMenu() {
 const POLICY_LINKS = [
   { to: '/chinh-sach-doi-tra', label: 'Chính sách đổi trả' },
   { to: '/chinh-sach-van-chuyen', label: 'Chính sách vận chuyển' },
-  { to: '/chinh-sach-bao-mat', label: 'Chính sách bảo mật' },
-  { to: '/dieu-khoan-su-dung', label: 'Điều khoản sử dụng' },
+  { to: '/dieu-khoan-giao-dich', label: 'Điều khoản giao dịch chung' },
   { to: '/lien-he', label: 'Liên hệ' },
 ]
 
@@ -294,7 +294,6 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
 function Footer() {
   const site = useSiteInfo()
   const b = site?.business ?? {}
-  const hasContact = Boolean(b.hotline || b.email || b.address)
   const hasLegal = Boolean(b.ownerName || b.registrationNumber || b.moitUrl)
   return (
     <footer className="mt-16 border-t border-stone-200 bg-white pb-[env(safe-area-inset-bottom)]">
@@ -334,40 +333,49 @@ function Footer() {
             ))}
           </ul>
         </div>
-        {hasContact && (
-          <div>
-            <p className="font-semibold text-stone-900">Liên hệ</p>
-            <ul className="mt-2 space-y-1.5">
-              {b.hotline && (
-                <li>
-                  Hotline:{' '}
-                  <a href={telHref(b.hotline)} className="font-semibold text-brand-700 hover:underline">
-                    {b.hotline}
-                  </a>
-                </li>
-              )}
-              {b.email && <li className="break-all select-text">Email: {b.email}</li>}
-              {b.address && <li>Địa chỉ: {b.address}</li>}
-            </ul>
-          </div>
-        )}
-      </div>
-      {hasLegal && (
-        <div className="border-t border-stone-100">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 text-xs text-stone-600">
-            <p>
-              {b.ownerName && <span>Chủ sở hữu: {b.ownerName}</span>}
-              {b.ownerName && b.registrationNumber && <span aria-hidden="true"> · </span>}
-              {b.registrationNumber && <span>Mã số ĐKKD: {b.registrationNumber}</span>}
-            </p>
-            {b.moitUrl && (
-              <a href={b.moitUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 hover:underline">
-                Đã thông báo Bộ Công Thương ↗
+        {/* Published contact details (lib/shopContact), the same as on the Liên hệ page */}
+        <div>
+          <p className="font-semibold text-stone-900">Liên hệ</p>
+          <ul className="mt-2 space-y-1.5">
+            <li>
+              Hotline/Zalo:{' '}
+              <a href={SHOP.phoneHref} className="font-semibold whitespace-nowrap text-brand-700 hover:underline">
+                {SHOP.phone}
               </a>
-            )}
-          </div>
+            </li>
+            <li>
+              <a href={`mailto:${SHOP.email}`} className="break-all hover:text-brand-700 hover:underline">
+                {SHOP.email}
+              </a>
+            </li>
+            <li>{SHOP.hours}</li>
+            <li>
+              <a href={SHOP.fanpage} target="_blank" rel="noopener noreferrer" className="hover:text-brand-700 hover:underline">
+                Fanpage Facebook<span className="sr-only"> (mở trong tab mới)</span> ↗
+              </a>
+            </li>
+          </ul>
         </div>
-      )}
+      </div>
+      <div className="border-t border-stone-100">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-4 pr-16 text-xs text-stone-600 xl:pr-4">
+          <p>
+            © 2026 Hạt Lành <span aria-hidden="true">·</span> {SHOP.address}
+          </p>
+          {/* Owner, registration number and the Bộ Công Thương notice: only once configured on the server (BUSINESS_*) */}
+          {hasLegal && (
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              {b.ownerName && <span>Chủ sở hữu: {b.ownerName}</span>}
+              {b.registrationNumber && <span>Mã số ĐKKD: {b.registrationNumber}</span>}
+              {b.moitUrl && (
+                <a href={b.moitUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 hover:underline">
+                  Đã thông báo Bộ Công Thương ↗
+                </a>
+              )}
+            </p>
+          )}
+        </div>
+      </div>
     </footer>
   )
 }
