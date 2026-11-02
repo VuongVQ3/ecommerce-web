@@ -46,16 +46,23 @@ public class PageMetaService {
 				"Mắc ca, hạt điều, hạnh nhân, óc chó, bánh thuyền hạt, xoài sấy, mật ong… lọc theo danh mục, gói 500 g."
 						+ " Giao hàng toàn quốc, thanh toán khi nhận hàng.",
 				"/san-pham"));
-		pages.put("/chinh-sach-doi-tra", PageMeta.page("Chính sách đổi trả | " + BRAND,
-				"Điều kiện, thời hạn và cách đổi trả sản phẩm khi mua hàng tại " + BRAND + ".", "/chinh-sach-doi-tra"));
-		pages.put("/chinh-sach-bao-mat", PageMeta.page("Chính sách bảo mật | " + BRAND,
-				"Cách " + BRAND + " thu thập, sử dụng và bảo vệ thông tin cá nhân của khách hàng.", "/chinh-sach-bao-mat"));
-		pages.put("/chinh-sach-van-chuyen", PageMeta.page("Chính sách vận chuyển | " + BRAND,
-				"Phí giao hàng, thời gian giao và khu vực giao hàng của " + BRAND + ".", "/chinh-sach-van-chuyen"));
-		pages.put("/dieu-khoan-su-dung", PageMeta.page("Điều khoản sử dụng | " + BRAND,
-				"Điều khoản khi sử dụng website và mua hàng tại " + BRAND + ".", "/dieu-khoan-su-dung"));
+		// Titles and descriptions as in frontend/src/pages/PolicyPages.tsx
+		pages.put("/chinh-sach-doi-tra", PageMeta.page("Chính sách đổi trả và Đồng kiểm | " + BRAND,
+				"Đồng kiểm khi nhận hàng, điều kiện, thời hạn và cách đổi trả sản phẩm tại " + BRAND + ".", "/chinh-sach-doi-tra"));
+		pages.put("/chinh-sach-van-chuyen", PageMeta.page("Chính sách vận chuyển và Giao nhận | " + BRAND,
+				"Phương thức, thời gian, phí giao hàng và chính sách freeship của " + BRAND + ".", "/chinh-sach-van-chuyen"));
+		PageMeta terms = PageMeta.page("Điều khoản giao dịch chung và Chính sách bảo mật | " + BRAND,
+				"Điều khoản đặt hàng, thanh toán, huỷ đơn, khiếu nại và cách " + BRAND
+						+ " thu thập, sử dụng, bảo vệ thông tin cá nhân.",
+				"/dieu-khoan-giao-dich");
+		pages.put("/dieu-khoan-giao-dich", terms);
+		// Merged into /dieu-khoan-giao-dich: still served (the app redirects there), noindex, og:url to the new page
+		PageMeta merged = new PageMeta(terms.title(), terms.description(), terms.canonicalPath(), null, "website", true,
+				List.of());
+		pages.put("/dieu-khoan-su-dung", merged);
+		pages.put("/chinh-sach-bao-mat", merged);
 		pages.put("/lien-he", PageMeta.page("Liên hệ | " + BRAND,
-				"Thông tin liên hệ, hotline và email hỗ trợ khách hàng của " + BRAND + ".", "/lien-he"));
+				"Địa chỉ, hotline/Zalo, email, giờ làm việc và fanpage của " + BRAND + ".", "/lien-he"));
 		pages.put("/tra-cuu-don-hang", PageMeta.page("Tra cứu đơn hàng | " + BRAND,
 				"Tra cứu tình trạng đơn hàng bằng mã đơn và số điện thoại.", "/tra-cuu-don-hang"));
 		for (var p : List.of(new String[] { "/dang-nhap", "Đăng nhập" }, new String[] { "/dang-ky", "Đăng ký" },

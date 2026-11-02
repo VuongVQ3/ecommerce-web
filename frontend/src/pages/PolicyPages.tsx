@@ -1,303 +1,463 @@
-import type { ReactNode } from 'react'
-import { Link } from 'react-router'
+import { useEffect, type ReactNode } from 'react'
+import { Link, useLocation } from 'react-router'
+import { POLICY_UPDATED, SHOP } from '../lib/shopContact'
 import { BRAND, usePageMeta } from '../lib/usePageMeta'
-import { telHref, useSiteInfo } from '../lib/siteInfo'
 
 /**
- * Policy pages. DRAFTS: every <Fill> marks information only the shop owner can provide (shown highlighted as
- * "[CẦN ĐIỀN: …]"). Facts stated without a marker describe how the website actually works today.
- * Have the final text reviewed by someone qualified before taking real customers.
+ * Policy pages, word for word from docs/chinh-sach-noi-dung.md (final text agreed with the shop owner on 02/11/2026).
+ * Change the wording there first, then here.
  */
-function Fill({ children }: { children: ReactNode }) {
-  return <mark className="rounded bg-amber-100 px-1 text-amber-950">[CẦN ĐIỀN: {children}]</mark>
-}
 
-function PolicyPage({
-  title,
-  intro,
-  children,
-  contactLink = true,
-}: {
-  title: string
-  intro: string
-  children: ReactNode
-  contactLink?: boolean
-}) {
-  usePageMeta(`${title} | ${BRAND}`, intro)
+const linkClass = 'font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800'
+
+function PolicyPage({ title, description, children, contactLink = true }: { title: string; description: string; children: ReactNode; contactLink?: boolean }) {
+  usePageMeta(`${title} | ${BRAND}`, description)
   return (
     <article className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-3xl font-bold text-stone-900">{title}</h1>
-      <p className="mt-2 text-sm text-muted">Bản nháp – cập nhật lần cuối: <Fill>ngày áp dụng</Fill></p>
-      <p className="mt-6 leading-relaxed text-stone-700">{intro}</p>
-      <div className="mt-6 space-y-6 leading-relaxed text-stone-700 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-stone-900 [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5">
+      <p className="mt-2 text-sm text-muted">Cập nhật lần cuối: {POLICY_UPDATED}</p>
+      <div className="mt-8 space-y-8 leading-relaxed text-stone-700 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-stone-900 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-stone-900 [&_li]:pl-1 [&_p]:mt-2 [&_strong]:font-semibold [&_strong]:text-stone-900 [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5">
         {children}
       </div>
       {contactLink && (
-      <p className="mt-10 text-sm text-stone-600">
-        Câu hỏi về chính sách? Xem trang{' '}
-        <Link to="/lien-he" className="font-semibold text-brand-700 underline">
-          Liên hệ
-        </Link>
-        .
-      </p>
+        <p className="mt-12 border-t border-stone-200 pt-6 text-sm text-stone-600">
+          Câu hỏi về chính sách? Xem trang{' '}
+          <Link to="/lien-he" className={linkClass}>
+            Liên hệ
+          </Link>
+          .
+        </p>
       )}
     </article>
   )
 }
 
+function Phone() {
+  return (
+    <a href={SHOP.phoneHref} className={`${linkClass} whitespace-nowrap`}>
+      {SHOP.phone}
+    </a>
+  )
+}
+
+function Email() {
+  return (
+    <a href={`mailto:${SHOP.email}`} className={`${linkClass} break-all`}>
+      {SHOP.email}
+    </a>
+  )
+}
+
+/** The fanpage in a new tab; children replace the address as the link text */
+function Fanpage({ children }: { children?: ReactNode }) {
+  return (
+    // Only the bare address may break anywhere (it has no spaces); a worded link wraps between words
+    <a href={SHOP.fanpage} target="_blank" rel="noopener noreferrer" className={`${linkClass} ${children ? '' : 'break-all'}`}>
+      {children ?? SHOP.fanpage}
+      <span className="sr-only"> (mở trong tab mới)</span>
+    </a>
+  )
+}
+
+function To({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link to={to} className={linkClass}>
+      {children}
+    </Link>
+  )
+}
+
+// ---- Trang 1 ---------------------------------------------------------------------------------------------------
+
 export function ReturnPolicyPage() {
   return (
-    <PolicyPage
-      title="Chính sách đổi trả"
-      intro={`Điều kiện, thời hạn và cách đổi trả sản phẩm khi mua hàng tại ${BRAND}.`}
-    >
+    <PolicyPage title="Chính sách đổi trả và Đồng kiểm" description={`Đồng kiểm khi nhận hàng, điều kiện, thời hạn và cách đổi trả sản phẩm tại ${BRAND}.`}>
       <section>
-        <h2>1. Trường hợp được đổi trả</h2>
+        <h2>1. Chính sách Đồng kiểm</h2>
+        <p>Nhằm đảm bảo quyền lợi, Hạt Lành khuyến khích khách hàng đồng kiểm cùng nhân viên giao hàng ngay tại thời điểm nhận.</p>
         <ul>
-          <li>Sản phẩm giao sai loại, sai khối lượng hoặc thiếu so với đơn hàng.</li>
-          <li>Bao bì bị rách, thủng, ẩm mốc hoặc sản phẩm hết hạn sử dụng khi nhận hàng.</li>
           <li>
-            Trường hợp khác: <Fill>có nhận đổi trả khi khách đổi ý không, điều kiện kèm theo</Fill>
+            <strong>Được phép:</strong> Kiểm tra số lượng, loại sản phẩm, tình trạng nguyên vẹn của hộp/túi đóng gói bên ngoài.
+          </li>
+          <li>
+            <strong>Không được phép:</strong> Bóc màng seal (lớp màng nhôm/ni-lông niêm phong miệng hộp), xé rách bao bì hút chân
+            không hoặc ăn thử sản phẩm.
           </li>
         </ul>
-      </section>
-      <section>
-        <h2>2. Thời hạn</h2>
         <p>
-          Khách hàng thông báo trong vòng <Fill>số ngày</Fill> kể từ khi nhận hàng. Đơn thanh toán khi nhận hàng (COD) nên
-          kiểm tra tình trạng bao bì trước khi thanh toán cho nhân viên giao hàng.
+          <strong>Lưu ý quan trọng:</strong> Khách hàng quay lại video quá trình mở thùng hàng để Hạt Lành có cơ sở hỗ trợ nhanh nhất
+          khi phát sinh sự cố.
         </p>
       </section>
       <section>
-        <h2>3. Cách yêu cầu đổi trả</h2>
+        <h2>2. Điều kiện chấp nhận đổi/trả sản phẩm</h2>
+        <p>Vì đặc thù ngành hàng thực phẩm, Hạt Lành CHỈ chấp nhận đổi mới hoặc hoàn tiền trong các trường hợp sau:</p>
         <ul>
-          <li>Chuẩn bị mã đơn hàng (dạng HL…, có trong email xác nhận hoặc trang Tra cứu đơn hàng).</li>
-          <li>Chụp ảnh sản phẩm, bao bì và tem/nhãn.</li>
           <li>
-            Gửi yêu cầu qua <Fill>kênh tiếp nhận: hotline, email, Zalo…</Fill>
+            Sản phẩm bị hư hỏng do vận chuyển: Hộp bị nứt vỡ, màng seal bị rách, bao bì móp méo nghiêm trọng ảnh hưởng đến chất lượng
+            hạt bên trong.
+          </li>
+          <li>Sản phẩm bị lỗi từ quá trình sản xuất: Hạt bị mốc, hôi dầu, có dị vật, mọt, bọ hoặc có mùi vị bất thường.</li>
+          <li>Sản phẩm giao sai mã, sai quy cách (trọng lượng) hoặc thiếu số lượng so với đơn đặt hàng.</li>
+          <li>Sản phẩm đã hết hạn sử dụng tại thời điểm khách hàng nhận hàng.</li>
+        </ul>
+      </section>
+      <section>
+        <h2>3. Điều kiện TỪ CHỐI đổi trả</h2>
+        <ul>
+          <li>Khách hàng thay đổi ý định mua hàng (không muốn mua nữa).</li>
+          <li>
+            Sản phẩm đã bị bóc màng seal, sử dụng một phần nhưng không có bằng chứng chứng minh sản phẩm bị lỗi chất lượng (mốc, hôi
+            dầu...).
+          </li>
+          <li>
+            Sản phẩm bị hư hỏng do khách hàng bảo quản sai cách (để hở miệng túi/hộp, để nơi ẩm ướt, nhiệt độ cao, tiếp xúc trực tiếp
+            ánh nắng mặt trời) sau khi nhận hàng.
           </li>
         </ul>
       </section>
       <section>
-        <h2>4. Hoàn tiền và chi phí</h2>
+        <h2>4. Thời gian tiếp nhận khiếu nại</h2>
         <p>
-          Hình thức hoàn tiền: <Fill>chuyển khoản / đổi sản phẩm mới</Fill>, trong vòng <Fill>số ngày</Fill> sau khi
-          nhận lại hàng. Phí vận chuyển đổi trả: <Fill>ai chịu phí trong từng trường hợp</Fill>.
+          Hạt Lành tiếp nhận yêu cầu đổi trả trong vòng 03 ngày (72 giờ) kể từ thời điểm hệ thống vận chuyển cập nhật trạng thái
+          "Giao hàng thành công". Qua thời hạn này, Hạt Lành xin phép từ chối giải quyết (ngoại trừ các lỗi ẩn về chất lượng bên trong
+          phát hiện muộn, sẽ được xem xét theo từng trường hợp cụ thể).
+        </p>
+      </section>
+      <section>
+        <h2>5. Quy trình xử lý và Chi phí</h2>
+        <ul>
+          <li>
+            <strong>Bước 1:</strong> Khách hàng liên hệ qua Zalo/Hotline: <Phone /> hoặc <Fanpage>Fanpage Hạt Lành</Fanpage>, gửi kèm
+            hình ảnh/video rõ nét tình trạng hàng hóa và mã đơn hàng.
+          </li>
+          <li>
+            <strong>Bước 2:</strong> Hạt Lành xác minh và phản hồi phương án xử lý (Đổi hàng mới hoặc Hoàn tiền) trong tối đa 24 giờ
+            làm việc.
+          </li>
+          <li>
+            <strong>Bước 3:</strong> Khách hàng gửi lại hàng lỗi về kho Hạt Lành tại địa chỉ: {SHOP.address}.
+          </li>
+        </ul>
+        <p>
+          <strong>Chi phí:</strong> Hạt Lành chịu 100% chi phí vận chuyển 2 chiều (gửi hàng lỗi về kho và gửi hàng mới cho khách) đối
+          với mọi đơn hàng phát sinh lỗi từ phía Hạt Lành hoặc đơn vị vận chuyển.
         </p>
       </section>
     </PolicyPage>
   )
 }
+
+// ---- Trang 2 ---------------------------------------------------------------------------------------------------
 
 export function ShippingPolicyPage() {
   return (
-    <PolicyPage title="Chính sách vận chuyển" intro={`Phí giao hàng, thời gian giao và khu vực giao hàng của ${BRAND}.`}>
+    <PolicyPage title="Chính sách vận chuyển và Giao nhận" description={`Phương thức, thời gian, phí giao hàng và chính sách freeship của ${BRAND}.`}>
       <section>
-        <h2>1. Khu vực giao hàng</h2>
-        <p>Giao hàng đến địa chỉ tại 34 tỉnh, thành phố trên toàn quốc (theo đơn vị hành chính mới).</p>
-      </section>
-      <section>
-        <h2>2. Phí giao hàng</h2>
+        <h2>1. Phương thức và Thời gian giao hàng</h2>
         <p>
-          Phí giao hàng được tính và hiển thị rõ trong giỏ hàng và trang thanh toán trước khi bạn đặt hàng. Hiện tại: đồng
-          giá 30.000₫ mỗi đơn, miễn phí cho đơn từ 500.000₫. <Fill>xác nhận mức phí hoặc cập nhật nếu thay đổi</Fill>
+          Hạt Lành (xuất kho từ TP.HCM) hiện cung cấp 2 phương thức giao hàng chính để đảm bảo chất lượng hạt và thực phẩm luôn ở trạng
+          thái tốt nhất:
         </p>
-      </section>
-      <section>
-        <h2>3. Thời gian giao hàng</h2>
+        <h3 className="mt-4">Giao hàng Hỏa tốc (Khu vực nội thành TP.HCM):</h3>
         <ul>
+          <li>Áp dụng qua các đối tác: Grab, XanhSM, Ahamove,...</li>
+          <li>Thời gian nhận hàng: Từ 1 - 4 giờ kể từ khi xác nhận đơn.</li>
           <li>
-            Thời gian xử lý đơn: <Fill>ví dụ trong 1 ngày làm việc</Fill>
-          </li>
-          <li>
-            Nội thành: <Fill>số ngày</Fill>; tỉnh khác: <Fill>số ngày</Fill>
-          </li>
-          <li>
-            Đơn vị vận chuyển: <Fill>tên các đơn vị hợp tác</Fill>
+            Thời gian chốt đơn hỏa tốc trong ngày: Các đơn đặt trước 17:00 sẽ được giao ngay trong ngày. Đơn sau giờ này có thể được
+            chuyển sang sáng hôm sau.
           </li>
         </ul>
-        <p className="mt-2">
-          Khi đơn được giao cho đơn vị vận chuyển, bạn nhận email kèm mã vận đơn (nếu đã để lại email) và có thể theo
-          dõi trạng thái tại trang{' '}
-          <Link to="/tra-cuu-don-hang" className="font-semibold text-brand-700 underline">
-            Tra cứu đơn hàng
-          </Link>
-          .
+        <h3 className="mt-4">Giao hàng Tiêu chuẩn (Toàn quốc):</h3>
+        <ul>
+          <li>Áp dụng qua các đối tác: Giao Hàng Tiết Kiệm (GHTK), Viettel Post, Giao Hàng Nhanh (GHN),...</li>
+          <li>Khu vực ngoại thành TP.HCM và các tỉnh miền Nam: 2 - 3 ngày làm việc.</li>
+          <li>Khu vực miền Trung và miền Bắc: 3 - 4 ngày làm việc.</li>
+        </ul>
+        <p>
+          <strong>Lưu ý:</strong> Thời gian giao hàng không tính Chủ nhật và các ngày Lễ, Tết theo quy định.
         </p>
       </section>
       <section>
-        <h2>4. Thanh toán</h2>
-        <p>Hiện chỉ hỗ trợ thanh toán tiền mặt khi nhận hàng (COD). Bạn có thể huỷ đơn khi đơn còn ở trạng thái chờ xác nhận.</p>
+        <h2>2. Chi phí vận chuyển (Phí Ship)</h2>
+        <ul>
+          <li>
+            <strong>Giao Hỏa tốc:</strong> Phí vận chuyển tính theo cước phí thực tế của ứng dụng giao hàng tại thời điểm đặt. Nhân
+            viên Hạt Lành sẽ gọi điện thông báo chính xác cước phí cho quý khách trước khi gửi.
+          </li>
+          <li>
+            <strong>Giao Tiêu chuẩn toàn quốc:</strong> Áp dụng mức phí đồng giá: 30.000 VNĐ cho mọi đơn hàng dưới 2kg. Hoặc: Phí vận
+            chuyển được hệ thống tự động tính toán dựa trên khối lượng sản phẩm và địa chỉ nhận hàng tại bước Thanh toán (Checkout).
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>3. Chính sách Miễn phí vận chuyển (Freeship)</h2>
+        <p>Để tri ân khách hàng, Hạt Lành áp dụng chính sách Freeship như sau:</p>
+        <ul>
+          <li>Miễn phí vận chuyển tiêu chuẩn cho mọi đơn hàng có tổng giá trị thanh toán từ 500.000 VNĐ trở lên.</li>
+          <li>Hỗ trợ tối đa 30.000 VNĐ phí ship hỏa tốc cho đơn hàng nội thành từ 500.000 VNĐ.</li>
+        </ul>
+      </section>
+      <section>
+        <h2>4. Tiêu chuẩn đóng gói an toàn thực phẩm</h2>
+        <p>
+          Mọi đơn hàng tại Hạt Lành (từ hạt nguyên, nhân mắc ca, ngũ cốc đến bánh thuyền) trước khi giao cho đơn vị vận chuyển đều
+          được:
+        </p>
+        <ul>
+          <li>Niêm phong bao bì/hũ PET đúng quy cách, đảm bảo kín khí.</li>
+          <li>Quấn màng xốp hơi (bubble wrap) chống sốc nhiều lớp đối với các sản phẩm hũ, lon, hoặc hàng dễ vỡ nát.</li>
+          <li>Đóng gói cố định trong thùng carton, dán băng keo niêm phong chữ thập.</li>
+        </ul>
+      </section>
+      <section>
+        <h2>5. Trách nhiệm xử lý rủi ro hàng hóa</h2>
+        <ul>
+          <li>
+            Hạt Lành chịu hoàn toàn trách nhiệm về rủi ro hàng hóa (móp méo hũ hộp, mất mát, rách bao bì ảnh hưởng đến thực phẩm) trong
+            suốt quá trình vận chuyển từ kho đến tận tay khách hàng.
+          </li>
+          <li>
+            Khách hàng vui lòng tham khảo <To to="/chinh-sach-doi-tra">Chính sách đổi trả và Đồng kiểm</To> để được hướng dẫn xử lý
+            ngay lập tức nếu nhận phải thùng hàng có dấu hiệu hư hại.
+          </li>
+        </ul>
       </section>
     </PolicyPage>
   )
 }
 
-export function PrivacyPage() {
+// ---- Trang 3 ---------------------------------------------------------------------------------------------------
+
+/** Terms of sale (A) and privacy policy (B, #bao-mat) on one page. /dieu-khoan-su-dung and /chinh-sach-bao-mat lead here. */
+export function TermsPage() {
+  const { hash } = useLocation()
+  // The router restores the scroll on navigation but does not follow #bao-mat: do it once the page is drawn
+  useEffect(() => {
+    if (hash) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView()
+  }, [hash])
   return (
     <PolicyPage
-      title="Chính sách bảo mật"
-      intro={`Cách ${BRAND} thu thập, sử dụng và bảo vệ thông tin cá nhân của khách hàng.`}
+      title="Điều khoản giao dịch chung và Chính sách bảo mật"
+      description={`Điều khoản đặt hàng, thanh toán, huỷ đơn, khiếu nại và cách ${BRAND} thu thập, sử dụng, bảo vệ thông tin cá nhân.`}
     >
-      <section>
-        <h2>1. Đơn vị chịu trách nhiệm</h2>
-        <p>
-          <Fill>tên chủ sở hữu / doanh nghiệp, địa chỉ, email liên hệ về dữ liệu cá nhân</Fill>
-        </p>
+      <section aria-labelledby="dieu-khoan" className="space-y-6">
+        <h2 id="dieu-khoan" className="scroll-mt-24">
+          Phần A. Điều khoản giao dịch chung
+        </h2>
+        <div>
+          <h3>1. Giới thiệu chung và Phạm vi áp dụng</h3>
+          <p>
+            Chào mừng quý khách đến với website mua sắm trực tuyến Hạt Lành. Khi quý khách truy cập và thực hiện đặt hàng tại website,
+            đồng nghĩa với việc quý khách đã đọc, hiểu và đồng ý với các Điều khoản giao dịch chung này. Các điều khoản này có thể được
+            cập nhật tùy thời điểm để tuân thủ pháp luật hiện hành (bao gồm Luật Thương mại điện tử số 122/2025/QH15 và Nghị định
+            248/2026/NĐ-CP). Hạt Lành sẽ thông báo trên website khi có sự thay đổi.
+          </p>
+        </div>
+        <div>
+          <h3>2. Tài khoản</h3>
+          <p>
+            Quý khách chịu trách nhiệm giữ bí mật mật khẩu. Hạt Lành có thể tạm khoá tài khoản có dấu hiệu gian lận hoặc lạm dụng. Quý
+            khách vẫn có thể đặt hàng mà không cần tài khoản.
+          </p>
+        </div>
+        <div>
+          <h3>3. Đặt hàng và Xác lập giao dịch</h3>
+          <ul>
+            <li>
+              <strong>Trạng thái chờ xác nhận:</strong> Khi quý khách bấm "Đặt hàng", hệ thống sẽ ghi nhận yêu cầu. Đây chỉ là bước tiếp
+              nhận thông tin, chưa phải là xác lập hợp đồng mua bán chính thức.
+            </li>
+            <li>
+              <strong>Trạng thái đã xác nhận:</strong> Đơn hàng chỉ được xác nhận thành công và có hiệu lực khi nhân viên Hạt Lành gọi
+              điện thoại/nhắn tin xác nhận trực tiếp, hoặc hệ thống cập nhật trạng thái đơn thành "Đã xác nhận".
+            </li>
+            <li>
+              <strong>Quyền từ chối đơn hàng:</strong> Hạt Lành có quyền từ chối hoặc hủy đơn hàng của quý khách vì các lý do kỹ thuật
+              (lỗi hiển thị giá), hết hàng lưu kho, hoặc phát hiện dấu hiệu gian lận. Trong trường hợp này, nhân viên sẽ liên hệ thông
+              báo trực tiếp.
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h3>4. Giá bán và Thanh toán</h3>
+          <ul>
+            <li>
+              <strong>Giá bán:</strong> Toàn bộ giá niêm yết trên website được tính bằng Việt Nam Đồng (VNĐ). Hạt Lành cam kết giữ đúng
+              mức giá tại thời điểm quý khách đặt hàng cho đơn hàng đó.
+            </li>
+            <li>
+              <strong>Thanh toán:</strong> Hiện tại, Hạt Lành chỉ hỗ trợ một phương thức duy nhất: Thanh toán tiền mặt khi nhận hàng
+              (COD). Quý khách thanh toán trực tiếp cho nhân viên giao hàng sau khi hoàn tất bước đồng kiểm.
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h3>5. Thông tin sản phẩm</h3>
+          <p>
+            Giá trị dinh dưỡng mang tính tham khảo, tính trên 100g sản phẩm. Sản phẩm không phải là thuốc và không có tác dụng thay thế
+            thuốc chữa bệnh. Sản phẩm chứa các loại hạt; người có tiền sử dị ứng với hạt cần cân nhắc trước khi sử dụng.
+          </p>
+        </div>
+        <div>
+          <h3>6. Hủy đơn hàng</h3>
+          <p>
+            <strong>Từ phía khách hàng:</strong>
+          </p>
+          <ul>
+            <li>
+              Đối với khách hàng có tài khoản: Quý khách có thể chủ động hủy đơn hàng trực tiếp trên hệ thống website tại mục "Đơn hàng
+              của bạn" khi đơn đang ở trạng thái "Chờ xác nhận".
+            </li>
+            <li>
+              Đối với khách hàng mua ẩn danh (không có tài khoản): Quý khách vui lòng liên hệ Hotline/Zalo: <Phone /> để được nhân viên
+              hỗ trợ hủy đơn trước khi đơn được xác nhận.
+            </li>
+            <li>
+              Lưu ý chung: Nếu đơn hàng đã chuyển sang trạng thái "Đã xác nhận" hoặc "Đang giao", yêu cầu hủy đơn trên website sẽ bị vô
+              hiệu hóa. Trong trường hợp này, nếu quý khách từ chối nhận hàng khi shipper giao đến, quý khách vui lòng thanh toán phí
+              vận chuyển 2 chiều.
+            </li>
+          </ul>
+          <p>
+            <strong>Từ phía Hạt Lành:</strong>
+          </p>
+          <p>
+            Hạt Lành tự động hủy đơn nếu không thể liên lạc xác nhận qua số điện thoại quý khách cung cấp quá 03 lần, hoặc sản phẩm
+            ngừng kinh doanh đột xuất do lỗi lô hàng để đảm bảo an toàn thực phẩm.
+          </p>
+        </div>
+        <div>
+          <h3>7. Vận chuyển và Trả hàng</h3>
+          <ul>
+            <li>
+              Quy định về cước phí, thời gian giao nhận được áp dụng theo <To to="/chinh-sach-van-chuyen">Chính sách vận chuyển</To>.
+            </li>
+            <li>
+              Quy định về đồng kiểm, đổi mới sản phẩm lỗi hoặc hoàn tiền được áp dụng theo{' '}
+              <To to="/chinh-sach-doi-tra">Chính sách đổi trả và Đồng kiểm</To>.
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h3>8. Giải quyết khiếu nại</h3>
+          <p>
+            Hạt Lành luôn đề cao sự minh bạch và bảo vệ quyền lợi hợp pháp của người tiêu dùng đối với các sản phẩm hạt dinh dưỡng, thực
+            phẩm an toàn.
+          </p>
+          <ul>
+            <li>
+              <strong>Kênh tiếp nhận:</strong> Mọi thắc mắc hoặc khiếu nại về chất lượng sản phẩm, dịch vụ vận chuyển, quý khách vui
+              lòng liên hệ trực tiếp qua Zalo/Hotline: <Phone />, email <Email /> hoặc Fanpage chính thức Hạt Lành: <Fanpage />
+            </li>
+            <li>
+              <strong>Thời gian xử lý:</strong> Chúng tôi cam kết tiếp nhận và đưa ra phương án phản hồi trong vòng tối đa 24 giờ làm
+              việc kể từ thời điểm nhận được thông tin.
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h3>9. Thông tin đơn vị vận hành</h3>
+          {/* Owner name and tax / business registration number: not published until the owner provides them */}
+          <ul>
+            <li>Tên cửa hàng: Hạt Lành</li>
+            <li>Địa chỉ kho: {SHOP.address}.</li>
+            <li>
+              Hotline/Zalo: <Phone /> · Email: <Email />
+            </li>
+          </ul>
+        </div>
       </section>
-      <section>
-        <h2>2. Thông tin chúng tôi thu thập</h2>
-        <ul>
-          <li>Khi đăng ký: họ tên, email, số điện thoại (không bắt buộc), mật khẩu (chỉ lưu dạng mã hoá một chiều).</li>
-          <li>
-            Khi đăng nhập bằng Google: Google gửi cho chúng tôi họ tên, email (đã được Google xác minh) và ảnh đại diện.
-            Chúng tôi chỉ lưu họ tên, email và mã định danh tài khoản Google, không lưu ảnh đại diện. Chúng tôi không
-            bao giờ nhận hay biết mật khẩu Google của bạn.
-          </li>
-          <li>Khi đặt hàng: họ tên người nhận, số điện thoại, email (không bắt buộc), địa chỉ giao hàng, ghi chú.</li>
-          <li>Nhật ký kỹ thuật: địa chỉ IP và trình duyệt khi đăng nhập, dùng để bảo vệ tài khoản.</li>
-        </ul>
-      </section>
-      <section>
-        <h2>3. Mục đích sử dụng</h2>
-        <ul>
-          <li>Xử lý, giao hàng và hỗ trợ đơn hàng; gửi email xác nhận, giao hàng, huỷ đơn.</li>
-          <li>Quản lý tài khoản, đặt lại mật khẩu, chống gian lận và spam.</li>
-        </ul>
-      </section>
-      <section>
-        <h2>4. Cookie và lưu trữ trên trình duyệt</h2>
-        <p>
-          Phiên đăng nhập dùng cookie bảo mật (httpOnly), trang web không đọc được bằng JavaScript. Giỏ hàng của khách
-          chưa đăng nhập được lưu trong trình duyệt của bạn. Chúng tôi không dùng cookie quảng cáo. <Fill>bổ sung nếu sau
-          này dùng công cụ phân tích như Google Analytics</Fill>
-        </p>
-      </section>
-      <section>
-        <h2>5. Bên thứ ba xử lý dữ liệu</h2>
-        <ul>
-          <li>Lưu trữ máy chủ và cơ sở dữ liệu: Render, Neon (máy chủ tại Singapore).</li>
-          <li>Gửi email: Resend. Chống bot ở form đăng ký: Cloudflare Turnstile. Đăng nhập Google: Google.</li>
-          <li>
-            Đơn vị vận chuyển nhận tên, số điện thoại, địa chỉ để giao hàng: <Fill>tên đơn vị</Fill>
-          </li>
-        </ul>
-      </section>
-      <section>
-        <h2>6. Thời gian lưu trữ và quyền của bạn</h2>
-        <p>
-          Thời gian lưu dữ liệu tài khoản và đơn hàng: <Fill>thời hạn, theo quy định kế toán/thuế</Fill>. Bạn có quyền
-          xem, sửa, yêu cầu xoá dữ liệu hoặc rút lại sự đồng ý bằng cách liên hệ <Fill>kênh tiếp nhận yêu cầu</Fill>.
-        </p>
+
+      <section aria-labelledby="bao-mat" className="space-y-6 border-t border-stone-200 pt-8">
+        <h2 id="bao-mat" className="scroll-mt-24">
+          Phần B. Chính sách bảo mật
+        </h2>
+        <div>
+          <h3>1. Đơn vị chịu trách nhiệm</h3>
+          <p>
+            Hạt Lành, địa chỉ: {SHOP.address}. Liên hệ về dữ liệu cá nhân: <Email />.
+          </p>
+        </div>
+        <div>
+          <h3>2. Thông tin chúng tôi thu thập</h3>
+          <ul>
+            <li>Khi đăng ký: họ tên, email, số điện thoại (không bắt buộc), mật khẩu (chỉ lưu dạng mã hoá một chiều).</li>
+            <li>
+              Khi đăng nhập bằng Google: Google gửi cho chúng tôi họ tên, email (đã được Google xác minh) và ảnh đại diện. Chúng tôi chỉ
+              lưu họ tên, email và mã định danh tài khoản Google, không lưu ảnh đại diện. Chúng tôi không bao giờ nhận hay biết mật khẩu
+              Google của bạn.
+            </li>
+            <li>Khi đặt hàng: họ tên người nhận, số điện thoại, email (không bắt buộc), địa chỉ giao hàng, ghi chú.</li>
+            <li>Nhật ký kỹ thuật: địa chỉ IP và trình duyệt khi đăng nhập, dùng để bảo vệ tài khoản.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>3. Mục đích sử dụng</h3>
+          <ul>
+            <li>Xử lý, giao hàng và hỗ trợ đơn hàng; gửi email xác nhận, giao hàng, huỷ đơn.</li>
+            <li>Quản lý tài khoản, đặt lại mật khẩu, chống gian lận và spam.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>4. Cookie và lưu trữ trên trình duyệt</h3>
+          <p>
+            Phiên đăng nhập dùng cookie bảo mật (httpOnly), trang web không đọc được bằng JavaScript. Giỏ hàng của khách chưa đăng nhập
+            được lưu trong trình duyệt của bạn. Chúng tôi không dùng cookie quảng cáo.
+          </p>
+        </div>
+        <div>
+          <h3>5. Bên thứ ba xử lý dữ liệu</h3>
+          <ul>
+            <li>Lưu trữ máy chủ và cơ sở dữ liệu: Render, Neon (máy chủ tại Singapore).</li>
+            <li>Lưu trữ ảnh sản phẩm: Cloudinary.</li>
+            <li>Gửi email: Resend. Chống bot ở form đăng ký: Cloudflare Turnstile. Đăng nhập Google: Google.</li>
+            {/* Order alerts to the shop carry the customer's name, phone, ward and province (notify/OrderTelegramAlerts) */}
+            <li>Thông báo đơn hàng nội bộ: Telegram.</li>
+            <li>
+              Đơn vị vận chuyển (Giao Hàng Tiết Kiệm, Viettel Post, Giao Hàng Nhanh, Grab, XanhSM, Ahamove...) nhận tên, số điện thoại,
+              địa chỉ để giao hàng.
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h3>6. Thời gian lưu trữ và quyền của bạn</h3>
+          <p>
+            Dữ liệu tài khoản và đơn hàng được lưu trong thời gian cần thiết để cung cấp dịch vụ và theo quy định pháp luật về kế toán,
+            thuế. Bạn có quyền xem, sửa, yêu cầu xoá dữ liệu hoặc rút lại sự đồng ý bằng cách liên hệ email <Email /> hoặc Zalo{' '}
+            <Phone />.
+          </p>
+        </div>
       </section>
     </PolicyPage>
   )
 }
 
-export function TermsPage() {
-  return (
-    <PolicyPage title="Điều khoản sử dụng" intro={`Điều khoản khi sử dụng website và mua hàng tại ${BRAND}.`}>
-      <section>
-        <h2>1. Thông tin người bán</h2>
-        <p>
-          <Fill>tên chủ sở hữu / doanh nghiệp, mã số đăng ký kinh doanh, địa chỉ</Fill>
-        </p>
-      </section>
-      <section>
-        <h2>2. Tài khoản</h2>
-        <p>
-          Bạn chịu trách nhiệm giữ bí mật mật khẩu. Chúng tôi có thể tạm khoá tài khoản có dấu hiệu gian lận hoặc lạm
-          dụng. Bạn vẫn có thể đặt hàng mà không cần tài khoản.
-        </p>
-      </section>
-      <section>
-        <h2>3. Đặt hàng, giá và thanh toán</h2>
-        <ul>
-          <li>Giá hiển thị bằng VND, đã gồm <Fill>VAT hay chưa</Fill>. Giá tại thời điểm đặt hàng được giữ cho đơn đó.</li>
-          <li>Đơn hàng được xác nhận khi cửa hàng xác nhận (trạng thái "Đã xác nhận"); có thể huỷ nếu hết hàng.</li>
-          <li>Thanh toán tiền mặt khi nhận hàng (COD).</li>
-        </ul>
-      </section>
-      <section>
-        <h2>4. Thông tin sản phẩm</h2>
-        <p>
-          Giá trị dinh dưỡng mang tính tham khảo, tính trên 100g sản phẩm. Sản phẩm không phải là thuốc và không có tác
-          dụng thay thế thuốc chữa bệnh. <Fill>nguồn số liệu dinh dưỡng, cảnh báo dị ứng</Fill>
-        </p>
-      </section>
-      <section>
-        <h2>5. Giải quyết khiếu nại</h2>
-        <p>
-          Khiếu nại được tiếp nhận qua <Fill>kênh tiếp nhận</Fill> và phản hồi trong <Fill>số ngày làm việc</Fill>. Xem
-          thêm{' '}
-          <Link to="/chinh-sach-doi-tra" className="font-semibold text-brand-700 underline">
-            Chính sách đổi trả
-          </Link>
-          .
-        </p>
-      </section>
-    </PolicyPage>
-  )
-}
+// ---- Trang 4 ---------------------------------------------------------------------------------------------------
 
-/** Contact details come from the server config (BUSINESS_*); unconfigured fields are hidden, never invented. */
 export function ContactPage() {
-  const site = useSiteInfo()
-  const b = site?.business ?? {}
-  const any = Boolean(b.hotline || b.email || b.address)
   return (
-    <PolicyPage title="Liên hệ" contactLink={false} intro={`Thông tin liên hệ và hỗ trợ khách hàng của ${BRAND}.`}>
+    <PolicyPage title="Liên hệ" contactLink={false} description={`Địa chỉ, hotline/Zalo, email, giờ làm việc và fanpage của ${BRAND}.`}>
       <section>
-        <h2>Kênh liên hệ</h2>
-        {site && !any ? (
-          <p>Thông tin liên hệ đang được cập nhật.</p>
-        ) : (
-          <dl className="mt-2 space-y-2">
-            {b.hotline && (
-              <div>
-                <dt className="inline font-semibold">Hotline: </dt>
-                <dd className="inline">
-                  <a href={telHref(b.hotline)} className="font-semibold text-brand-700 underline">
-                    {b.hotline}
-                  </a>
-                </dd>
-              </div>
-            )}
-            {b.email && (
-              <div>
-                <dt className="inline font-semibold">Email: </dt>
-                <dd className="inline select-text">{b.email}</dd>
-              </div>
-            )}
-            {b.address && (
-              <div>
-                <dt className="inline font-semibold">Địa chỉ: </dt>
-                <dd className="inline">{b.address}</dd>
-              </div>
-            )}
-          </dl>
-        )}
-        <p className="mt-3">
-          Giờ hỗ trợ: <Fill>giờ làm việc</Fill>
-        </p>
+        <ul>
+          <li>Địa chỉ kho: {SHOP.address}.</li>
+          <li>
+            Hotline/Zalo: <Phone />
+          </li>
+          <li>
+            Email: <Email />
+          </li>
+          <li>Khung giờ làm việc: {SHOP.hours}.</li>
+          <li>
+            Fanpage Facebook: <Fanpage />
+          </li>
+          <li>
+            Về đơn hàng: Kiểm tra tình trạng đơn bằng mã đơn và số điện thoại tại <To to="/tra-cuu-don-hang">Tra cứu đơn hàng</To>. Khi
+            liên hệ, vui lòng cho biết mã đơn (dạng HL…).
+          </li>
+        </ul>
       </section>
-      <section>
-        <h2>Về đơn hàng</h2>
-        <p>
-          Kiểm tra tình trạng đơn bằng mã đơn và số điện thoại tại{' '}
-          <Link to="/tra-cuu-don-hang" className="font-semibold text-brand-700 underline">
-            Tra cứu đơn hàng
-          </Link>
-          . Khi liên hệ, vui lòng cho biết mã đơn (dạng HL…).
-        </p>
-      </section>
-      {(b.ownerName || b.registrationNumber) && (
-        <section>
-          <h2>Thông tin người bán</h2>
-          {b.ownerName && <p>Chủ sở hữu: {b.ownerName}</p>}
-          {b.registrationNumber && <p>Mã số đăng ký kinh doanh: {b.registrationNumber}</p>}
-        </section>
-      )}
     </PolicyPage>
   )
 }

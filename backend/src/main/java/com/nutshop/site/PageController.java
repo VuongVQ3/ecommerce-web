@@ -50,7 +50,7 @@ public class PageController {
 	}
 
 	@GetMapping({ "/", "/chinh-sach-doi-tra", "/chinh-sach-bao-mat", "/chinh-sach-van-chuyen", "/dieu-khoan-su-dung",
-			"/lien-he", "/tra-cuu-don-hang", "/dang-nhap", "/dang-ky", "/quen-mat-khau", "/dat-lai-mat-khau",
+			"/dieu-khoan-giao-dich", "/lien-he", "/tra-cuu-don-hang", "/dang-nhap", "/dang-ky", "/quen-mat-khau", "/dat-lai-mat-khau",
 			"/gio-hang", "/thanh-toan" })
 	public ResponseEntity<String> staticPage(HttpServletRequest request) {
 		return pages.render(PageMetaService.STATIC_PAGES.get(request.getRequestURI()), HttpStatus.OK);
@@ -161,9 +161,9 @@ public class PageController {
 				HttpStatus.OK);
 	}
 
-	/** Old address of the terms page. */
+	/** Old address of the terms page (now terms of sale and privacy policy in one page). */
 	@GetMapping("/dieu-khoan")
 	public ResponseEntity<Void> oldTerms() {
-		return ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY).header(HttpHeaders.LOCATION, "/dieu-khoan-su-dung").build();
+		return ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY).header(HttpHeaders.LOCATION, "/dieu-khoan-giao-dich").build();
 	}
 }

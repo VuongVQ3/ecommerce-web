@@ -41,15 +41,15 @@ export function AuthCard({
 
 const legalLinkClass = 'font-semibold text-brand-700 underline-offset-2 hover:underline'
 
-/** "Điều khoản sử dụng và Chính sách bảo mật", each opening in a new tab. */
+/** "Điều khoản giao dịch chung và Chính sách bảo mật" (one page, the second link goes to its #bao-mat part), new tab. */
 export function LegalLinks() {
   return (
     <>
-      <a href="/dieu-khoan-su-dung" target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
-        Điều khoản sử dụng<span className="sr-only"> (mở trong tab mới)</span>
+      <a href="/dieu-khoan-giao-dich" target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
+        Điều khoản giao dịch chung<span className="sr-only"> (mở trong tab mới)</span>
       </a>{' '}
       và{' '}
-      <a href="/chinh-sach-bao-mat" target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
+      <a href="/dieu-khoan-giao-dich#bao-mat" target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
         Chính sách bảo mật<span className="sr-only"> (mở trong tab mới)</span>
       </a>
     </>

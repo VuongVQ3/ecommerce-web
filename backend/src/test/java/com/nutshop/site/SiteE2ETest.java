@@ -169,7 +169,11 @@ class SiteE2ETest {
 			.andExpect(header().string("Location", "/danh-muc/hat-mix-ngu-coc?sort=price_asc"));
 		assertThat(html("/danh-muc/hat-mix-ngu-coc")).contains("<title>Hạt mix &amp; ngũ cốc | Hạt Lành</title>");
 		assertThat(html("/")).contains("<title>Hạt Lành – Hạt dinh dưỡng &amp; đặc sản chọn lọc</title>");
-		assertThat(html("/chinh-sach-doi-tra")).contains("<title>Chính sách đổi trả | Hạt Lành</title>");
+		assertThat(html("/chinh-sach-doi-tra")).contains("<title>Chính sách đổi trả và Đồng kiểm | Hạt Lành</title>");
+		assertThat(html("/dieu-khoan-giao-dich"))
+			.contains("<title>Điều khoản giao dịch chung và Chính sách bảo mật | Hạt Lành</title>");
+		// Merged into /dieu-khoan-giao-dich: still served for the app's redirect, noindex, og:url points to the new page
+		assertThat(html("/chinh-sach-bao-mat")).contains("noindex").contains("/dieu-khoan-giao-dich\"");
 		assertThat(html("/lien-he")).contains("<title>Liên hệ | Hạt Lành</title>");
 		assertThat(html("/gio-hang")).contains("noindex");
 		assertThat(html("/admin/don-hang")).contains("noindex");
@@ -179,7 +183,7 @@ class SiteE2ETest {
 			.andExpect(header().string("Location", "/danh-muc/hat-dinh-duong?sort=price_asc"));
 		mvc.perform(get("/dieu-khoan"))
 			.andExpect(status().isMovedPermanently())
-			.andExpect(header().string("Location", "/dieu-khoan-su-dung"));
+			.andExpect(header().string("Location", "/dieu-khoan-giao-dich"));
 	}
 
 	@Test
@@ -228,6 +232,9 @@ class SiteE2ETest {
 				.andExpect(content().string(not(containsString("/danh-muc/banh-thanh-hat<"))))
 				.andExpect(content().string(not(containsString("/danh-muc/hat-sieu-thuc-pham<"))))
 				.andExpect(content().string(containsString("<loc>http://localhost:8080/chinh-sach-doi-tra</loc>")))
+				.andExpect(content().string(containsString("<loc>http://localhost:8080/dieu-khoan-giao-dich</loc>")))
+				.andExpect(content().string(not(containsString("/chinh-sach-bao-mat<"))))
+				.andExpect(content().string(not(containsString("/dieu-khoan-su-dung<"))))
 				.andExpect(content().string(not(containsString(slug))))
 				.andExpect(content().string(not(containsString("/gio-hang"))));
 		}
