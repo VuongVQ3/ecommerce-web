@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { Link, useLocation } from 'react-router'
-import { FACEBOOK_PATH, MESSENGER_PATH, SHOPEE_PATH, TIKTOK_PATH, ZALO_PATH } from '../lib/brandIcons'
+import { useLocation } from 'react-router'
+import { FACEBOOK_PATH, MESSENGER_PATH, ZALO_PATH } from '../lib/brandIcons'
 import { FINE_POINTER, useMediaQuery } from '../lib/media'
-import { telHref, useSiteInfo, type SiteInfo } from '../lib/siteInfo'
+import { SHOP } from '../lib/shopContact'
+import { useSiteInfo, type SiteInfo } from '../lib/siteInfo'
 import BackToTop from './BackToTop'
 
 /** Messenger's official gradient (brand resources). */
@@ -24,12 +25,9 @@ function PhoneIcon({ className }: { className: string }) {
   )
 }
 
-/** Where Facebook/Shopee/Zalo/TikTok lead until their link is configured */
-const CONTACT_PAGE = '/lien-he'
-
 interface Item {
   key: string
-  /** External link, tel:, or CONTACT_PAGE */
+  /** External link or tel: */
   href: string
   label: string
   ariaLabel: string
@@ -42,33 +40,37 @@ interface Item {
 }
 
 /**
- * Top to bottom: Facebook, Shopee, Zalo, TikTok (always shown; until their link is configured they lead to /lien-he,
- * labelled "đang cập nhật"), then Messenger and the hotline when configured.
+ * Top to bottom: Facebook, Zalo, Messenger (only when MESSENGER_PAGE is set on the server), then the hotline. Facebook,
+ * Zalo and the hotline are the published details (lib/shopContact), like the footer and the policy pages. No Shopee or
+ * TikTok: the shop has none yet.
  */
 function itemsOf(site: SiteInfo | null): Item[] {
-  const social = site?.social
-  const contact = site?.contact
-  const items: Item[] = []
-  const network = (key: string, name: string, href: string | null | undefined, color: string, icon: ReactNode) => {
-    items.push({
-      key,
-      href: href || CONTACT_PAGE,
-      label: href ? name : `${name} – đang cập nhật`,
-      ariaLabel: href ? `Hạt Lành trên ${name}` : `Hạt Lành trên ${name}: đang cập nhật, xem trang Liên hệ`,
-      background: { backgroundColor: color },
-      ring: color === '#000000' ? '#525252' : color,
-      icon,
-      external: Boolean(href),
-    })
-  }
-  network('facebook', 'Facebook', social?.facebookUrl, '#0866ff', <BrandIcon path={FACEBOOK_PATH} className="size-5" />)
-  network('shopee', 'Shopee', social?.shopeeUrl, '#ee4d2d', <BrandIcon path={SHOPEE_PATH} className="size-5" />)
-  network('zalo', 'Zalo', social?.zaloUrl ?? contact?.zaloUrl, '#0068ff', <BrandIcon path={ZALO_PATH} className="size-7" />)
-  network('tiktok', 'TikTok', social?.tiktokUrl, '#000000', <BrandIcon path={TIKTOK_PATH} className="size-5" />)
-  if (contact?.messengerUrl) {
+  const items: Item[] = [
+    {
+      key: 'facebook',
+      href: SHOP.fanpage,
+      label: 'Facebook',
+      ariaLabel: 'Hạt Lành trên Facebook',
+      background: { backgroundColor: '#0866ff' },
+      ring: '#0866ff',
+      icon: <BrandIcon path={FACEBOOK_PATH} className="size-5" />,
+      external: true,
+    },
+    {
+      key: 'zalo',
+      href: SHOP.zalo,
+      label: 'Zalo',
+      ariaLabel: 'Nhắn Zalo cho Hạt Lành',
+      background: { backgroundColor: '#0068ff' },
+      ring: '#0068ff',
+      icon: <BrandIcon path={ZALO_PATH} className="size-7" />,
+      external: true,
+    },
+  ]
+  if (site?.contact?.messengerUrl) {
     items.push({
       key: 'messenger',
-      href: contact.messengerUrl,
+      href: site.contact.messengerUrl,
       label: 'Messenger',
       ariaLabel: 'Nhắn Messenger cho Hạt Lành',
       background: { backgroundImage: MESSENGER_GRADIENT },
@@ -77,18 +79,16 @@ function itemsOf(site: SiteInfo | null): Item[] {
       external: true,
     })
   }
-  if (contact?.hotline) {
-    items.push({
-      key: 'call',
-      href: telHref(contact.hotline),
-      label: `Gọi ${contact.hotline}`,
-      ariaLabel: `Gọi Hạt Lành ${contact.hotline}`,
-      background: { backgroundColor: 'var(--color-brand-600)' },
-      ring: 'var(--color-brand-500)',
-      icon: <PhoneIcon className="size-5" />,
-      external: false,
-    })
-  }
+  items.push({
+    key: 'call',
+    href: SHOP.phoneHref,
+    label: `Gọi ${SHOP.phone}`,
+    ariaLabel: `Gọi Hạt Lành ${SHOP.phone}`,
+    background: { backgroundColor: 'var(--color-brand-600)' },
+    ring: 'var(--color-brand-500)',
+    icon: <PhoneIcon className="size-5" />,
+    external: false,
+  })
   return items
 }
 
@@ -111,7 +111,7 @@ function CloseIcon({ className }: { className: string }) {
 
 /**
  * Contact icons fixed in the bottom right corner of every storefront page (they stay put while the shopper
- * navigates), always shown (see itemsOf). Not in the back office. Sits under modals and
+ * navigates): Facebook, Zalo, Messenger when configured, the hotline (see itemsOf). Not in the back office. Sits under modals and
  * drawers (z-30).
  * - From 1280px: a column of icons, always visible.
  * - Under 1280px (phones, tablets, small laptops: the column covered the product cards): one 48px chat button;
@@ -189,10 +189,8 @@ export default function FloatingContact() {
                 } as CSSProperties
               }
             >
-              <Link
-                to={item.href}
-                // Other sites and tel: are plain links; only /lien-he navigates inside the app
-                reloadDocument={item.href !== CONTACT_PAGE}
+              <a
+                href={item.href}
                 aria-label={item.ariaLabel}
                 // Desktop: new tab; phones open the link directly so the app can take it
                 {...(item.external && desktop ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
@@ -205,7 +203,7 @@ export default function FloatingContact() {
                 <span className="fc-dot relative flex size-10 items-center justify-center rounded-full text-white shadow-md sm:size-11" style={item.background}>
                   {item.icon}
                 </span>
-              </Link>
+              </a>
             </li>
           ))}
         </ul>

@@ -48,7 +48,7 @@ public final class TrackingDtos {
 			/** Optional Cloudflare Turnstile token; verified server-side when present (run-2 leads 11/12). */
 			@Size(max = 4096) String turnstileToken) {
 
-		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản sử dụng và Chính sách bảo mật";
+		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản giao dịch chung và Chính sách bảo mật";
 	}
 
 	/** Guest lookup: no validation messages, any problem gives the same 404. */

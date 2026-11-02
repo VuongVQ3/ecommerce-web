@@ -39,7 +39,7 @@ public final class AuthDtos {
 			String turnstileToken,
 			String website) {
 
-		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản sử dụng và Chính sách bảo mật";
+		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản giao dịch chung và Chính sách bảo mật";
 
 		boolean isHoneypotFilled() {
 			return website != null && !website.isBlank();
@@ -99,7 +99,7 @@ public final class AuthDtos {
 			@NotBlank(message = "Vui lòng nhập mật khẩu")
 			@Size(min = 8, max = 72, message = "Mật khẩu phải từ 8 đến 72 ký tự")
 			@Pattern(regexp = PASSWORD_PATTERN, message = "Mật khẩu phải có cả chữ và số") String newPassword,
-			@NotNull(message = "Bạn cần đồng ý với Điều khoản sử dụng và Chính sách bảo mật")
-			@AssertTrue(message = "Bạn cần đồng ý với Điều khoản sử dụng và Chính sách bảo mật") Boolean acceptTerms) {
+			@NotNull(message = "Bạn cần đồng ý với Điều khoản giao dịch chung và Chính sách bảo mật")
+			@AssertTrue(message = "Bạn cần đồng ý với Điều khoản giao dịch chung và Chính sách bảo mật") Boolean acceptTerms) {
 	}
 }
