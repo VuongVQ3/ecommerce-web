@@ -69,6 +69,13 @@ public class AdminOrderService {
 	public record OrderList(PageResponse<OrderRow> page, long pendingCount) {
 	}
 
+	/**
+	 * What the back office polls (every 20 s while a tab is visible) to notice new orders: the pending count and the
+	 * newest order's id, code and time. No customer data.
+	 */
+	public record OrderSummary(long pendingCount, UUID latestOrderId, String latestOrderCode, Instant latestCreatedAt) {
+	}
+
 	public record NoteResponse(String body, Instant createdAt, String authorName) {
 	}
 
@@ -111,6 +118,15 @@ public class AdminOrderService {
 		this.orderService = orderService;
 		this.users = users;
 		this.audit = audit;
+	}
+
+	/** A count and the newest order's three columns: light enough to be asked for every 20 seconds. */
+	@Transactional(readOnly = true)
+	public OrderSummary summary() {
+		var latest = orders.findFirstByOrderByCreatedAtDesc();
+		return new OrderSummary(orders.countByStatus(OrderStatus.PENDING), latest.map(OrderRepository.LatestOrder::getId).orElse(null),
+				latest.map(OrderRepository.LatestOrder::getCode).orElse(null),
+				latest.map(OrderRepository.LatestOrder::getCreatedAt).orElse(null));
 	}
 
 	/**

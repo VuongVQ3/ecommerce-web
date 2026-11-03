@@ -72,6 +72,12 @@ public class AdminController {
 		return orders.list(status, from, to, q, cancelReasonCode, page, size);
 	}
 
+	/** Polled by the back office to notice new orders (pending count, newest order); no customer data. */
+	@GetMapping("/orders/summary")
+	public AdminOrderService.OrderSummary orderSummary() {
+		return orders.summary();
+	}
+
 	@GetMapping("/orders/{code}")
 	public AdminOrderDetail order(@PathVariable String code) {
 		return orders.detail(code);

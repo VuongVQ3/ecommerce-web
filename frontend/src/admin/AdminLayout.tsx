@@ -1,5 +1,7 @@
 import {
   BadgePercent,
+  Bell,
+  BellOff,
   FolderTree,
   History,
   LayoutDashboard,
@@ -11,13 +13,14 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { useCallback, useRef, useState } from 'react'
-import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
+import { useToast } from '../components/Toast'
 import type { Role } from '../lib/api'
-import { adminApi } from '../lib/adminApi'
-import { useAsync } from '../lib/useAsync'
+import type { OrderSummary } from '../lib/adminApi'
 import { useFocusTrap } from '../lib/useFocusTrap'
+import { NewOrdersContext, newOrderToast, playNewOrderSound, useNewOrderPolling, useOrderSoundSetting } from './newOrders'
 import { BRAND, usePageMeta } from '../lib/usePageMeta'
 
 const ORDERS = '/admin/don-hang'
@@ -91,7 +94,7 @@ function NavList({ items, pending, onNavigate }: { items: typeof NAV; pending: n
   )
 }
 
-function Account({ onLogout }: { onLogout: () => void }) {
+function Account({ onLogout, sound, onSound }: { onLogout: () => void; sound: boolean; onSound: (on: boolean) => void }) {
   const { user } = useAuth()
   return (
     <div className="border-t border-stone-200 px-5 py-4 text-sm">
@@ -107,12 +110,35 @@ function Account({ onLogout }: { onLogout: () => void }) {
           Đăng xuất
         </button>
       </div>
+      {/* Remembered in this browser (localStorage) */}
+      <button
+        type="button"
+        aria-pressed={sound}
+        onClick={() => onSound(!sound)}
+        className="mt-3 flex items-center gap-2 rounded-lg text-stone-700 hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-brand-700"
+      >
+        {sound ? <Bell aria-hidden className="size-4" /> : <BellOff aria-hidden className="size-4" />}
+        Âm báo đơn mới
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${sound ? 'bg-brand-100 text-brand-800' : 'bg-stone-200 text-stone-600'}`}>
+          {sound ? 'Bật' : 'Tắt'}
+        </span>
+      </button>
     </div>
   )
 }
 
 /** Phone/tablet: slide-over with the menu. Focus stays inside, Esc closes. */
-function NavDrawer({ items, pending, onClose, onLogout }: { items: typeof NAV; pending: number; onClose: () => void; onLogout: () => void }) {
+function NavDrawer({
+  items,
+  pending,
+  onClose,
+  account,
+}: {
+  items: typeof NAV
+  pending: number
+  onClose: () => void
+  account: ReactNode
+}) {
   const panel = useRef<HTMLDivElement>(null)
   useFocusTrap(true, panel, onClose)
   return (
@@ -144,7 +170,7 @@ function NavDrawer({ items, pending, onClose, onLogout }: { items: typeof NAV; p
             ← Về cửa hàng
           </Link>
         </nav>
-        <Account onLogout={onLogout} />
+        {account}
       </div>
     </div>
   )
@@ -162,11 +188,36 @@ export default function AdminLayout() {
   // The drawer remembers the page it was opened on, so navigating closes it
   const [drawerOn, setDrawerOn] = useState<string | null>(null)
   const closeDrawer = useCallback(() => setDrawerOn(null), [])
-  // Asked again on every page change, so the badge follows confirmations made meanwhile
-  const pending = useAsync((signal) => adminApi.orders({ status: 'PENDING', size: 1 }, signal), [pathname]).data?.pendingCount ?? 0
+  const toast = useToast()
+  const navigate = useNavigate()
+  const [sound, setSound] = useOrderSoundSetting()
+  // New orders seen since the back office was opened: pages react to a change (OrdersPage, DashboardPage)
+  const [newOrders, setNewOrders] = useState(0)
+  const onNewOrder = useCallback(
+    (summary: OrderSummary, previous: OrderSummary) => {
+      setNewOrders((n) => n + 1)
+      if (sound) playNewOrderSound()
+      const { message, label, to } = newOrderToast(summary, previous)
+      toast({ message, tone: 'info', duration: 10_000, action: { label, onClick: () => navigate(to) } })
+    },
+    [sound, toast, navigate],
+  )
+  // Every 20 s while the tab is visible; also on every page change, so the badge follows confirmations made meanwhile
+  const { summary, refresh } = useNewOrderPolling(onNewOrder)
+  // Not on the first render: the polling hook asks right away by itself
+  const shownPath = useRef(pathname)
+  useEffect(() => {
+    if (shownPath.current === pathname) return
+    shownPath.current = pathname
+    void refresh()
+  }, [pathname, refresh])
+  const pending = summary?.pendingCount ?? 0
+  const newOrdersValue = useMemo(() => ({ newOrders, refresh: () => void refresh() }), [newOrders, refresh])
   const title = currentTitle(pathname)
-  // Effects run child first: a page outside the menu (not found) has set its own title, so leave it
-  usePageMeta(title ? `${title} | Quản trị | ${BRAND}` : null)
+  // "(3) Đơn hàng | Quản trị | Hạt Lành" while orders wait. Effects run child first: a page outside the menu (not
+  // found) has set its own title, so leave it
+  usePageMeta(title ? `${pending > 0 ? `(${pending}) ` : ''}${title} | Quản trị | ${BRAND}` : null)
+  const account = <Account onLogout={() => void logout()} sound={sound} onSound={setSound} />
 
   if (user?.passwordChangeRequired) {
     return <Navigate to={`/tai-khoan/doi-mat-khau?next=${encodeURIComponent(pathname)}`} replace />
@@ -191,7 +242,7 @@ export default function AdminLayout() {
           Cửa hàng
         </Link>
       </header>
-      {drawerOn === pathname && <NavDrawer items={items} pending={pending} onClose={closeDrawer} onLogout={() => void logout()} />}
+      {drawerOn === pathname && <NavDrawer items={items} pending={pending} onClose={closeDrawer} account={account} />}
 
       <aside className="hidden border-r border-stone-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-60 lg:shrink-0 lg:flex-col">
         <div className="px-5 py-5">
@@ -205,10 +256,12 @@ export default function AdminLayout() {
         <nav aria-label="Quản trị" className="flex-1 overflow-y-auto px-3">
           <NavList items={items} pending={pending} />
         </nav>
-        <Account onLogout={() => void logout()} />
+        {account}
       </aside>
       <main className="min-w-0 flex-1 px-4 py-5 md:px-6 lg:px-8 lg:py-8">
-        <Outlet />
+        <NewOrdersContext.Provider value={newOrdersValue}>
+          <Outlet />
+        </NewOrdersContext.Provider>
       </main>
     </div>
   )

@@ -123,6 +123,47 @@ class AdminE2ETest {
 		}
 	}
 
+	@Test
+	void orderSummaryGivesStaffTheNewestOrderAndPendingCountWithoutCustomerData() throws Exception {
+		Cookie admin = as("ADMIN");
+		Cookie staff = as("STAFF");
+		Cookie customer = as("CUSTOMER");
+		long product = createProduct(admin, "Tóm tắt đơn " + UUID.randomUUID(), null);
+		importStock(admin, product, 10);
+		placeOrder(product, 1);
+		String newest = placeOrder(product, 1);
+		long pending = jdbc.queryForObject("SELECT COUNT(*) FROM orders WHERE status = 'PENDING'", Long.class);
+		String newestId = jdbc.queryForObject("SELECT id::text FROM orders WHERE code = ?", String.class, newest);
+
+		for (Cookie cookie : List.of(staff, admin)) {
+			call(get("/api/admin/orders/summary"), cookie).andExpect(status().isOk())
+				.andExpect(jsonPath("$.pendingCount").value(pending))
+				.andExpect(jsonPath("$.latestOrderCode").value(newest))
+				.andExpect(jsonPath("$.latestOrderId").value(newestId))
+				.andExpect(jsonPath("$.latestCreatedAt").isNotEmpty())
+				.andExpect(jsonPath("$.customerName").doesNotExist())
+				.andExpect(jsonPath("$.phone").doesNotExist());
+		}
+
+		// Confirming the newest order takes it out of the pending count; it stays the newest
+		call(json(post("/api/admin/orders/" + newest + "/confirm"), "{\"contact\":\"CALLED\"}"), staff).andExpect(status().isOk());
+		call(get("/api/admin/orders/summary"), staff).andExpect(jsonPath("$.pendingCount").value(pending - 1))
+			.andExpect(jsonPath("$.latestOrderCode").value(newest));
+
+		call(get("/api/admin/orders/summary"), customer).andExpect(status().isForbidden());
+		mvc.perform(get("/api/admin/orders/summary").header("X-Requested-With", "XMLHttpRequest"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	/** Polling every 20 seconds is never rate limited (no limit on admin reads). */
+	@Test
+	void orderSummaryCanBePolledRepeatedly() throws Exception {
+		Cookie staff = as("STAFF");
+		for (int i = 0; i < 40; i++) {
+			call(get("/api/admin/orders/summary"), staff).andExpect(status().isOk());
+		}
+	}
+
 	// ---- helpers --------------------------------------------------------------------------------------------
 
 	/** Registers a fresh account with the given role and returns its access cookie. */

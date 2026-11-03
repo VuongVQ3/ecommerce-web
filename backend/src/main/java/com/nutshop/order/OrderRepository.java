@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +18,18 @@ import java.util.UUID;
 public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecificationExecutor<Order> {
 
 	long countByStatus(OrderStatus status);
+
+	/** Id, code and time of an order, nothing about the customer (the admin's new-order polling). */
+	interface LatestOrder {
+		UUID getId();
+
+		String getCode();
+
+		Instant getCreatedAt();
+	}
+
+	/** The newest order of any status; selects only the three columns of {@link LatestOrder} (idx_orders_created_at). */
+	Optional<LatestOrder> findFirstByOrderByCreatedAtDesc();
 
 	/** Open orders a phone is currently holding (used to cap anonymous PENDING orders per phone). */
 	long countByPhoneAndStatus(String phone, OrderStatus status);

@@ -38,6 +38,14 @@ export interface AdminOrderDetail {
   cancelReasonCode: CancelReasonCode | null
 }
 
+/** Pending count and the newest order, for noticing new orders (no customer data) */
+export interface OrderSummary {
+  pendingCount: number
+  latestOrderId: string | null
+  latestOrderCode: string | null
+  latestCreatedAt: string | null
+}
+
 export interface OrderFilters {
   status?: OrderStatus | ''
   from?: string
@@ -211,6 +219,9 @@ export const adminApi = {
   dashboardDay: (date: string, signal?: AbortSignal) =>
     apiRequest<DashboardDay>(`/api/admin/dashboard/day${query({ date })}`, { signal }),
 
+  /** Polled every 20 s by the back office; a failure (or a lost session) never redirects, the next poll retries */
+  orderSummary: (signal?: AbortSignal) =>
+    apiRequest<OrderSummary>('/api/admin/orders/summary', { signal, redirectOnAuthFailure: false }),
   orders: (f: OrderFilters, signal?: AbortSignal) =>
     apiRequest<{ page: Page<AdminOrderRow>; pendingCount: number }>(
       `/api/admin/orders${query({ status: f.status, from: f.from, to: f.to, q: f.q, cancelReasonCode: f.cancelReasonCode, page: f.page, size: f.size })}`,
