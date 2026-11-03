@@ -114,6 +114,7 @@ export function claimAccountSchema(needsEmail: boolean, needsName = false) {
       fullName: needsName ? personName : z.string(),
       password: newPassword,
       confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu'),
+      acceptPrivacy,
     })
     .refine((v) => v.confirmPassword === '' || v.password === v.confirmPassword, {
       message: PASSWORD_MISMATCH,
@@ -144,7 +145,7 @@ export const changePasswordSchema = z
 export type ChangePasswordForm = z.infer<typeof changePasswordSchema>
 
 export const acceptInviteSchema = z
-  .object({ newPassword, confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu') })
+  .object({ newPassword, confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu'), acceptPrivacy })
   .refine((v) => v.confirmPassword === '' || v.newPassword === v.confirmPassword, {
     message: PASSWORD_MISMATCH,
     path: ['confirmPassword'],

@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../components/Toast'
 import { api, type User } from '../lib/api'
-import { ChangePasswordPage } from './PasswordPages'
+import { AcceptInvitePage, ChangePasswordPage } from './PasswordPages'
 
 const auth = vi.hoisted(() => ({ user: null as User | null, signedIn: vi.fn() }))
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
@@ -60,5 +60,29 @@ describe('ChangePasswordPage', () => {
 
     await waitFor(() => expect(change).toHaveBeenCalledWith('', 'matkhau123'))
     expect(await screen.findByText('Đã đặt mật khẩu. Từ giờ bạn có thể đăng nhập bằng email và mật khẩu.')).toBeTruthy()
+  })
+})
+
+describe('AcceptInvitePage', () => {
+  it('needs the separate, unticked privacy policy box before setting the password', async () => {
+    const accept = vi.spyOn(api, 'acceptInvite').mockResolvedValue()
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={['/dat-mat-khau?token=invite-token']}>
+          <AcceptInvitePage />
+        </MemoryRouter>
+      </ToastProvider>,
+    )
+    const box = screen.getByRole('checkbox', { name: /Tôi đồng ý với Chính sách bảo mật/ }) as HTMLInputElement
+    expect(box.checked).toBe(false)
+    type('Mật khẩu', 'matkhau123')
+    type('Nhập lại mật khẩu', 'matkhau123')
+    fireEvent.click(screen.getByRole('button', { name: 'Đặt mật khẩu' }))
+    expect(await screen.findByText('Bạn cần đồng ý với Chính sách bảo mật')).toBeTruthy()
+    expect(accept).not.toHaveBeenCalled()
+
+    fireEvent.click(box)
+    fireEvent.click(screen.getByRole('button', { name: 'Đặt mật khẩu' }))
+    await waitFor(() => expect(accept).toHaveBeenCalledWith('invite-token', 'matkhau123'))
   })
 })

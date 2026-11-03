@@ -148,6 +148,12 @@ describe('TrackOrderPage', () => {
     expect(screen.getByText('kh***@example.com')).toBeTruthy()
     fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'matkhau123' } })
     fireEvent.change(screen.getByLabelText('Nhập lại mật khẩu'), { target: { value: 'matkhau123' } })
+    const privacy = screen.getByRole('checkbox', { name: /Tôi đồng ý với Chính sách bảo mật/ }) as HTMLInputElement
+    expect(privacy.checked).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo tài khoản' }))
+    expect(await screen.findByText('Bạn cần đồng ý với Chính sách bảo mật')).toBeTruthy()
+    expect(claim).not.toHaveBeenCalled()
+    fireEvent.click(privacy)
     fireEvent.click(screen.getByRole('button', { name: 'Tạo tài khoản' }))
 
     expect(await screen.findByTestId('where')).toBeTruthy()
@@ -155,6 +161,7 @@ describe('TrackOrderPage', () => {
     expect(claim).toHaveBeenCalledWith(CODE, TOKEN, {
       password: 'matkhau123',
       acceptTerms: true,
+      acceptPrivacy: true,
       email: undefined,
     })
     expect(signedIn).toHaveBeenCalledWith(user)
@@ -168,6 +175,7 @@ describe('TrackOrderPage', () => {
     await screen.findByRole('heading', { name: 'Lưu đơn hàng vào tài khoản' })
     fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'matkhau123' } })
     fireEvent.change(screen.getByLabelText('Nhập lại mật khẩu'), { target: { value: 'matkhau123' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: /Tôi đồng ý với Chính sách bảo mật/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Tạo tài khoản' }))
 
     expect(await screen.findByText('Email hoặc số điện thoại này đã có tài khoản.')).toBeTruthy()

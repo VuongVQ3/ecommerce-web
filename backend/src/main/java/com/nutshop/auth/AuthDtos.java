@@ -103,12 +103,13 @@ public final class AuthDtos {
 			@Pattern(regexp = PASSWORD_PATTERN, message = "Mật khẩu phải có cả chữ và số") String newPassword) {
 	}
 
-	/** First password of an invited staff account (also accepts the terms). */
+	/** First password of an invited staff account: accepts the terms, and the privacy policy with its own checkbox. */
 	public record AcceptInviteRequest(@NotBlank(message = "Liên kết mời không hợp lệ") String token,
 			@NotBlank(message = "Vui lòng nhập mật khẩu")
 			@Size(min = 8, max = 72, message = "Mật khẩu phải từ 8 đến 72 ký tự")
 			@Pattern(regexp = PASSWORD_PATTERN, message = "Mật khẩu phải có cả chữ và số") String newPassword,
-			@NotNull(message = "Bạn cần đồng ý với Điều khoản giao dịch chung và Chính sách bảo mật")
-			@AssertTrue(message = "Bạn cần đồng ý với Điều khoản giao dịch chung và Chính sách bảo mật") Boolean acceptTerms) {
+			@NotNull(message = RegisterRequest.TERMS_REQUIRED)
+			@AssertTrue(message = RegisterRequest.TERMS_REQUIRED) Boolean acceptTerms,
+			@NotNull(message = PRIVACY_REQUIRED) @AssertTrue(message = PRIVACY_REQUIRED) Boolean acceptPrivacy) {
 	}
 }

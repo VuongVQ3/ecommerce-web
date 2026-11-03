@@ -96,7 +96,7 @@ public class AuthService {
 
 	/**
 	 * Account created from a guest order's tracking page (OrderClaimService): name, email and phone come from the
-	 * order, the buyer only chooses a password and accepts the terms. Same password hashing and consent records as
+	 * order, the buyer only chooses a password and accepts the terms and the privacy policy. Same password hashing and consent records as
 	 * {@link #register}. If the email or the phone already has an account → 409 ACCOUNT_EXISTS, nothing created.
 	 */
 	@Transactional
@@ -107,6 +107,7 @@ public class AuthService {
 			throw new ConflictException(ACCOUNT_EXISTS, "Email hoặc số điện thoại này đã có tài khoản.");
 		}
 		User user = new User(email, passwordEncoder.encode(password), fullName.trim(), phone, clock.instant());
+		user.recordPrivacyConsent(clock.instant(), PolicyVersion.CURRENT); // acceptPrivacy is validated true
 		user = users.saveAndFlush(user); // audit rows reference it through JDBC
 		verification.sendLink(user);
 		return issue(user, client);

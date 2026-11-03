@@ -1,5 +1,6 @@
 package com.nutshop.admin;
 
+import com.nutshop.site.PolicyVersion;
 import com.nutshop.IntegrationTest;
 import com.nutshop.auth.AuthCookies;
 import com.nutshop.auth.TokenService;
@@ -305,9 +306,16 @@ class AdminUsersE2ETest {
 		mvc.perform(json(post("/api/auth/reset-password"), "{\"token\":\"" + token + "\",\"newPassword\":\"matkhau123\"}"))
 			.andExpect(status().isBadRequest());
 
+		// Without the privacy policy checkbox the link is not used up
 		mvc.perform(json(post("/api/auth/accept-invite"), "{\"token\":\"" + token + "\",\"newPassword\":\"matkhau123\",\"acceptTerms\":true}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.acceptPrivacy").value("Bạn cần đồng ý với Chính sách bảo mật"));
+		mvc.perform(json(post("/api/auth/accept-invite"), "{\"token\":\"" + token + "\",\"newPassword\":\"matkhau123\",\"acceptTerms\":true,\"acceptPrivacy\":true}"))
 			.andExpect(status().isNoContent());
-		mvc.perform(json(post("/api/auth/accept-invite"), "{\"token\":\"" + token + "\",\"newPassword\":\"matkhau456\",\"acceptTerms\":true}"))
+		assertThat(jdbc.queryForMap("SELECT privacy_consent_at IS NOT NULL AS consented, policy_version FROM users WHERE email = ?", email))
+			.containsEntry("consented", true)
+			.containsEntry("policy_version", PolicyVersion.CURRENT);
+		mvc.perform(json(post("/api/auth/accept-invite"), "{\"token\":\"" + token + "\",\"newPassword\":\"matkhau456\",\"acceptTerms\":true,\"acceptPrivacy\":true}"))
 			.andExpect(status().isBadRequest());
 		mvc.perform(json(post("/api/auth/login"), "{\"email\":\"" + email + "\",\"password\":\"matkhau123\"}"))
 			.andExpect(status().isOk())
@@ -326,7 +334,7 @@ class AdminUsersE2ETest {
 		assertThat(m.find()).isTrue();
 		jdbc.update("UPDATE password_reset_tokens SET expires_at = now() - interval '1 minute' WHERE token_hash = ?",
 				SecureTokens.hash(m.group(1)));
-		mvc.perform(json(post("/api/auth/accept-invite"), "{\"token\":\"" + m.group(1) + "\",\"newPassword\":\"matkhau123\",\"acceptTerms\":true}"))
+		mvc.perform(json(post("/api/auth/accept-invite"), "{\"token\":\"" + m.group(1) + "\",\"newPassword\":\"matkhau123\",\"acceptTerms\":true,\"acceptPrivacy\":true}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_LINK"));
 	}

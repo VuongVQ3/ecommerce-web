@@ -5,6 +5,7 @@ import com.nutshop.common.ApiException;
 import com.nutshop.common.SecureTokens;
 import com.nutshop.mail.EmailMessage;
 import com.nutshop.mail.EmailSender;
+import com.nutshop.site.PolicyVersion;
 import com.nutshop.site.SiteProperties;
 import com.nutshop.user.User;
 import com.nutshop.user.UserRepository;
@@ -101,7 +102,10 @@ public class StaffInvitationService {
 		return user;
 	}
 
-	/** Single use, 48 hours. Setting the password also proves the email and accepts the terms. */
+	/**
+	 * Single use, 48 hours. Setting the password also proves the email and accepts the terms and the privacy policy
+	 * (the request's acceptTerms and acceptPrivacy are validated true).
+	 */
 	@Transactional
 	public void accept(String rawToken, String newPassword) {
 		Instant now = clock.instant();
@@ -112,6 +116,7 @@ public class StaffInvitationService {
 		User user = token.getUser();
 		user.changePassword(passwordEncoder.encode(newPassword));
 		user.acceptTerms(now);
+		user.recordPrivacyConsent(now, PolicyVersion.CURRENT);
 		token.markUsed(now);
 		tokens.invalidateUnused(user.getId(), now);
 		verification.markVerified(user, "INVITATION");

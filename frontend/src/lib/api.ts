@@ -290,6 +290,8 @@ export interface CustomerCancelInput {
 export interface ClaimAccountInput {
   password: string
   acceptTerms: true
+  /** The separate, unticked "Tôi đồng ý với Chính sách bảo mật" checkbox (required). */
+  acceptPrivacy: true
   /** Only when the order has no email. */
   email?: string
   /** Only when the name on the order is not a valid name. */
@@ -591,9 +593,9 @@ export const api = {
   changePassword: (currentPassword: string, newPassword: string) =>
     apiRequest<User>('/api/auth/change-password', post({ currentPassword, newPassword })),
 
-  /** First password of an invited staff account (public: the token is the proof). */
+  /** First password of an invited staff account (public: the token is the proof). Only once the privacy box is ticked. */
   acceptInvite: (token: string, newPassword: string) =>
-    apiRequest<void>('/api/auth/accept-invite', post({ token, newPassword, acceptTerms: true })),
+    apiRequest<void>('/api/auth/accept-invite', post({ token, newPassword, acceptTerms: true, acceptPrivacy: true })),
 
   // Cart: guests (public). Same shape as a signed-in cart, priced by the server.
   cartValidate: (items: CartLineInput[], signal?: AbortSignal) =>

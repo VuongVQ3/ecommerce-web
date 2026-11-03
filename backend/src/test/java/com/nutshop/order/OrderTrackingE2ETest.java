@@ -1,5 +1,6 @@
 package com.nutshop.order;
 
+import com.nutshop.site.PolicyVersion;
 import com.nutshop.IntegrationTest;
 import com.nutshop.auth.AuthCookies;
 import com.nutshop.common.SecureTokens;
@@ -411,7 +412,7 @@ class OrderTrackingE2ETest {
 		String[] second = guestOrder(id, email);
 
 		MockHttpServletResponse res = mvc.perform(json(post("/api/orders/track/" + first[0] + "/claim-account").param("t", first[1]),
-				"{\"password\":\"matkhau123\",\"acceptTerms\":true}"))
+				"{\"password\":\"matkhau123\",\"acceptTerms\":true,\"acceptPrivacy\":true}"))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.email").value(email))
 			.andExpect(jsonPath("$.fullName").value("Nguyễn Khách"))
@@ -422,8 +423,11 @@ class OrderTrackingE2ETest {
 		Cookie session = res.getCookie(AuthCookies.ACCESS_COOKIE);
 		assertThat(session).isNotNull();
 
-		Map<String, Object> user = jdbc.queryForMap("SELECT id::text AS id, terms_accepted_at, password_hash FROM users WHERE email = ?", email);
+		Map<String, Object> user = jdbc.queryForMap("SELECT id::text AS id, terms_accepted_at, privacy_consent_at, policy_version, "
+				+ "password_hash FROM users WHERE email = ?", email);
 		assertThat(user.get("terms_accepted_at")).isNotNull();
+		assertThat(user.get("privacy_consent_at")).isNotNull();
+		assertThat(user.get("policy_version")).isEqualTo(PolicyVersion.CURRENT);
 		assertThat((String) user.get("password_hash")).startsWith("$2").doesNotContain("matkhau123");
 		assertThat(jdbc.queryForObject("SELECT user_id::text FROM orders WHERE code = ?", String.class, first[0])).isEqualTo(user.get("id"));
 		// Only this order: the other one waits for email verification
@@ -468,7 +472,7 @@ class OrderTrackingE2ETest {
 		int users = jdbc.queryForObject("SELECT COUNT(*) FROM users", Integer.class);
 
 		mvc.perform(json(post("/api/orders/track/" + order[0] + "/claim-account").param("t", order[1]),
-				"{\"password\":\"matkhau123\",\"acceptTerms\":true}"))
+				"{\"password\":\"matkhau123\",\"acceptTerms\":true,\"acceptPrivacy\":true}"))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ACCOUNT_EXISTS"));
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users", Integer.class)).isEqualTo(users);
@@ -480,7 +484,7 @@ class OrderTrackingE2ETest {
 		jdbc.update("UPDATE users SET phone = '0912345678' WHERE email = ?", email);
 		String[] second = guestOrder(product(), other);
 		mvc.perform(json(post("/api/orders/track/" + second[0] + "/claim-account").param("t", second[1]),
-				"{\"password\":\"matkhau123\",\"acceptTerms\":true}"))
+				"{\"password\":\"matkhau123\",\"acceptTerms\":true,\"acceptPrivacy\":true}"))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ACCOUNT_EXISTS"));
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE email = ?", Integer.class, other)).isZero();
@@ -490,20 +494,29 @@ class OrderTrackingE2ETest {
 	void claimAccountNeedsAnEmailTermsAndAValidPassword() throws Exception {
 		String[] order = guestOrder(product(), null);
 		String url = "/api/orders/track/" + order[0] + "/claim-account";
-		mvc.perform(json(post(url).param("t", order[1]), "{\"password\":\"matkhau123\",\"acceptTerms\":true}"))
+		mvc.perform(json(post(url).param("t", order[1]), "{\"password\":\"matkhau123\",\"acceptTerms\":true,\"acceptPrivacy\":true}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("EMAIL_REQUIRED"));
-		mvc.perform(json(post(url).param("t", order[1]), "{\"password\":\"12345678\",\"acceptTerms\":true,\"email\":\"a@b.vn\"}"))
+		mvc.perform(json(post(url).param("t", order[1]), "{\"password\":\"12345678\",\"acceptTerms\":true,\"acceptPrivacy\":true,\"email\":\"a@b.vn\"}"))
 			.andExpect(status().isBadRequest());
 		mvc.perform(json(post(url).param("t", order[1]), "{\"password\":\"matkhau123\",\"acceptTerms\":false,\"email\":\"a@b.vn\"}"))
 			.andExpect(status().isBadRequest());
-		mvc.perform(json(post(url).param("t", SecureTokens.generate()), "{\"password\":\"matkhau123\",\"acceptTerms\":true,\"email\":\"a@b.vn\"}"))
+		// The privacy policy has its own checkbox: missing or false is refused, nothing is created
+		mvc.perform(json(post(url).param("t", order[1]), "{\"password\":\"matkhau123\",\"acceptTerms\":true,\"email\":\"a@b.vn\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.acceptPrivacy").value("Bạn cần đồng ý với Chính sách bảo mật"));
+		mvc.perform(json(post(url).param("t", order[1]),
+				"{\"password\":\"matkhau123\",\"acceptTerms\":true,\"acceptPrivacy\":false,\"email\":\"a@b.vn\"}"))
+			.andExpect(status().isBadRequest());
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE email = 'a@b.vn'", Integer.class)).isZero();
+		reset(); // the attempts above count against the account-creation rate limit
+		mvc.perform(json(post(url).param("t", SecureTokens.generate()), "{\"password\":\"matkhau123\",\"acceptTerms\":true,\"acceptPrivacy\":true,\"email\":\"a@b.vn\"}"))
 			.andExpect(status().isNotFound());
 
 		String email = email();
 		// marketingConsent: the opt-in no longer exists, an older page still sending it must not get a 400
 		mvc.perform(json(post(url).param("t", order[1]),
-				"{\"password\":\"matkhau123\",\"acceptTerms\":true,\"marketingConsent\":true,\"email\":\"" + email + "\"}"))
+				"{\"password\":\"matkhau123\",\"acceptTerms\":true,\"acceptPrivacy\":true,\"marketingConsent\":true,\"email\":\"" + email + "\"}"))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.email").value(email));
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM users WHERE email = ?", Long.class, email)).isEqualTo(1);

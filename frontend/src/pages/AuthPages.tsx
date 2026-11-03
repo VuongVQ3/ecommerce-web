@@ -59,15 +59,6 @@ export function PrivacyLink() {
   )
 }
 
-/** "Điều khoản giao dịch chung và Chính sách bảo mật" (one page, the second link goes to its #bao-mat part), new tab. */
-export function LegalLinks() {
-  return (
-    <>
-      <TermsLink /> và <PrivacyLink />
-    </>
-  )
-}
-
 /** Label of the required, unticked privacy consent checkbox (sign-up and checkout), kept apart from the terms. */
 export function PrivacyConsentLabel() {
   return (
