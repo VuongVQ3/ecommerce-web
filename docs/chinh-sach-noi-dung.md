@@ -156,11 +156,36 @@ Phiên đăng nhập dùng cookie bảo mật (httpOnly), trang web không đọ
 - Lưu trữ máy chủ và cơ sở dữ liệu: Render, Neon (máy chủ tại Singapore).
 - Lưu trữ ảnh sản phẩm: Cloudinary.
 - Gửi email: Resend. Chống bot ở form đăng ký: Cloudflare Turnstile. Đăng nhập Google: Google.
-- (AGENT KIỂM TRA: nếu thông báo đơn hàng gửi qua Telegram có chứa thông tin khách, thêm dòng: "Thông báo đơn hàng nội bộ: Telegram".)
+- (Ghi chú nội bộ, KHÔNG đưa lên web: thông báo đơn hàng qua Telegram chỉ gồm mã đơn, tổng tiền và đường dẫn trang quản trị, không có tên, số điện thoại, địa chỉ của khách (notify/OrderTelegramAlerts), nên Telegram không được liệt kê ở đây. Nếu sau này gửi thêm thông tin khách qua Telegram, phải thêm lại dòng "Thông báo đơn hàng nội bộ: Telegram".)
 - Đơn vị vận chuyển (Giao Hàng Tiết Kiệm, Viettel Post, Giao Hàng Nhanh, Grab, XanhSM, Ahamove...) nhận tên, số điện thoại, địa chỉ để giao hàng.
 
-#### 6. Thời gian lưu trữ và quyền của bạn
-Dữ liệu tài khoản và đơn hàng được lưu trong thời gian cần thiết để cung cấp dịch vụ và theo quy định pháp luật về kế toán, thuế. Bạn có quyền xem, sửa, yêu cầu xoá dữ liệu hoặc rút lại sự đồng ý bằng cách liên hệ email hatlanhstore@gmail.com hoặc Zalo 0898 98 68 21.
+#### 6. Thời gian lưu trữ
+> **TODO (chủ shop quyết định trước khi merge):** các con số trong `[ ]` là ĐỀ XUẤT. Trang web đang hiển thị đúng các số này (không có dấu `[ ]`), sửa cả ở đây và trong PolicyPages.tsx.
+> Lưu ý kỹ thuật: hệ thống hiện CHƯA tự động xoá dữ liệu theo các mốc này (nhật ký đăng nhập, tài khoản không hoạt động, đơn hàng cũ đều đang được giữ lại). Cần thêm việc xoá định kỳ hoặc xoá thủ công theo các mốc đã chốt.
+
+- Tài khoản (họ tên, email, số điện thoại, mật khẩu đã mã hoá): lưu cho đến khi bạn yêu cầu xoá tài khoản, hoặc tối đa [24 tháng] kể từ lần đăng nhập cuối cùng.
+- Đơn hàng (thông tin người nhận, sản phẩm, số tiền): [10 năm] kể từ ngày đặt hàng, theo quy định về lưu trữ chứng từ kế toán, thuế. Khi bạn xoá tài khoản, đơn hàng vẫn được giữ đến hết thời hạn này nhưng không còn gắn với tài khoản.
+- Nhật ký kỹ thuật khi đăng nhập (địa chỉ IP, trình duyệt): [90 ngày].
+- Thời điểm bạn đồng ý với Chính sách bảo mật và phiên bản chính sách: lưu cùng tài khoản hoặc đơn hàng tương ứng, trong cùng thời hạn.
+- Giỏ hàng của khách chưa đăng nhập: chỉ nằm trong trình duyệt của bạn, mất đi khi bạn đặt hàng hoặc xoá dữ liệu trình duyệt.
+
+#### 7. Quyền của bạn
+Bạn có các quyền sau đối với dữ liệu cá nhân của mình:
+- Được biết và xem dữ liệu chúng tôi đang lưu về bạn.
+- Yêu cầu chỉnh sửa dữ liệu không chính xác.
+- Yêu cầu xoá dữ liệu (trừ dữ liệu pháp luật buộc phải lưu giữ, xem mục 6).
+- Rút lại sự đồng ý. Việc rút lại không ảnh hưởng đến việc xử lý đã thực hiện trước đó; đơn hàng đang giao có thể không hoàn tất được nếu bạn rút lại sự đồng ý trước khi nhận hàng.
+- Yêu cầu hạn chế xử lý dữ liệu.
+- Phản đối việc xử lý dữ liệu.
+- Khiếu nại về cách chúng tôi xử lý dữ liệu của bạn. Nếu không đồng ý với kết quả giải quyết, bạn có quyền khiếu nại, tố cáo hoặc khởi kiện tới cơ quan nhà nước có thẩm quyền theo quy định của pháp luật.
+
+**Cách gửi yêu cầu:** email hatlanhstore@gmail.com hoặc Zalo 0898 98 68 21. Để bảo vệ bạn, chúng tôi có thể đề nghị xác minh bằng email hoặc số điện thoại đã dùng khi đăng ký hoặc đặt hàng.
+
+**Thời hạn phản hồi** (kể từ khi nhận được yêu cầu):
+- Xác nhận đã nhận yêu cầu: trong 02 ngày làm việc.
+- Xem, chỉnh sửa dữ liệu: trong 10 ngày.
+- Rút lại sự đồng ý, hạn chế xử lý hoặc phản đối xử lý: trong 15 ngày.
+- Xoá dữ liệu: trong 20 ngày.
 
 ---
 
@@ -177,4 +202,5 @@ Dữ liệu tài khoản và đơn hàng được lưu trong thời gian cần t
 ## Lịch sử sửa đổi
 Mỗi lần sửa: đổi `POLICY_UPDATED` (frontend/src/lib/shopContact.ts) và `PolicyVersion.CURRENT` (backend, phiên bản lưu kèm sự đồng ý của khách).
 
+- **2026-11-03 (phần B):** Thêm quyền hạn chế xử lý, phản đối, khiếu nại và thời hạn phản hồi; thời hạn lưu trữ cụ thể (đề xuất, chờ chủ shop chốt); thông báo Telegram không còn chứa thông tin khách nên bỏ Telegram khỏi B.5.
 - **2026-11-03:** Ô đồng ý Chính sách bảo mật riêng khi đăng ký và đặt hàng; A.1 bỏ câu "truy cập ... đồng nghĩa với việc đã đồng ý", thay đổi điều khoản chỉ áp dụng cho đơn đặt sau ngày hiệu lực mới.

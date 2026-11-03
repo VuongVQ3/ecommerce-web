@@ -55,12 +55,23 @@ describe('policy pages', () => {
     expect(screen.getByRole('link', { name: 'Chính sách đổi trả và Đồng kiểm' }).getAttribute('href')).toBe('/chinh-sach-doi-tra')
   })
 
-  it('puts the privacy policy in part B (#bao-mat) of the terms page, Telegram among the third parties', () => {
+  it('puts the privacy policy in part B (#bao-mat) of the terms page; Telegram (no customer data) is not a third party', () => {
     const { container } = renderAt('/dieu-khoan-giao-dich')
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Điều khoản giao dịch chung và Chính sách bảo mật')
     const privacy = container.querySelector('#bao-mat')!
     expect(privacy.textContent).toBe('Phần B. Chính sách bảo mật')
-    expect(privacy.closest('section')!.textContent).toContain('Thông báo đơn hàng nội bộ: Telegram.')
+    expect(privacy.closest('section')!.textContent).not.toContain('Telegram')
+  })
+
+  it('lists every data right with its response time, and concrete retention periods', () => {
+    const { container } = renderAt('/dieu-khoan-giao-dich')
+    const privacy = container.querySelector('#bao-mat')!.closest('section')!.textContent ?? ''
+    for (const right of ['hạn chế xử lý', 'Phản đối', 'Khiếu nại', 'Rút lại sự đồng ý', 'Yêu cầu xoá dữ liệu'])
+      expect(privacy).toContain(right)
+    for (const time of ['02 ngày làm việc', 'chỉnh sửa dữ liệu: trong 10 ngày', 'phản đối xử lý: trong 15 ngày', 'Xoá dữ liệu: trong 20 ngày'])
+      expect(privacy).toContain(time)
+    expect(privacy).not.toContain('thời gian cần thiết')
+    expect(privacy).not.toContain('TODO')
   })
 
   it('does not treat visiting the site as agreeing, and applies changes only to later orders', () => {

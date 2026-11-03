@@ -420,8 +420,8 @@ export function TermsPage() {
             <li>Lưu trữ máy chủ và cơ sở dữ liệu: Render, Neon (máy chủ tại Singapore).</li>
             <li>Lưu trữ ảnh sản phẩm: Cloudinary.</li>
             <li>Gửi email: Resend. Chống bot ở form đăng ký: Cloudflare Turnstile. Đăng nhập Google: Google.</li>
-            {/* Order alerts to the shop carry the customer's name, phone, ward and province (notify/OrderTelegramAlerts) */}
-            <li>Thông báo đơn hàng nội bộ: Telegram.</li>
+            {/* Not listed: Telegram order alerts carry only the order code, the total and the admin link
+                (notify/OrderTelegramAlerts). List it again if customer details are ever sent there. */}
             <li>
               Đơn vị vận chuyển (Giao Hàng Tiết Kiệm, Viettel Post, Giao Hàng Nhanh, Grab, XanhSM, Ahamove...) nhận tên, số điện thoại,
               địa chỉ để giao hàng.
@@ -429,12 +429,59 @@ export function TermsPage() {
           </ul>
         </div>
         <div>
-          <h3>6. Thời gian lưu trữ và quyền của bạn</h3>
+          <h3>6. Thời gian lưu trữ</h3>
+          {/* TODO(owner): the periods below (24 tháng, 10 năm, 90 ngày) are proposals, see the TODO in
+              docs/chinh-sach-noi-dung.md. Nothing deletes data on these dates yet. */}
+          <ul>
+            <li>
+              Tài khoản (họ tên, email, số điện thoại, mật khẩu đã mã hoá): lưu cho đến khi bạn yêu cầu xoá tài khoản, hoặc tối đa 24 tháng
+              kể từ lần đăng nhập cuối cùng.
+            </li>
+            <li>
+              Đơn hàng (thông tin người nhận, sản phẩm, số tiền): 10 năm kể từ ngày đặt hàng, theo quy định về lưu trữ chứng từ kế toán,
+              thuế. Khi bạn xoá tài khoản, đơn hàng vẫn được giữ đến hết thời hạn này nhưng không còn gắn với tài khoản.
+            </li>
+            <li>Nhật ký kỹ thuật khi đăng nhập (địa chỉ IP, trình duyệt): 90 ngày.</li>
+            <li>
+              Thời điểm bạn đồng ý với Chính sách bảo mật và phiên bản chính sách: lưu cùng tài khoản hoặc đơn hàng tương ứng, trong cùng
+              thời hạn.
+            </li>
+            <li>
+              Giỏ hàng của khách chưa đăng nhập: chỉ nằm trong trình duyệt của bạn, mất đi khi bạn đặt hàng hoặc xoá dữ liệu trình duyệt.
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h3>7. Quyền của bạn</h3>
+          <p>Bạn có các quyền sau đối với dữ liệu cá nhân của mình:</p>
+          <ul>
+            <li>Được biết và xem dữ liệu chúng tôi đang lưu về bạn.</li>
+            <li>Yêu cầu chỉnh sửa dữ liệu không chính xác.</li>
+            <li>Yêu cầu xoá dữ liệu (trừ dữ liệu pháp luật buộc phải lưu giữ, xem mục 6).</li>
+            <li>
+              Rút lại sự đồng ý. Việc rút lại không ảnh hưởng đến việc xử lý đã thực hiện trước đó; đơn hàng đang giao có thể không hoàn tất
+              được nếu bạn rút lại sự đồng ý trước khi nhận hàng.
+            </li>
+            <li>Yêu cầu hạn chế xử lý dữ liệu.</li>
+            <li>Phản đối việc xử lý dữ liệu.</li>
+            <li>
+              Khiếu nại về cách chúng tôi xử lý dữ liệu của bạn. Nếu không đồng ý với kết quả giải quyết, bạn có quyền khiếu nại, tố cáo
+              hoặc khởi kiện tới cơ quan nhà nước có thẩm quyền theo quy định của pháp luật.
+            </li>
+          </ul>
           <p>
-            Dữ liệu tài khoản và đơn hàng được lưu trong thời gian cần thiết để cung cấp dịch vụ và theo quy định pháp luật về kế toán,
-            thuế. Bạn có quyền xem, sửa, yêu cầu xoá dữ liệu hoặc rút lại sự đồng ý bằng cách liên hệ email <Email /> hoặc Zalo{' '}
-            <Phone />.
+            <strong>Cách gửi yêu cầu:</strong> email <Email /> hoặc Zalo <Phone />. Để bảo vệ bạn, chúng tôi có thể đề nghị xác minh
+            bằng email hoặc số điện thoại đã dùng khi đăng ký hoặc đặt hàng.
           </p>
+          <p>
+            <strong>Thời hạn phản hồi</strong> (kể từ khi nhận được yêu cầu):
+          </p>
+          <ul>
+            <li>Xác nhận đã nhận yêu cầu: trong 02 ngày làm việc.</li>
+            <li>Xem, chỉnh sửa dữ liệu: trong 10 ngày.</li>
+            <li>Rút lại sự đồng ý, hạn chế xử lý hoặc phản đối xử lý: trong 15 ngày.</li>
+            <li>Xoá dữ liệu: trong 20 ngày.</li>
+          </ul>
         </div>
       </section>
     </PolicyPage>
