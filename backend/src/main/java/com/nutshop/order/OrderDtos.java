@@ -4,7 +4,6 @@ import com.nutshop.user.PersonName;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.nutshop.user.VietnamesePhone;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -34,7 +33,9 @@ public final class OrderDtos {
 	/**
 	 * @param provinceCode / wardCode codes from vn-admin-units.json (2025 structure: province → ward)
 	 * @param idempotencyKey generated once per checkout visit; resubmitting returns the same order
-	 * @param acceptPrivacy must be true: the unticked "Tôi đồng ý với Chính sách bảo mật" checkbox at checkout
+	 * @param acceptPrivacy the unticked "Tôi đồng ý với Chính sách bảo mật" checkbox at checkout: must be true for
+	 *        guests and for accounts without consent to the current policy version; an account that has it may leave
+	 *        it out (the order then records the account's consent, see OrderService#privacyConsent)
 	 */
 	public record PlaceOrderRequest(
 			@NotNull(message = "Giỏ hàng đang trống")
@@ -49,11 +50,11 @@ public final class OrderDtos {
 			@Size(max = 500, message = "Ghi chú tối đa 500 ký tự") String note,
 			@NotBlank(message = "Thiếu mã chống gửi trùng")
 			@Size(min = 8, max = 100, message = "Mã chống gửi trùng không hợp lệ") String idempotencyKey,
-			@NotNull(message = PRIVACY_REQUIRED) @AssertTrue(message = PRIVACY_REQUIRED) Boolean acceptPrivacy,
+			Boolean acceptPrivacy,
 			/** Optional Cloudflare Turnstile token; verified server-side when present (run-2 leads 11/12). */
 			@Size(max = 4096) String turnstileToken) {
 
-		static final String PRIVACY_REQUIRED = "Bạn cần đồng ý với Chính sách bảo mật";
+		public static final String PRIVACY_REQUIRED = "Bạn cần đồng ý với Chính sách bảo mật";
 	}
 
 	/** @param regularUnitPrice the regular price at purchase time (higher than unitPrice when discounted) */

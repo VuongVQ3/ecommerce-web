@@ -13,6 +13,12 @@ const refresh = vi.hoisted(() => vi.fn<() => Promise<User | null>>())
 const logout = vi.hoisted(() => vi.fn())
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ ...auth.current, refresh, logout }) }))
 const resetAfterOrder = vi.hoisted(() => vi.fn())
+// /api/site: the current policy version (PolicyVersion.CURRENT on the server)
+const CURRENT_POLICY = '2026-11-03'
+vi.mock('../lib/siteInfo', async (importActual) => ({
+  ...(await importActual<typeof import('../lib/siteInfo')>()),
+  useSiteInfo: () => ({ siteUrl: '', business: {}, policyVersion: CURRENT_POLICY }),
+}))
 
 const view: CartView = {
   items: [
@@ -74,14 +80,14 @@ const change = (el: HTMLElement, value: string) => {
   fireEvent.blur(el)
 }
 
-async function fillValidForm() {
+async function fillValidForm(tickPrivacy = true) {
   change(input('Họ và tên'), 'Nguyễn Văn Khách')
   change(input('Số điện thoại'), '+84 912 345 678')
   await waitFor(() => expect(select('Tỉnh/Thành phố').disabled).toBe(false))
   change(select('Tỉnh/Thành phố'), '1')
   change(select('Phường/Xã'), '4')
   change(input('Địa chỉ chi tiết'), '12 Phố Test')
-  fireEvent.click(privacyBox())
+  if (tickPrivacy) fireEvent.click(privacyBox())
 }
 
 const privacyBox = () => screen.getByRole('checkbox', { name: /Tôi đồng ý với Chính sách bảo mật/ }) as HTMLInputElement
@@ -166,6 +172,46 @@ describe('CheckoutPage', () => {
     renderCheckout()
     expect(await screen.findByText(/Giao hỏa tốc trong nội thành TP.HCM tính phí riêng/)).toBeTruthy()
     expect(screen.getByRole('link', { name: /Chính sách vận chuyển/ }).getAttribute('href')).toBe('/chinh-sach-van-chuyen')
+  })
+
+  it('below 1024px puts the order summary (fees, express note) above the privacy box and "Đặt hàng"', () => {
+    // jsdom has no matchMedia: the narrow layout
+    renderCheckout()
+    const express = screen.getByText(/Giao hỏa tốc trong nội thành TP.HCM tính phí riêng/)
+    const total = screen.getByText('Tổng cộng')
+    const button = screen.getByRole('button', { name: /Đặt hàng/ })
+    const follows = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+    expect(follows(total, privacyBox())).toBe(true)
+    expect(follows(express, privacyBox())).toBe(true)
+    expect(follows(privacyBox(), button)).toBe(true)
+    expect(screen.getAllByText('Tổng cộng')).toHaveLength(1)
+  })
+
+  it('does not ask an account that consented to the current policy again, and lets the server use that consent', async () => {
+    auth.current = {
+      user: { ...ADMIN, role: 'CUSTOMER', privacyConsentRequired: false, policyVersion: CURRENT_POLICY },
+      loading: false,
+    }
+    const place = vi.spyOn(api, 'placeOrder').mockResolvedValue(order)
+    renderCheckout()
+
+    expect(screen.queryByRole('checkbox', { name: /Tôi đồng ý với Chính sách bảo mật/ })).toBeNull()
+    expect(screen.getByText(/Đơn hàng được xử lý theo/).textContent).toMatch(/Chính sách bảo mật.*bạn đã đồng ý/)
+    expect(screen.getByRole('link', { name: /Chính sách bảo mật/ }).getAttribute('href')).toBe('/dieu-khoan-giao-dich#bao-mat')
+    await fillValidForm(false)
+    fireEvent.click(screen.getByRole('button', { name: /Đặt hàng/ }))
+    await waitFor(() => expect(place).toHaveBeenCalledOnce())
+    expect(place.mock.calls[0][0].acceptPrivacy).toBeUndefined()
+  })
+
+  it('asks an account that consented to an older policy version, like a guest', () => {
+    auth.current = {
+      user: { ...ADMIN, role: 'CUSTOMER', privacyConsentRequired: false, policyVersion: '2026-01-01' },
+      loading: false,
+    }
+    renderCheckout()
+    expect(privacyBox().checked).toBe(false)
+    expect(screen.queryByText(/Đơn hàng được xử lý theo/)).toBeNull()
   })
 
   it('starts with the privacy policy box unticked', () => {

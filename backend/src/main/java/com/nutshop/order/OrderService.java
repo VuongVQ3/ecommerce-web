@@ -23,6 +23,8 @@ import com.nutshop.product.Product;
 import com.nutshop.auth.TurnstileVerifier;
 import com.nutshop.product.ProductRepository;
 import com.nutshop.site.PolicyVersion;
+import com.nutshop.user.User;
+import com.nutshop.user.UserRepository;
 import com.nutshop.user.PhoneNumbers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,6 +110,7 @@ public class OrderService {
 	private final AuditLog audit;
 	private final ApplicationEventPublisher events;
 	private final TurnstileVerifier turnstile;
+	private final UserRepository users;
 	private final int maxOpenPendingPerPhone;
 	private final Duration pendingExpiry;
 
@@ -117,10 +120,11 @@ public class OrderService {
 			EmailSender emailSender,
 			@Qualifier("applicationTaskExecutor") TaskExecutor executor,
 			PlatformTransactionManager txManager, Clock clock, AuditLog audit, ApplicationEventPublisher events,
-			TurnstileVerifier turnstile,
+			TurnstileVerifier turnstile, UserRepository users,
 			@Value("${app.orders.max-open-pending-per-phone}") int maxOpenPendingPerPhone,
 			@Value("${app.orders.pending-expiry}") Duration pendingExpiry) {
 		this.turnstile = turnstile;
+		this.users = users;
 		this.maxOpenPendingPerPhone = maxOpenPendingPerPhone;
 		this.pendingExpiry = pendingExpiry;
 		this.audit = audit;
@@ -155,6 +159,7 @@ public class OrderService {
 		if (existing.isPresent()) {
 			return new PlaceResult(existing.get(), false);
 		}
+		Consent consent = privacyConsent(req, userId);
 		// Every order is cash on delivery today; the reason a number is blocked is never revealed
 		if (phoneFlags.isCodBlocked(phone)) {
 			throw new ApiException(HttpStatus.CONFLICT, COD_NOT_AVAILABLE, "Vui lòng liên hệ hotline để được hỗ trợ đặt hàng.");
@@ -170,11 +175,32 @@ public class OrderService {
 					"Bạn đang có nhiều đơn chờ xác nhận. Vui lòng hoàn tất hoặc huỷ bớt trước khi đặt thêm.");
 		}
 		try {
-			return new PlaceResult(tx.execute(status -> create(req, key, phone, userId)), true);
+			return new PlaceResult(tx.execute(status -> create(req, key, phone, userId, consent)), true);
 		}
 		catch (DataIntegrityViolationException ex) {
 			return replay(key, phone).map(order -> new PlaceResult(order, false)).orElseThrow(() -> ex);
 		}
+	}
+
+	/** The privacy policy consent an order is placed under: when it was given, to which version of the policy. */
+	private record Consent(Instant at, String version) {
+	}
+
+	/**
+	 * The box ticked at checkout: given now, to the current version. Not ticked: only a signed-in account that already
+	 * consented to the current version may skip it, and the order then records that consent. Anyone else (guests,
+	 * accounts with no or an older consent) → 400 PRIVACY_CONSENT_REQUIRED, on the acceptPrivacy field.
+	 */
+	private Consent privacyConsent(PlaceOrderRequest req, UUID userId) {
+		if (Boolean.TRUE.equals(req.acceptPrivacy())) {
+			return new Consent(clock.instant(), PolicyVersion.CURRENT);
+		}
+		Optional<User> account = userId == null ? Optional.empty() : users.findById(userId);
+		return account.filter(u -> u.getPrivacyConsentAt() != null && PolicyVersion.CURRENT.equals(u.getPolicyVersion()))
+			.map(u -> new Consent(u.getPrivacyConsentAt(), u.getPolicyVersion()))
+			.orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "PRIVACY_CONSENT_REQUIRED",
+					OrderDtos.PlaceOrderRequest.PRIVACY_REQUIRED)
+				.withProperty("errors", Map.of("acceptPrivacy", OrderDtos.PlaceOrderRequest.PRIVACY_REQUIRED)));
 	}
 
 	/**
@@ -202,7 +228,7 @@ public class OrderService {
 		return response.withTracking(token, accessTokens.trackingUrl(order, token));
 	}
 
-	private OrderResponse create(PlaceOrderRequest req, String key, String phone, UUID userId) {
+	private OrderResponse create(PlaceOrderRequest req, String key, String phone, UUID userId, Consent consent) {
 		AdminUnits.Address address = adminUnits.resolve(req.provinceCode(), req.wardCode())
 			.orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, INVALID_ADDRESS,
 					"Vui lòng chọn đúng tỉnh/thành phố và phường/xã"));
@@ -231,7 +257,7 @@ public class OrderService {
 		var delivery = new Order.Delivery(name, phone, blankToNull(req.email()), address.province(), address.ward(),
 				req.addressLine().trim());
 		Order order = new Order(newCode(), key, userId, delivery, blankToNull(req.note()));
-		order.recordPrivacyConsent(clock.instant(), PolicyVersion.CURRENT); // acceptPrivacy is validated true
+		order.recordPrivacyConsent(consent.at(), consent.version());
 		List<Shortage> shortages = new ArrayList<>();
 		long subtotal = 0;
 		for (var entry : wanted.entrySet()) {
