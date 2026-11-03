@@ -58,9 +58,10 @@ public class SiteController {
 	/**
 	 * @param contact links for the floating contact button (null fields = not configured)
 	 * @param social footer icons (null fields = not configured)
+	 * @param policyVersion {@link PolicyVersion#CURRENT}: the policy pages show it as their "last updated" date
 	 */
 	public record SiteInfo(String siteUrl, Map<String, String> business, SiteProperties.Contact contact,
-			SiteProperties.SocialLinks social) {
+			SiteProperties.SocialLinks social, String policyVersion) {
 	}
 
 	/** Business details for the footer and contact page (only the filled-in fields), and the contact links. */
@@ -68,7 +69,8 @@ public class SiteController {
 	public ResponseEntity<SiteInfo> info() {
 		return ResponseEntity.ok()
 			.cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePublic())
-			.body(new SiteInfo(site.url(), site.business().filled(), site.business().contact(), site.socialLinks()));
+			.body(new SiteInfo(site.url(), site.business().filled(), site.business().contact(), site.socialLinks(),
+					PolicyVersion.CURRENT));
 	}
 
 	@GetMapping("/robots.txt")

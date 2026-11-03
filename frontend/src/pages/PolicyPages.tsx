@@ -1,22 +1,25 @@
 import { useEffect, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router'
-import { POLICY_UPDATED, SHOP } from '../lib/shopContact'
+import { SHOP } from '../lib/shopContact'
+import { formatPolicyVersion, useSiteInfo } from '../lib/siteInfo'
 import { BRAND, usePageMeta } from '../lib/usePageMeta'
 
 /**
  * Policy pages, word for word from docs/chinh-sach-noi-dung.md (first agreed with the shop owner on 02/11/2026; its
- * "Lịch sử sửa đổi" lists later changes). Change the wording there first, then here, then bump POLICY_UPDATED
- * (lib/shopContact.ts) and PolicyVersion.CURRENT (backend).
+ * "Lịch sử sửa đổi" lists later changes). Change the wording there first, then here, then bump PolicyVersion.CURRENT
+ * (backend): the "Cập nhật lần cuối" date comes from it through /api/site.
  */
 
 const linkClass = 'font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800'
 
 function PolicyPage({ title, description, children, contactLink = true }: { title: string; description: string; children: ReactNode; contactLink?: boolean }) {
   usePageMeta(`${title} | ${BRAND}`, description)
+  const updated = formatPolicyVersion(useSiteInfo()?.policyVersion)
   return (
     <article className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-3xl font-bold text-stone-900">{title}</h1>
-      <p className="mt-2 text-sm text-muted">Cập nhật lần cuối: {POLICY_UPDATED}</p>
+      {/* Same version as the consents being recorded; the line keeps its height until the date arrives */}
+      <p className="mt-2 min-h-5 text-sm text-muted">{updated && `Cập nhật lần cuối: ${updated}`}</p>
       <div className="mt-8 space-y-8 leading-relaxed text-stone-700 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-stone-900 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-stone-900 [&_li]:pl-1 [&_p]:mt-2 [&_strong]:font-semibold [&_strong]:text-stone-900 [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5">
         {children}
       </div>

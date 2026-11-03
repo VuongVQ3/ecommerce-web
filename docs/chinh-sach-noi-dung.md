@@ -205,7 +205,7 @@ Bạn có các quyền sau đối với dữ liệu cá nhân của mình:
 ---
 
 ## Lịch sử sửa đổi
-Mỗi lần sửa: đổi `POLICY_UPDATED` (frontend/src/lib/shopContact.ts) và `PolicyVersion.CURRENT` (backend, phiên bản lưu kèm sự đồng ý của khách).
+Mỗi lần sửa: đổi `PolicyVersion.CURRENT` (backend/src/main/java/com/nutshop/site/PolicyVersion.java). Đây là nguồn duy nhất: phiên bản lưu kèm sự đồng ý của khách, và ngày "Cập nhật lần cuối" hiển thị trên các trang chính sách (qua /api/site).
 
 - **2026-11-03 (vận chuyển, đổi trả):** Vận chuyển mục 2 bỏ phương án "Hoặc", mô tả đúng cách website tính phí; đổi trả mục 4 tách thời hạn 72 giờ (vận chuyển, sai, thiếu) và lỗi chất lượng (đến hết hạn sử dụng).
 - **2026-11-03 (phần B):** Thêm quyền hạn chế xử lý, phản đối, khiếu nại và thời hạn phản hồi; thời hạn lưu trữ cụ thể (đề xuất, chờ chủ shop chốt); thông báo Telegram không còn chứa thông tin khách nên bỏ Telegram khỏi B.5.

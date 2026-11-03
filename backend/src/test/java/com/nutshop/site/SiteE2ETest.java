@@ -249,7 +249,8 @@ class SiteE2ETest {
 		mvc.perform(head("/api/health")).andExpect(status().isOk());
 		mvc.perform(get("/api/site")).andExpect(status().isOk()).andExpect(jsonPath("$.business").isMap())
 			.andExpect(jsonPath("$.contact").isMap())
-			.andExpect(jsonPath("$.social").isMap());
+			.andExpect(jsonPath("$.social").isMap())
+			.andExpect(jsonPath("$.policyVersion").value(PolicyVersion.CURRENT));
 	}
 
 	@Test

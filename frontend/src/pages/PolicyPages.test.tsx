@@ -1,8 +1,15 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
 import { createMemoryRouter, Navigate, RouterProvider, useLocation } from 'react-router'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { formatPolicyVersion } from '../lib/siteInfo'
 import { ContactPage, ReturnPolicyPage, ShippingPolicyPage, TermsPage } from './PolicyPages'
+
+// The server's PolicyVersion.CURRENT, as /api/site hands it out
+vi.mock('../lib/siteInfo', async (importActual) => ({
+  ...(await importActual<typeof import('../lib/siteInfo')>()),
+  useSiteInfo: () => ({ siteUrl: '', business: {}, policyVersion: '2026-11-03' }),
+}))
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = () => {}
@@ -38,6 +45,12 @@ describe('policy pages', () => {
     const text = container.textContent ?? ''
     expect(text).toContain('Cập nhật lần cuối: 03/11/2026')
     for (const hidden of ['Bản nháp', 'CẦN ĐIỀN', 'AGENT', 'Tên chủ sở hữu', '[link:']) expect(text).not.toContain(hidden)
+  })
+
+  it('dates the pages from the server policy version only', () => {
+    expect(formatPolicyVersion('2026-11-03')).toBe('03/11/2026')
+    expect(formatPolicyVersion(undefined)).toBeNull()
+    expect(formatPolicyVersion('03/11/2026')).toBeNull()
   })
 
   it('links the phone, the email and the fanpage', () => {

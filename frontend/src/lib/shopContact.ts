@@ -13,9 +13,3 @@ export const SHOP = {
   fanpage: 'https://www.facebook.com/profile.php?id=61596137600993',
   zalo: 'https://zalo.me/0898986821',
 } as const
-
-/**
- * Shown under the title of every policy page. Same date as PolicyVersion.CURRENT in the backend (stored with each
- * privacy consent): change both together.
- */
-export const POLICY_UPDATED = '03/11/2026'
