@@ -94,6 +94,7 @@ public class RefreshTokenService {
 		Instant now = clock.instant();
 		RefreshToken entity = tokens.save(
 				new RefreshToken(user, hash(raw), now, now.plus(props.refreshTokenTtl()), client));
+		tokens.markUserActive(user.getId(), now);
 		return new Created(entity, raw);
 	}
 

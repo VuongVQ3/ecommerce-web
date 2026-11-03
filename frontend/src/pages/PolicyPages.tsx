@@ -445,7 +445,8 @@ export function TermsPage() {
         <div>
           <h3>6. Thời gian lưu trữ</h3>
           {/* TODO(owner): the periods below (24 tháng, 10 năm, 90 ngày) are proposals, see the TODO in
-              docs/chinh-sach-noi-dung.md. Nothing deletes data on these dates yet. */}
+              docs/chinh-sach-noi-dung.md. privacy.DataRetentionJob applies 90 ngày and 24 tháng (app.retention.*);
+              orders are never deleted automatically. */}
           <ul>
             <li>
               Tài khoản (họ tên, email, số điện thoại, mật khẩu đã mã hoá): lưu cho đến khi bạn yêu cầu xoá tài khoản, hoặc tối đa 24 tháng

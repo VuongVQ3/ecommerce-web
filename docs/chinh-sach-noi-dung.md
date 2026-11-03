@@ -166,7 +166,7 @@ Phiên đăng nhập dùng cookie bảo mật (httpOnly), trang web không đọ
 
 #### 6. Thời gian lưu trữ
 > **TODO (chủ shop quyết định trước khi merge):** các con số trong `[ ]` là ĐỀ XUẤT. Trang web đang hiển thị đúng các số này (không có dấu `[ ]`), sửa cả ở đây và trong PolicyPages.tsx.
-> Lưu ý kỹ thuật: hệ thống hiện CHƯA tự động xoá dữ liệu theo các mốc này (nhật ký đăng nhập, tài khoản không hoạt động, đơn hàng cũ đều đang được giữ lại). Cần thêm việc xoá định kỳ hoặc xoá thủ công theo các mốc đã chốt.
+> Lưu ý kỹ thuật: việc xoá chạy tự động mỗi ngày lúc 03:30 (privacy.DataRetentionJob, cấu hình `app.retention.*` trong application.properties): nhật ký đăng nhập sau 90 ngày (`login-logs=90d`), tài khoản khách không đăng nhập sau 730 ngày ≈ 24 tháng (`inactive-accounts=730d`; đơn hàng được giữ lại và bỏ liên kết với tài khoản). Đổi số ở đây thì đổi cả cấu hình. Đơn hàng KHÔNG bao giờ bị job xoá: mốc 10 năm hiện chưa được áp dụng tự động.
 
 - Tài khoản (họ tên, email, số điện thoại, mật khẩu đã mã hoá): lưu cho đến khi bạn yêu cầu xoá tài khoản, hoặc tối đa [24 tháng] kể từ lần đăng nhập cuối cùng.
 - Đơn hàng (thông tin người nhận, sản phẩm, số tiền): [10 năm] kể từ ngày đặt hàng, theo quy định về lưu trữ chứng từ kế toán, thuế. Khi bạn xoá tài khoản, đơn hàng vẫn được giữ đến hết thời hạn này nhưng không còn gắn với tài khoản.
