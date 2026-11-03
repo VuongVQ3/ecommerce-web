@@ -162,6 +162,12 @@ describe('CheckoutPage', () => {
     expect(screen.getByRole('link', { name: /Điều khoản giao dịch chung/ }).getAttribute('href')).toBe('/dieu-khoan-giao-dich')
   })
 
+  it('says under the total that express delivery in HCMC is charged separately, confirmed by phone', async () => {
+    renderCheckout()
+    expect(await screen.findByText(/Giao hỏa tốc trong nội thành TP.HCM tính phí riêng/)).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Chính sách vận chuyển/ }).getAttribute('href')).toBe('/chinh-sach-van-chuyen')
+  })
+
   it('starts with the privacy policy box unticked', () => {
     renderCheckout()
     expect(privacyBox().checked).toBe(false)

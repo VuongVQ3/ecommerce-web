@@ -37,7 +37,10 @@ Vì đặc thù ngành hàng thực phẩm, Hạt Lành CHỈ chấp nhận đ�
 - Sản phẩm bị hư hỏng do khách hàng bảo quản sai cách (để hở miệng túi/hộp, để nơi ẩm ướt, nhiệt độ cao, tiếp xúc trực tiếp ánh nắng mặt trời) sau khi nhận hàng.
 
 ### 4. Thời gian tiếp nhận khiếu nại
-Hạt Lành tiếp nhận yêu cầu đổi trả trong vòng 03 ngày (72 giờ) kể từ thời điểm hệ thống vận chuyển cập nhật trạng thái "Giao hàng thành công". Qua thời hạn này, Hạt Lành xin phép từ chối giải quyết (ngoại trừ các lỗi ẩn về chất lượng bên trong phát hiện muộn, sẽ được xem xét theo từng trường hợp cụ thể).
+Thời hạn tiếp nhận yêu cầu đổi trả tùy theo loại sự cố:
+
+- **Hư hỏng do vận chuyển, giao sai mã/sai quy cách, thiếu số lượng hoặc sản phẩm đã hết hạn sử dụng khi nhận:** trong vòng 03 ngày (72 giờ) kể từ thời điểm hệ thống vận chuyển cập nhật trạng thái "Giao hàng thành công". Qua thời hạn này, Hạt Lành xin phép từ chối giải quyết các trường hợp này.
+- **Lỗi chất lượng từ quá trình sản xuất** (hạt bị mốc, hôi dầu, có dị vật, mọt, bọ hoặc mùi vị bất thường): Hạt Lành tiếp nhận cho đến hết hạn sử dụng in trên bao bì, kể cả khi đã bóc màng seal, với điều kiện sản phẩm được bảo quản đúng hướng dẫn (xem mục 3).
 
 ### 5. Quy trình xử lý và Chi phí
 - **Bước 1:** Khách hàng liên hệ qua Zalo/Hotline: 0898 98 68 21 hoặc Fanpage Hạt Lành, gửi kèm hình ảnh/video rõ nét tình trạng hàng hóa và mã đơn hàng.
@@ -67,7 +70,9 @@ Hạt Lành (xuất kho từ TP.HCM) hiện cung cấp 2 phương thức giao h�
 
 ### 2. Chi phí vận chuyển (Phí Ship)
 - **Giao Hỏa tốc:** Phí vận chuyển tính theo cước phí thực tế của ứng dụng giao hàng tại thời điểm đặt. Nhân viên Hạt Lành sẽ gọi điện thông báo chính xác cước phí cho quý khách trước khi gửi.
-- **Giao Tiêu chuẩn toàn quốc:** Áp dụng mức phí đồng giá: 30.000 VNĐ cho mọi đơn hàng dưới 2kg. Hoặc: Phí vận chuyển được hệ thống tự động tính toán dựa trên khối lượng sản phẩm và địa chỉ nhận hàng tại bước Thanh toán (Checkout).
+- **Giao Tiêu chuẩn toàn quốc:** Phí đồng giá 30.000 VNĐ cho mỗi đơn hàng chưa đạt mức miễn phí vận chuyển (xem mục 3), áp dụng như nhau cho mọi địa chỉ nhận hàng. Phí được tính và hiển thị tại bước Thanh toán trước khi quý khách bấm "Đặt hàng".
+
+> **TODO (chủ shop):** website tính phí đúng như trên (cấu hình `cart.shipping-fee` = 30.000 và `cart.free-shipping-threshold` = 500.000, tính trên tổng tiền hàng), KHÔNG xét khối lượng hay địa chỉ. Bản cũ ghi "cho mọi đơn hàng dưới 2kg": đơn từ 2kg trở lên hiện vẫn tính 30.000 VNĐ. Cần quyết định: giữ đồng giá cho mọi khối lượng (giữ nguyên câu trên), hay thu thêm phí cho đơn từ 2kg (phải sửa code, và ghi rõ mức phí ở đây).
 
 ### 3. Chính sách Miễn phí vận chuyển (Freeship)
 Để tri ân khách hàng, Hạt Lành áp dụng chính sách Freeship như sau:
@@ -202,5 +207,6 @@ Bạn có các quyền sau đối với dữ liệu cá nhân của mình:
 ## Lịch sử sửa đổi
 Mỗi lần sửa: đổi `POLICY_UPDATED` (frontend/src/lib/shopContact.ts) và `PolicyVersion.CURRENT` (backend, phiên bản lưu kèm sự đồng ý của khách).
 
+- **2026-11-03 (vận chuyển, đổi trả):** Vận chuyển mục 2 bỏ phương án "Hoặc", mô tả đúng cách website tính phí; đổi trả mục 4 tách thời hạn 72 giờ (vận chuyển, sai, thiếu) và lỗi chất lượng (đến hết hạn sử dụng).
 - **2026-11-03 (phần B):** Thêm quyền hạn chế xử lý, phản đối, khiếu nại và thời hạn phản hồi; thời hạn lưu trữ cụ thể (đề xuất, chờ chủ shop chốt); thông báo Telegram không còn chứa thông tin khách nên bỏ Telegram khỏi B.5.
 - **2026-11-03:** Ô đồng ý Chính sách bảo mật riêng khi đăng ký và đặt hàng; A.1 bỏ câu "truy cập ... đồng nghĩa với việc đã đồng ý", thay đổi điều khoản chỉ áp dụng cho đơn đặt sau ngày hiệu lực mới.

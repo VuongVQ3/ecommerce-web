@@ -81,6 +81,22 @@ describe('policy pages', () => {
     expect(text).toContain('chỉ áp dụng cho các đơn hàng đặt từ ngày có hiệu lực đó trở đi')
   })
 
+  it('states one shipping rule, the one the checkout applies (no "Hoặc" alternative)', () => {
+    const { container } = renderAt('/chinh-sach-van-chuyen')
+    const text = container.textContent ?? ''
+    expect(text).not.toContain('Hoặc:')
+    expect(text).toContain('Phí đồng giá 30.000 VNĐ cho mỗi đơn hàng chưa đạt mức miễn phí vận chuyển')
+  })
+
+  it('keeps the 72-hour limit for transport damage, wrong or missing items, and quality defects until the expiry date', () => {
+    const { container } = renderAt('/chinh-sach-doi-tra')
+    const text = container.textContent ?? ''
+    expect(text).toMatch(/Hư hỏng do vận chuyển, giao sai[^:]*thiếu số lượng[^:]*: trong vòng 03 ngày \(72 giờ\)/)
+    expect(text).toMatch(/Lỗi chất lượng[^:]*mốc, hôi dầu[^:]*: Hạt Lành tiếp nhận cho đến hết hạn sử dụng/)
+    // Unchanged until the owner hears from a lawyer
+    expect(text).toContain('Khách hàng thay đổi ý định mua hàng (không muốn mua nữa).')
+  })
+
   it('sends the old addresses to the merged page', async () => {
     renderAt('/dieu-khoan-su-dung')
     expect((await screen.findByTestId('where')).textContent).toBe('/dieu-khoan-giao-dich')

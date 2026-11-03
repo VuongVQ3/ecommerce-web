@@ -111,7 +111,15 @@ function Summary({ view }: { view: CartView }) {
           <dd className="font-bold text-brand-700 tabular-nums">{formatPrice(view.total)}</dd>
         </div>
       </dl>
-      <p className="mt-3 text-xs text-muted">Giá và phí giao hàng được tính lại lần cuối khi bạn đặt hàng.</p>
+      <p className="mt-3 text-xs text-stone-600">
+        Phí trên là giao tiêu chuẩn. Giao hỏa tốc trong nội thành TP.HCM tính phí riêng theo cước thực tế; nhân viên sẽ gọi xác nhận
+        phí trước khi gửi hàng (
+        <Link to="/chinh-sach-van-chuyen" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">
+          Chính sách vận chuyển<span className="sr-only"> (mở trong tab mới)</span>
+        </Link>
+        ).
+      </p>
+      <p className="mt-2 text-xs text-muted">Giá và phí giao hàng được tính lại lần cuối khi bạn đặt hàng.</p>
     </aside>
   )
 }

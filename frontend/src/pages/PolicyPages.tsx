@@ -119,11 +119,19 @@ export function ReturnPolicyPage() {
       </section>
       <section>
         <h2>4. Thời gian tiếp nhận khiếu nại</h2>
-        <p>
-          Hạt Lành tiếp nhận yêu cầu đổi trả trong vòng 03 ngày (72 giờ) kể từ thời điểm hệ thống vận chuyển cập nhật trạng thái
-          "Giao hàng thành công". Qua thời hạn này, Hạt Lành xin phép từ chối giải quyết (ngoại trừ các lỗi ẩn về chất lượng bên trong
-          phát hiện muộn, sẽ được xem xét theo từng trường hợp cụ thể).
-        </p>
+        <p>Thời hạn tiếp nhận yêu cầu đổi trả tùy theo loại sự cố:</p>
+        <ul>
+          <li>
+            <strong>Hư hỏng do vận chuyển, giao sai mã/sai quy cách, thiếu số lượng hoặc sản phẩm đã hết hạn sử dụng khi nhận:</strong>{' '}
+            trong vòng 03 ngày (72 giờ) kể từ thời điểm hệ thống vận chuyển cập nhật trạng thái "Giao hàng thành công". Qua thời hạn
+            này, Hạt Lành xin phép từ chối giải quyết các trường hợp này.
+          </li>
+          <li>
+            <strong>Lỗi chất lượng từ quá trình sản xuất</strong> (hạt bị mốc, hôi dầu, có dị vật, mọt, bọ hoặc mùi vị bất thường): Hạt
+            Lành tiếp nhận cho đến hết hạn sử dụng in trên bao bì, kể cả khi đã bóc màng seal, với điều kiện sản phẩm được bảo quản đúng
+            hướng dẫn (xem mục 3).
+          </li>
+        </ul>
       </section>
       <section>
         <h2>5. Quy trình xử lý và Chi phí</h2>
@@ -186,9 +194,12 @@ export function ShippingPolicyPage() {
             <strong>Giao Hỏa tốc:</strong> Phí vận chuyển tính theo cước phí thực tế của ứng dụng giao hàng tại thời điểm đặt. Nhân
             viên Hạt Lành sẽ gọi điện thông báo chính xác cước phí cho quý khách trước khi gửi.
           </li>
+          {/* What CartProperties#shippingFeeFor charges (cart.shipping-fee below cart.free-shipping-threshold); change both
+              together. TODO(owner): orders of 2 kg or more, see docs/chinh-sach-noi-dung.md. */}
           <li>
-            <strong>Giao Tiêu chuẩn toàn quốc:</strong> Áp dụng mức phí đồng giá: 30.000 VNĐ cho mọi đơn hàng dưới 2kg. Hoặc: Phí vận
-            chuyển được hệ thống tự động tính toán dựa trên khối lượng sản phẩm và địa chỉ nhận hàng tại bước Thanh toán (Checkout).
+            <strong>Giao Tiêu chuẩn toàn quốc:</strong> Phí đồng giá 30.000 VNĐ cho mỗi đơn hàng chưa đạt mức miễn phí vận chuyển (xem
+            mục 3), áp dụng như nhau cho mọi địa chỉ nhận hàng. Phí được tính và hiển thị tại bước Thanh toán trước khi quý khách bấm
+            "Đặt hàng".
           </li>
         </ul>
       </section>
