@@ -83,6 +83,14 @@ public class Order {
 	@Column(name = "tracking_number")
 	private String trackingNumber;
 
+	/** When the buyer ticked "Tôi đồng ý với Chính sách bảo mật" at checkout (null for orders from before it). */
+	@Column(name = "privacy_consent_at", updatable = false)
+	private Instant privacyConsentAt;
+
+	/** Version of the policy page that consent was given to (site.PolicyVersion). */
+	@Column(name = "policy_version", updatable = false)
+	private String policyVersion;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt = Instant.now();
 
@@ -131,6 +139,19 @@ public class Order {
 		this.subtotal = subtotal;
 		this.shippingFee = shippingFee;
 		this.total = subtotal + shippingFee;
+	}
+
+	public void recordPrivacyConsent(Instant at, String version) {
+		this.privacyConsentAt = at;
+		this.policyVersion = version;
+	}
+
+	public Instant getPrivacyConsentAt() {
+		return privacyConsentAt;
+	}
+
+	public String getPolicyVersion() {
+		return policyVersion;
 	}
 
 	/** Use OrderService#transition, which also enforces the allowed moves and records history and stock. */

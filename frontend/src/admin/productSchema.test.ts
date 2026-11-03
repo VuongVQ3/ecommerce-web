@@ -36,6 +36,16 @@ describe('productSchema', () => {
     expect(tooLong.error!.issues).toEqual([expect.objectContaining({ path: ['shortDescription'], message: 'Mô tả ngắn tối đa 160 ký tự' })])
   })
 
+  it('takes shelf life, ingredients and storage as optional trimmed text, within the backend limits', () => {
+    const input = toInput(
+      productSchema.parse({ ...valid, shelfLife: ' 12 tháng ', ingredients: 'Hạt điều, muối', storageInstructions: '' }),
+    )
+    expect(input).toMatchObject({ shelfLife: '12 tháng', ingredients: 'Hạt điều, muối', storageInstructions: '' })
+    expect(productSchema.safeParse({ ...valid, shelfLife: 'x'.repeat(101) }).success).toBe(false)
+    expect(productSchema.safeParse({ ...valid, ingredients: 'x'.repeat(501) }).success).toBe(false)
+    expect(productSchema.safeParse({ ...valid, storageInstructions: 'x'.repeat(301) }).success).toBe(false)
+  })
+
   it('accepts Vietnamese number formats and converts them', () => {
     const parsed = productSchema.parse(valid)
     const input = toInput(parsed)

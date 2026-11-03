@@ -39,6 +39,11 @@ export const PHONE_ERROR = 'Số điện thoại phải gồm 10 chữ số và 
 
 export const PASSWORD_MISMATCH = 'Mật khẩu nhập lại không khớp'
 
+export const PRIVACY_REQUIRED = 'Bạn cần đồng ý với Chính sách bảo mật'
+
+/** The unticked "Tôi đồng ý với Chính sách bảo mật" checkbox (sign-up and checkout); the backend rejects false too. */
+const acceptPrivacy = z.boolean().refine((v) => v, PRIVACY_REQUIRED)
+
 export const registerSchema = z
   .object({
     fullName: personName,
@@ -53,6 +58,7 @@ export const registerSchema = z
       .refine((v) => v === '' || isValidPhone(normalizePhone(v)), PHONE_ERROR),
     // Honeypot, hidden from humans: accept anything so a bot is not told it was caught
     website: z.string(),
+    acceptPrivacy,
   })
   .refine((v) => v.confirmPassword === '' || v.password === v.confirmPassword, {
     message: PASSWORD_MISMATCH,
@@ -83,6 +89,7 @@ export const checkoutSchema = z.object({
   wardCode: z.string().min(1, 'Vui lòng chọn phường/xã'),
   addressLine: z.string().trim().min(1, 'Vui lòng nhập địa chỉ chi tiết').max(255, 'Địa chỉ tối đa 255 ký tự'),
   note: z.string().trim().max(500, 'Ghi chú tối đa 500 ký tự'),
+  acceptPrivacy,
 })
 
 export const orderLookupSchema = z.object({
@@ -107,6 +114,7 @@ export function claimAccountSchema(needsEmail: boolean, needsName = false) {
       fullName: needsName ? personName : z.string(),
       password: newPassword,
       confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu'),
+      acceptPrivacy,
     })
     .refine((v) => v.confirmPassword === '' || v.password === v.confirmPassword, {
       message: PASSWORD_MISMATCH,
@@ -137,7 +145,7 @@ export const changePasswordSchema = z
 export type ChangePasswordForm = z.infer<typeof changePasswordSchema>
 
 export const acceptInviteSchema = z
-  .object({ newPassword, confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu') })
+  .object({ newPassword, confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu'), acceptPrivacy })
   .refine((v) => v.confirmPassword === '' || v.newPassword === v.confirmPassword, {
     message: PASSWORD_MISMATCH,
     path: ['confirmPassword'],

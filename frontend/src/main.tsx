@@ -6,6 +6,7 @@ import RequireAuth from './auth/RequireAuth'
 import { RequireRole } from './admin/RequireRole'
 import { CartProvider } from './cart/CartContext'
 import Layout from './components/Layout'
+import PrivacyConsentPrompt from './components/PrivacyConsentPrompt'
 import RecentOrdersSync from './components/RecentOrdersSync'
 import { ToastProvider } from './components/Toast'
 import CartPage from './pages/CartPage'
@@ -37,6 +38,7 @@ const router = createBrowserRouter([
           {/* New page → top; Back/Forward → where the visitor was (positions kept per history entry) */}
           <ScrollRestoration />
           <RecentOrdersSync />
+          <PrivacyConsentPrompt />
           <Outlet />
         </ToastProvider>
       </AuthProvider>

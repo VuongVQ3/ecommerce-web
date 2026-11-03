@@ -1,5 +1,6 @@
 package com.nutshop.admin;
 
+import com.nutshop.site.PolicyVersion;
 import com.nutshop.IntegrationTest;
 import com.nutshop.auth.AuthCookies;
 import com.nutshop.auth.TokenService;
@@ -127,7 +128,7 @@ class AdminUsersE2ETest {
 
 	private String order(long productId, int qty, String phone) throws Exception {
 		String body = mvc.perform(json(post("/api/orders"), """
-				{"idempotencyKey":"u-%s","customerName":"Khách Test","phone":"%s","provinceCode":1,"wardCode":4,
+				{"acceptPrivacy":true,"idempotencyKey":"u-%s","customerName":"Khách Test","phone":"%s","provinceCode":1,"wardCode":4,
 				 "addressLine":"1 Phố","items":[{"productId":%d,"quantity":%d}]}""".formatted(UUID.randomUUID(), phone,
 				productId, qty))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
 		Matcher m = Pattern.compile("\"code\":\"([A-Z0-9]+)\"").matcher(body);
@@ -305,9 +306,16 @@ class AdminUsersE2ETest {
 		mvc.perform(json(post("/api/auth/reset-password"), "{\"token\":\"" + token + "\",\"newPassword\":\"matkhau123\"}"))
 			.andExpect(status().isBadRequest());
 
+		// Without the privacy policy checkbox the link is not used up
 		mvc.perform(json(post("/api/auth/accept-invite"), "{\"token\":\"" + token + "\",\"newPassword\":\"matkhau123\",\"acceptTerms\":true}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.acceptPrivacy").value("Bạn cần đồng ý với Chính sách bảo mật"));
+		mvc.perform(json(post("/api/auth/accept-invite"), "{\"token\":\"" + token + "\",\"newPassword\":\"matkhau123\",\"acceptTerms\":true,\"acceptPrivacy\":true}"))
 			.andExpect(status().isNoContent());
-		mvc.perform(json(post("/api/auth/accept-invite"), "{\"token\":\"" + token + "\",\"newPassword\":\"matkhau456\",\"acceptTerms\":true}"))
+		assertThat(jdbc.queryForMap("SELECT privacy_consent_at IS NOT NULL AS consented, policy_version FROM users WHERE email = ?", email))
+			.containsEntry("consented", true)
+			.containsEntry("policy_version", PolicyVersion.CURRENT);
+		mvc.perform(json(post("/api/auth/accept-invite"), "{\"token\":\"" + token + "\",\"newPassword\":\"matkhau456\",\"acceptTerms\":true,\"acceptPrivacy\":true}"))
 			.andExpect(status().isBadRequest());
 		mvc.perform(json(post("/api/auth/login"), "{\"email\":\"" + email + "\",\"password\":\"matkhau123\"}"))
 			.andExpect(status().isOk())
@@ -326,7 +334,7 @@ class AdminUsersE2ETest {
 		assertThat(m.find()).isTrue();
 		jdbc.update("UPDATE password_reset_tokens SET expires_at = now() - interval '1 minute' WHERE token_hash = ?",
 				SecureTokens.hash(m.group(1)));
-		mvc.perform(json(post("/api/auth/accept-invite"), "{\"token\":\"" + m.group(1) + "\",\"newPassword\":\"matkhau123\",\"acceptTerms\":true}"))
+		mvc.perform(json(post("/api/auth/accept-invite"), "{\"token\":\"" + m.group(1) + "\",\"newPassword\":\"matkhau123\",\"acceptTerms\":true,\"acceptPrivacy\":true}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_LINK"));
 	}
@@ -353,7 +361,7 @@ class AdminUsersE2ETest {
 		as(admin, json(put("/api/admin/phone-flags/" + phone), "{\"level\":\"BLOCK_COD\",\"reason\":\"bom hàng 2 lần\"}"))
 			.andExpect(status().isOk());
 		mvc.perform(json(post("/api/orders"), """
-				{"idempotencyKey":"blk-%s","customerName":"Khách","phone":"+84 %s","provinceCode":1,"wardCode":4,
+				{"acceptPrivacy":true,"idempotencyKey":"blk-%s","customerName":"Khách","phone":"+84 %s","provinceCode":1,"wardCode":4,
 				 "addressLine":"1 Phố","items":[{"productId":%d,"quantity":1}]}""".formatted(UUID.randomUUID(), phone.substring(1), id)))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("COD_NOT_AVAILABLE"))

@@ -77,7 +77,7 @@ class OrderPendingCapE2ETest {
 
 	private MockHttpServletRequestBuilder order(long productId, String phone) {
 		return json(post("/api/orders"), """
-				{"idempotencyKey":"u-%s","customerName":"Khách Test","phone":"%s","provinceCode":1,"wardCode":4,
+				{"acceptPrivacy":true,"idempotencyKey":"u-%s","customerName":"Khách Test","phone":"%s","provinceCode":1,"wardCode":4,
 				 "addressLine":"1 Phố","items":[{"productId":%d,"quantity":1}]}"""
 				.formatted(UUID.randomUUID(), phone, productId));
 	}

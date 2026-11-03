@@ -34,6 +34,17 @@ export interface SiteInfo {
   contact?: Contact
   /** Absent from servers older than the footer icons */
   social?: SocialLinks
+  /**
+   * Version of the policy pages, "2026-11-03" (PolicyVersion.CURRENT, the only place it is set): shown as their "last
+   * updated" date and recorded with every privacy consent. Absent from older servers.
+   */
+  policyVersion?: string
+}
+
+/** "2026-11-03" → "03/11/2026"; null for anything else. */
+export function formatPolicyVersion(version: string | undefined): string | null {
+  const m = version?.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : null
 }
 
 let cached: Promise<SiteInfo | null> | null = null

@@ -10,6 +10,7 @@ import com.nutshop.common.ConflictException;
 import com.nutshop.common.UnauthorizedException;
 import com.nutshop.user.PhoneNumbers;
 import com.nutshop.common.ApiException;
+import com.nutshop.site.PolicyVersion;
 import com.nutshop.user.Role;
 import com.nutshop.user.User;
 import com.nutshop.user.UserStatusCache;
@@ -38,6 +39,8 @@ public class AuthService {
 	public static final String EMAIL_EXISTS = "EMAIL_EXISTS";
 	public static final String PHONE_EXISTS = "PHONE_EXISTS";
 	public static final String ACCOUNT_EXISTS = "ACCOUNT_EXISTS";
+	/** A first Google sign-in without the register page's privacy policy checkbox: no account is created. */
+	public static final String PRIVACY_CONSENT_REQUIRED = "PRIVACY_CONSENT_REQUIRED";
 
 	private final UserRepository users;
 	private final PasswordEncoder passwordEncoder;
@@ -85,6 +88,7 @@ public class AuthService {
 			throw new ConflictException(PHONE_EXISTS, "Số điện thoại này đã được sử dụng");
 		}
 		User user = new User(email, passwordEncoder.encode(req.password()), req.fullName().trim(), phone, clock.instant());
+		user.recordPrivacyConsent(clock.instant(), PolicyVersion.CURRENT); // acceptPrivacy is validated true
 		user = users.saveAndFlush(user); // audit rows reference it through JDBC
 		verification.sendLink(user);
 		return issue(user, client);
@@ -92,7 +96,7 @@ public class AuthService {
 
 	/**
 	 * Account created from a guest order's tracking page (OrderClaimService): name, email and phone come from the
-	 * order, the buyer only chooses a password and accepts the terms. Same password hashing and consent records as
+	 * order, the buyer only chooses a password and accepts the terms and the privacy policy. Same password hashing and consent records as
 	 * {@link #register}. If the email or the phone already has an account → 409 ACCOUNT_EXISTS, nothing created.
 	 */
 	@Transactional
@@ -103,6 +107,7 @@ public class AuthService {
 			throw new ConflictException(ACCOUNT_EXISTS, "Email hoặc số điện thoại này đã có tài khoản.");
 		}
 		User user = new User(email, passwordEncoder.encode(password), fullName.trim(), phone, clock.instant());
+		user.recordPrivacyConsent(clock.instant(), PolicyVersion.CURRENT); // acceptPrivacy is validated true
 		user = users.saveAndFlush(user); // audit rows reference it through JDBC
 		verification.sendLink(user);
 		return issue(user, client);
@@ -146,16 +151,16 @@ public class AuthService {
 
 	/**
 	 * Signs in with a Google ID token. Matches by Google account first, then links an existing account with the
-	 * same (Google-verified) email, otherwise creates a new password-less account.
+	 * same (Google-verified) email, otherwise creates a new password-less account, but only with
+	 * {@code acceptPrivacy} (the register page's privacy policy checkbox): without it → 400 PRIVACY_CONSENT_REQUIRED.
 	 */
 	@Transactional
-	public AuthResult loginWithGoogle(String credential, ClientInfo client) {
+	public AuthResult loginWithGoogle(String credential, boolean acceptPrivacy, ClientInfo client) {
 		GoogleUser google = googleVerifier.verify(credential);
 		String email = normalizeEmail(google.email());
 		User user = users.findByGoogleId(google.googleId())
 			.or(() -> users.findByEmail(email).map(existing -> linkGoogle(existing, google.googleId())))
-			.orElseGet(() -> users
-				.saveAndFlush(User.fromGoogle(email, displayName(google, email), google.googleId(), clock.instant())));
+			.orElseGet(() -> createGoogleAccount(google, email, acceptPrivacy));
 		ensureActive(user);
 		// Google has verified this address (GoogleTokenVerifier requires email_verified)
 		verification.markVerified(user, "GOOGLE");
@@ -183,6 +188,21 @@ public class AuthService {
 		refreshTokens.revokeAll(userId);
 		statuses.evict(userId);
 		return issue(user, client);
+	}
+
+	/**
+	 * Records the privacy policy consent of an account that has none (created before the separate checkbox). Already
+	 * recorded: kept as it was (the first consent and its version stay).
+	 */
+	@Transactional
+	public UserResponse acceptPrivacyPolicy(UUID userId) {
+		User user = users.findById(userId)
+			.filter(User::isActive)
+			.orElseThrow(() -> new UnauthorizedException(RefreshTokenService.INVALID_SESSION));
+		if (user.getPrivacyConsentAt() == null) {
+			user.recordPrivacyConsent(clock.instant(), PolicyVersion.CURRENT);
+		}
+		return UserResponse.from(user);
 	}
 
 	@Transactional(readOnly = true)
@@ -213,6 +233,16 @@ public class AuthService {
 		}
 		existing.linkGoogle(googleId);
 		return existing;
+	}
+
+	private User createGoogleAccount(GoogleUser google, String email, boolean acceptPrivacy) {
+		if (!acceptPrivacy) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, PRIVACY_CONSENT_REQUIRED,
+					"Tài khoản Google này chưa đăng ký. Vui lòng vào trang Đăng ký và đồng ý với Chính sách bảo mật.");
+		}
+		User user = User.fromGoogle(email, displayName(google, email), google.googleId(), clock.instant());
+		user.recordPrivacyConsent(clock.instant(), PolicyVersion.CURRENT);
+		return users.saveAndFlush(user);
 	}
 
 	private AuthResult issue(User user, ClientInfo client) {

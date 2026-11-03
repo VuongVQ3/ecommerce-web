@@ -3,12 +3,12 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { acceptInviteSchema, changePasswordSchema, type ChangePasswordForm } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
-import { FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton } from '../components/FormFields'
+import { Checkbox, FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton } from '../components/FormFields'
 import { useToast } from '../components/Toast'
 import { api } from '../lib/api'
 import { LOGIN_PATH, safeNextPath } from '../lib/redirect'
 import { BRAND, usePageMeta } from '../lib/usePageMeta'
-import { AuthCard, LegalLinks, type LoginPageState } from './AuthPages'
+import { AuthCard, PrivacyConsentLabel, TermsLink, type LoginPageState } from './AuthPages'
 
 /**
  * /tai-khoan/doi-mat-khau — same rules as registration. Staff/admins whose password no longer meets them are sent
@@ -116,7 +116,7 @@ export function AcceptInvitePage() {
 
   const { form, onSubmit, formError, pending } = useAuthForm(
     acceptInviteSchema,
-    { newPassword: '', confirmPassword: '' },
+    { newPassword: '', confirmPassword: '', acceptPrivacy: false },
     async ({ newPassword }) => {
       await api.acceptInvite(token ?? '', newPassword)
       const state: LoginPageState = { notice: 'Đã đặt mật khẩu. Vui lòng đăng nhập để vào trang quản trị.' }
@@ -158,8 +158,14 @@ export function AcceptInvitePage() {
           error={form.formState.errors.confirmPassword?.message}
           {...form.register('confirmPassword')}
         />
+        <Checkbox
+          label={<PrivacyConsentLabel />}
+          requiredMark
+          error={form.formState.errors.acceptPrivacy?.message}
+          {...form.register('acceptPrivacy')}
+        />
         <p className="text-sm text-stone-700">
-          Bằng việc đặt mật khẩu, bạn đồng ý với <LegalLinks />.
+          Bằng việc đặt mật khẩu, bạn đồng ý với <TermsLink />.
         </p>
         <FormError message={formError} />
         <SubmitButton pending={pending} pendingLabel="Đang lưu...">

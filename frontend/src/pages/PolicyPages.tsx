@@ -1,21 +1,25 @@
 import { useEffect, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router'
-import { POLICY_UPDATED, SHOP } from '../lib/shopContact'
+import { SHOP } from '../lib/shopContact'
+import { formatPolicyVersion, useSiteInfo } from '../lib/siteInfo'
 import { BRAND, usePageMeta } from '../lib/usePageMeta'
 
 /**
- * Policy pages, word for word from docs/chinh-sach-noi-dung.md (final text agreed with the shop owner on 02/11/2026).
- * Change the wording there first, then here.
+ * Policy pages, word for word from docs/chinh-sach-noi-dung.md (first agreed with the shop owner on 02/11/2026; its
+ * "Lịch sử sửa đổi" lists later changes). Change the wording there first, then here, then bump PolicyVersion.CURRENT
+ * (backend): the "Cập nhật lần cuối" date comes from it through /api/site.
  */
 
 const linkClass = 'font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800'
 
 function PolicyPage({ title, description, children, contactLink = true }: { title: string; description: string; children: ReactNode; contactLink?: boolean }) {
   usePageMeta(`${title} | ${BRAND}`, description)
+  const updated = formatPolicyVersion(useSiteInfo()?.policyVersion)
   return (
     <article className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-3xl font-bold text-stone-900">{title}</h1>
-      <p className="mt-2 text-sm text-muted">Cập nhật lần cuối: {POLICY_UPDATED}</p>
+      {/* Same version as the consents being recorded; the line keeps its height until the date arrives */}
+      <p className="mt-2 min-h-5 text-sm text-muted">{updated && `Cập nhật lần cuối: ${updated}`}</p>
       <div className="mt-8 space-y-8 leading-relaxed text-stone-700 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-stone-900 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-stone-900 [&_li]:pl-1 [&_p]:mt-2 [&_strong]:font-semibold [&_strong]:text-stone-900 [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5">
         {children}
       </div>
@@ -118,11 +122,19 @@ export function ReturnPolicyPage() {
       </section>
       <section>
         <h2>4. Thời gian tiếp nhận khiếu nại</h2>
-        <p>
-          Hạt Lành tiếp nhận yêu cầu đổi trả trong vòng 03 ngày (72 giờ) kể từ thời điểm hệ thống vận chuyển cập nhật trạng thái
-          "Giao hàng thành công". Qua thời hạn này, Hạt Lành xin phép từ chối giải quyết (ngoại trừ các lỗi ẩn về chất lượng bên trong
-          phát hiện muộn, sẽ được xem xét theo từng trường hợp cụ thể).
-        </p>
+        <p>Thời hạn tiếp nhận yêu cầu đổi trả tùy theo loại sự cố:</p>
+        <ul>
+          <li>
+            <strong>Hư hỏng do vận chuyển, giao sai mã/sai quy cách, thiếu số lượng hoặc sản phẩm đã hết hạn sử dụng khi nhận:</strong>{' '}
+            trong vòng 03 ngày (72 giờ) kể từ thời điểm hệ thống vận chuyển cập nhật trạng thái "Giao hàng thành công". Qua thời hạn
+            này, Hạt Lành xin phép từ chối giải quyết các trường hợp này.
+          </li>
+          <li>
+            <strong>Lỗi chất lượng từ quá trình sản xuất</strong> (hạt bị mốc, hôi dầu, có dị vật, mọt, bọ hoặc mùi vị bất thường): Hạt
+            Lành tiếp nhận cho đến hết hạn sử dụng in trên bao bì, kể cả khi đã bóc màng seal, với điều kiện sản phẩm được bảo quản đúng
+            hướng dẫn (xem mục 3).
+          </li>
+        </ul>
       </section>
       <section>
         <h2>5. Quy trình xử lý và Chi phí</h2>
@@ -185,9 +197,12 @@ export function ShippingPolicyPage() {
             <strong>Giao Hỏa tốc:</strong> Phí vận chuyển tính theo cước phí thực tế của ứng dụng giao hàng tại thời điểm đặt. Nhân
             viên Hạt Lành sẽ gọi điện thông báo chính xác cước phí cho quý khách trước khi gửi.
           </li>
+          {/* What CartProperties#shippingFeeFor charges (cart.shipping-fee below cart.free-shipping-threshold); change both
+              together. TODO(owner): orders of 2 kg or more, see docs/chinh-sach-noi-dung.md. */}
           <li>
-            <strong>Giao Tiêu chuẩn toàn quốc:</strong> Áp dụng mức phí đồng giá: 30.000 VNĐ cho mọi đơn hàng dưới 2kg. Hoặc: Phí vận
-            chuyển được hệ thống tự động tính toán dựa trên khối lượng sản phẩm và địa chỉ nhận hàng tại bước Thanh toán (Checkout).
+            <strong>Giao Tiêu chuẩn toàn quốc:</strong> Phí đồng giá 30.000 VNĐ cho mỗi đơn hàng chưa đạt mức miễn phí vận chuyển (xem
+            mục 3), áp dụng như nhau cho mọi địa chỉ nhận hàng. Phí được tính và hiển thị tại bước Thanh toán trước khi quý khách bấm
+            "Đặt hàng".
           </li>
         </ul>
       </section>
@@ -249,10 +264,16 @@ export function TermsPage() {
         <div>
           <h3>1. Giới thiệu chung và Phạm vi áp dụng</h3>
           <p>
-            Chào mừng quý khách đến với website mua sắm trực tuyến Hạt Lành. Khi quý khách truy cập và thực hiện đặt hàng tại website,
-            đồng nghĩa với việc quý khách đã đọc, hiểu và đồng ý với các Điều khoản giao dịch chung này. Các điều khoản này có thể được
-            cập nhật tùy thời điểm để tuân thủ pháp luật hiện hành (bao gồm Luật Thương mại điện tử số 122/2025/QH15 và Nghị định
-            248/2026/NĐ-CP). Hạt Lành sẽ thông báo trên website khi có sự thay đổi.
+            Chào mừng quý khách đến với website mua sắm trực tuyến Hạt Lành. Các Điều khoản giao dịch chung này áp dụng cho các đơn hàng
+            đặt tại website. Quý khách xác nhận đã đọc và đồng ý với các điều khoản này khi bấm nút "Đặt hàng" (bên cạnh nút có đường
+            dẫn tới trang này). Việc đồng ý với <a href="#bao-mat" className={linkClass}>Chính sách bảo mật</a> (Phần B) được thực hiện
+            riêng, bằng ô đánh dấu khi đăng ký tài khoản hoặc khi đặt hàng.
+          </p>
+          <p>
+            Các điều khoản này có thể được cập nhật để tuân thủ pháp luật hiện hành (bao gồm Luật Thương mại điện tử số 122/2025/QH15 và
+            Nghị định 248/2026/NĐ-CP). Khi có thay đổi, Hạt Lành sẽ thông báo trên website kèm ngày có hiệu lực của bản mới. Nội dung thay
+            đổi chỉ áp dụng cho các đơn hàng đặt từ ngày có hiệu lực đó trở đi; đơn hàng đã đặt trước đó tiếp tục áp dụng điều khoản tại
+            thời điểm đặt hàng.
           </p>
         </div>
         <div>
@@ -413,8 +434,8 @@ export function TermsPage() {
             <li>Lưu trữ máy chủ và cơ sở dữ liệu: Render, Neon (máy chủ tại Singapore).</li>
             <li>Lưu trữ ảnh sản phẩm: Cloudinary.</li>
             <li>Gửi email: Resend. Chống bot ở form đăng ký: Cloudflare Turnstile. Đăng nhập Google: Google.</li>
-            {/* Order alerts to the shop carry the customer's name, phone, ward and province (notify/OrderTelegramAlerts) */}
-            <li>Thông báo đơn hàng nội bộ: Telegram.</li>
+            {/* Not listed: Telegram order alerts carry only the order code, the total and the admin link
+                (notify/OrderTelegramAlerts). List it again if customer details are ever sent there. */}
             <li>
               Đơn vị vận chuyển (Giao Hàng Tiết Kiệm, Viettel Post, Giao Hàng Nhanh, Grab, XanhSM, Ahamove...) nhận tên, số điện thoại,
               địa chỉ để giao hàng.
@@ -422,12 +443,60 @@ export function TermsPage() {
           </ul>
         </div>
         <div>
-          <h3>6. Thời gian lưu trữ và quyền của bạn</h3>
+          <h3>6. Thời gian lưu trữ</h3>
+          {/* TODO(owner): the periods below (24 tháng, 10 năm, 90 ngày) are proposals, see the TODO in
+              docs/chinh-sach-noi-dung.md. privacy.DataRetentionJob applies 90 ngày and 24 tháng (app.retention.*);
+              orders are never deleted automatically. */}
+          <ul>
+            <li>
+              Tài khoản (họ tên, email, số điện thoại, mật khẩu đã mã hoá): lưu cho đến khi bạn yêu cầu xoá tài khoản, hoặc tối đa 24 tháng
+              kể từ lần đăng nhập cuối cùng.
+            </li>
+            <li>
+              Đơn hàng (thông tin người nhận, sản phẩm, số tiền): 10 năm kể từ ngày đặt hàng, theo quy định về lưu trữ chứng từ kế toán,
+              thuế. Khi bạn xoá tài khoản, đơn hàng vẫn được giữ đến hết thời hạn này nhưng không còn gắn với tài khoản.
+            </li>
+            <li>Nhật ký kỹ thuật khi đăng nhập (địa chỉ IP, trình duyệt): 90 ngày.</li>
+            <li>
+              Thời điểm bạn đồng ý với Chính sách bảo mật và phiên bản chính sách: lưu cùng tài khoản hoặc đơn hàng tương ứng, trong cùng
+              thời hạn.
+            </li>
+            <li>
+              Giỏ hàng của khách chưa đăng nhập: chỉ nằm trong trình duyệt của bạn, mất đi khi bạn đặt hàng hoặc xoá dữ liệu trình duyệt.
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h3>7. Quyền của bạn</h3>
+          <p>Bạn có các quyền sau đối với dữ liệu cá nhân của mình:</p>
+          <ul>
+            <li>Được biết và xem dữ liệu chúng tôi đang lưu về bạn.</li>
+            <li>Yêu cầu chỉnh sửa dữ liệu không chính xác.</li>
+            <li>Yêu cầu xoá dữ liệu (trừ dữ liệu pháp luật buộc phải lưu giữ, xem mục 6).</li>
+            <li>
+              Rút lại sự đồng ý. Việc rút lại không ảnh hưởng đến việc xử lý đã thực hiện trước đó; đơn hàng đang giao có thể không hoàn tất
+              được nếu bạn rút lại sự đồng ý trước khi nhận hàng.
+            </li>
+            <li>Yêu cầu hạn chế xử lý dữ liệu.</li>
+            <li>Phản đối việc xử lý dữ liệu.</li>
+            <li>
+              Khiếu nại về cách chúng tôi xử lý dữ liệu của bạn. Nếu không đồng ý với kết quả giải quyết, bạn có quyền khiếu nại, tố cáo
+              hoặc khởi kiện tới cơ quan nhà nước có thẩm quyền theo quy định của pháp luật.
+            </li>
+          </ul>
           <p>
-            Dữ liệu tài khoản và đơn hàng được lưu trong thời gian cần thiết để cung cấp dịch vụ và theo quy định pháp luật về kế toán,
-            thuế. Bạn có quyền xem, sửa, yêu cầu xoá dữ liệu hoặc rút lại sự đồng ý bằng cách liên hệ email <Email /> hoặc Zalo{' '}
-            <Phone />.
+            <strong>Cách gửi yêu cầu:</strong> email <Email /> hoặc Zalo <Phone />. Để bảo vệ bạn, chúng tôi có thể đề nghị xác minh
+            bằng email hoặc số điện thoại đã dùng khi đăng ký hoặc đặt hàng.
           </p>
+          <p>
+            <strong>Thời hạn phản hồi</strong> (kể từ khi nhận được yêu cầu):
+          </p>
+          <ul>
+            <li>Xác nhận đã nhận yêu cầu: trong 02 ngày làm việc.</li>
+            <li>Xem, chỉnh sửa dữ liệu: trong 10 ngày.</li>
+            <li>Rút lại sự đồng ý, hạn chế xử lý hoặc phản đối xử lý: trong 15 ngày.</li>
+            <li>Xoá dữ liệu: trong 20 ngày.</li>
+          </ul>
         </div>
       </section>
     </PolicyPage>

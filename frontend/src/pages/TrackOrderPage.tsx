@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { claimAccountSchema, isPersonName, type ClaimAccountForm } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
 import { ErrorMessage, Spinner } from '../components/Feedback'
-import { FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton, TextField } from '../components/FormFields'
+import { Checkbox, FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton, TextField } from '../components/FormFields'
 import CancelOrderDialog from '../components/CancelOrderDialog'
 import CopyButton from '../components/CopyButton'
 import Modal from '../components/Modal'
@@ -20,7 +20,7 @@ import { useAsync } from '../lib/useAsync'
 import { ORDER_STATUS_LABEL } from '../lib/orderStatus'
 import { useJustPlaced } from '../lib/useJustPlaced'
 import { BRAND, usePageMeta } from '../lib/usePageMeta'
-import { LegalLinks } from './AuthPages'
+import { PrivacyConsentLabel, TermsLink } from './AuthPages'
 
 export interface TrackOrderState {
   /** Set by the checkout: show the "order placed" banner (gone after a reload, the page itself stays complete). */
@@ -94,11 +94,13 @@ function ClaimAccountBox({ order, token }: { order: TrackedOrder; token: string 
   const needsName = !isPersonName(order.customerName)
   const { form, onSubmit, formError, pending } = useAuthForm<ClaimAccountForm>(
     claimAccountSchema(!order.hasEmail, needsName),
-    { email: '', fullName: needsName ? '' : order.customerName, password: '', confirmPassword: '' },
+    // The privacy box is never ticked in advance
+    { email: '', fullName: needsName ? '' : order.customerName, password: '', confirmPassword: '', acceptPrivacy: false },
     async (values) => {
       const user = await api.claimAccount(order.code, token, {
         password: values.password,
         acceptTerms: true,
+        acceptPrivacy: true,
         email: order.hasEmail ? undefined : values.email,
         fullName: needsName ? values.fullName : undefined,
       })
@@ -214,8 +216,9 @@ function ClaimAccountBox({ order, token }: { order: TrackedOrder; token: string 
             error={errors.confirmPassword?.message}
             {...form.register('confirmPassword')}
           />
+          <Checkbox label={<PrivacyConsentLabel />} requiredMark error={errors.acceptPrivacy?.message} {...form.register('acceptPrivacy')} />
           <p className="text-sm text-stone-700">
-            Bằng việc tạo tài khoản, bạn đồng ý với <LegalLinks />.
+            Bằng việc tạo tài khoản, bạn đồng ý với <TermsLink />.
           </p>
           <FormError message={formError} />
           <SubmitButton pending={pending} pendingLabel="Đang tạo tài khoản...">

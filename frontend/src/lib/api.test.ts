@@ -122,6 +122,7 @@ describe('apiRequest', () => {
         password: 'abc12345',
         phone: '1',
         acceptTerms: true,
+        acceptPrivacy: true,
         turnstileToken: 't',
         website: '',
       })

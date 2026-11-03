@@ -16,6 +16,6 @@ public final class RegisterJson {
 	public static String of(String fullName, String email, String password, String phone) {
 		return "{\"fullName\":\"" + fullName + "\",\"email\":\"" + email + "\",\"password\":\"" + password + "\""
 				+ (phone == null ? "" : ",\"phone\":\"" + phone + "\"")
-				+ ",\"acceptTerms\":true,\"turnstileToken\":\"" + TURNSTILE_TEST_TOKEN + "\"}";
+				+ ",\"acceptTerms\":true,\"acceptPrivacy\":true,\"turnstileToken\":\"" + TURNSTILE_TEST_TOKEN + "\"}";
 	}
 }

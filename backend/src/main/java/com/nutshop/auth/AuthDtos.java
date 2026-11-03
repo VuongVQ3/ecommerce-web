@@ -22,7 +22,8 @@ public final class AuthDtos {
 
 	/**
 	 * @param phone optional; accepts "0912 345 678", "0912.345.678", "+84912345678"... normalized before storing
-	 * @param acceptTerms must be true (terms of use + privacy policy)
+	 * @param acceptTerms must be true (terms of sale: the notice above the button)
+	 * @param acceptPrivacy must be true: the separate, unticked "Tôi đồng ý với Chính sách bảo mật" checkbox
 	 * @param turnstileToken Cloudflare Turnstile token from the widget
 	 * @param website honeypot: hidden from humans, so any value means a bot
 	 */
@@ -36,15 +37,18 @@ public final class AuthDtos {
 			@Pattern(regexp = PASSWORD_PATTERN, message = "Mật khẩu phải có cả chữ và số") String password,
 			@VietnamesePhone String phone,
 			@NotNull(message = TERMS_REQUIRED) @AssertTrue(message = TERMS_REQUIRED) Boolean acceptTerms,
+			@NotNull(message = PRIVACY_REQUIRED) @AssertTrue(message = PRIVACY_REQUIRED) Boolean acceptPrivacy,
 			String turnstileToken,
 			String website) {
 
-		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản giao dịch chung và Chính sách bảo mật";
+		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản giao dịch chung";
 
 		boolean isHoneypotFilled() {
 			return website != null && !website.isBlank();
 		}
 	}
+
+	public static final String PRIVACY_REQUIRED = "Bạn cần đồng ý với Chính sách bảo mật";
 
 	public record LoginRequest(
 			@NotBlank(message = "Vui lòng nhập email") String email,
@@ -68,7 +72,12 @@ public final class AuthDtos {
 	public record MessageResponse(String message) {
 	}
 
-	public record GoogleLoginRequest(@NotBlank(message = "Thiếu thông tin đăng nhập Google") String credential) {
+	/**
+	 * @param acceptPrivacy the register page's privacy policy checkbox; required only when this Google account has no
+	 *        account here yet (signing in to an existing one does not ask again)
+	 */
+	public record GoogleLoginRequest(@NotBlank(message = "Thiếu thông tin đăng nhập Google") String credential,
+			Boolean acceptPrivacy) {
 	}
 
 	/** Which sign-in methods the frontend should offer. */
@@ -78,13 +87,22 @@ public final class AuthDtos {
 	/** Public view of a user. Never contains the password hash. */
 	/** @param passwordChangeRequired staff/admin with a password below the rules: must change it first */
 	/** @param hasPassword false for accounts that only sign in with Google (they can set one, or use "Quên mật khẩu") */
+	/**
+	 * @param privacyConsentRequired an account from before the separate privacy policy checkbox (no consent recorded):
+	 *        the site asks once, after sign-in (POST /api/auth/privacy-consent)
+	 */
 	public record UserResponse(UUID id, String email, String fullName, String phone, String role,
-			boolean emailVerified, boolean passwordChangeRequired, boolean hasPassword) {
+			boolean emailVerified, boolean passwordChangeRequired, boolean hasPassword, boolean privacyConsentRequired) {
 
 		public static UserResponse from(User u) {
 			return new UserResponse(u.getId(), u.getEmail(), u.getFullName(), u.getPhone(), u.getRole().name(),
-					u.isEmailVerified(), u.isPasswordChangeRequired(), u.hasPassword());
+					u.isEmailVerified(), u.isPasswordChangeRequired(), u.hasPassword(), u.getPrivacyConsentAt() == null);
 		}
+	}
+
+	/** The one-time privacy policy screen for existing accounts. */
+	public record PrivacyConsentRequest(
+			@NotNull(message = PRIVACY_REQUIRED) @AssertTrue(message = PRIVACY_REQUIRED) Boolean acceptPrivacy) {
 	}
 
 	/** {@code currentPassword} may be empty only for accounts without a password yet (Google sign-in). */
@@ -94,12 +112,13 @@ public final class AuthDtos {
 			@Pattern(regexp = PASSWORD_PATTERN, message = "Mật khẩu phải có cả chữ và số") String newPassword) {
 	}
 
-	/** First password of an invited staff account (also accepts the terms). */
+	/** First password of an invited staff account: accepts the terms, and the privacy policy with its own checkbox. */
 	public record AcceptInviteRequest(@NotBlank(message = "Liên kết mời không hợp lệ") String token,
 			@NotBlank(message = "Vui lòng nhập mật khẩu")
 			@Size(min = 8, max = 72, message = "Mật khẩu phải từ 8 đến 72 ký tự")
 			@Pattern(regexp = PASSWORD_PATTERN, message = "Mật khẩu phải có cả chữ và số") String newPassword,
-			@NotNull(message = "Bạn cần đồng ý với Điều khoản giao dịch chung và Chính sách bảo mật")
-			@AssertTrue(message = "Bạn cần đồng ý với Điều khoản giao dịch chung và Chính sách bảo mật") Boolean acceptTerms) {
+			@NotNull(message = RegisterRequest.TERMS_REQUIRED)
+			@AssertTrue(message = RegisterRequest.TERMS_REQUIRED) Boolean acceptTerms,
+			@NotNull(message = PRIVACY_REQUIRED) @AssertTrue(message = PRIVACY_REQUIRED) Boolean acceptPrivacy) {
 	}
 }

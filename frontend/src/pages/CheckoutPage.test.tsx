@@ -81,9 +81,12 @@ async function fillValidForm() {
   change(select('Tỉnh/Thành phố'), '1')
   change(select('Phường/Xã'), '4')
   change(input('Địa chỉ chi tiết'), '12 Phố Test')
+  fireEvent.click(privacyBox())
 }
 
-const ADMIN: User = { id: 'a1', email: 'admin@example.com', fullName: 'Quản Trị', phone: null, role: 'ADMIN', emailVerified: true, passwordChangeRequired: false, hasPassword: true }
+const privacyBox = () => screen.getByRole('checkbox', { name: /Tôi đồng ý với Chính sách bảo mật/ }) as HTMLInputElement
+
+const ADMIN: User = { id: 'a1', email: 'admin@example.com', fullName: 'Quản Trị', phone: null, role: 'ADMIN', emailVerified: true, passwordChangeRequired: false, hasPassword: true, privacyConsentRequired: false }
 
 beforeEach(() => {
   auth.current = { user: null, loading: false }
@@ -134,6 +137,7 @@ describe('CheckoutPage', () => {
     expect(first).toMatchObject({ phone: '0912345678', provinceCode: 1, wardCode: 4, customerName: 'Nguyễn Văn Khách' })
     expect(JSON.stringify(first)).not.toMatch(/price|total/i)
     expect(second.idempotencyKey).toBe(first.idempotencyKey)
+    expect(first.acceptPrivacy).toBe(true)
 
     const where = JSON.parse((await screen.findByTestId('where')).textContent!)
     // Guest: straight to the tracking link, remembered in this browser, form draft cleared
@@ -142,6 +146,31 @@ describe('CheckoutPage', () => {
     expect(readRecentOrders()).toMatchObject([{ code: 'HL261013ABCD', token: GUEST_TOKEN }])
     expect(sessionStorage.getItem('hatlanh_checkout_draft_v1')).toBeNull()
     expect(resetAfterOrder).toHaveBeenCalledOnce()
+  })
+
+  it('does not place the order until the privacy policy box is ticked, and links the terms next to the button', async () => {
+    const place = vi.spyOn(api, 'placeOrder').mockResolvedValue(order)
+    renderCheckout()
+    await fillValidForm()
+    fireEvent.click(privacyBox()) // untick again
+    expect(privacyBox().checked).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: /Đặt hàng/ }))
+    expect(await screen.findByText('Bạn cần đồng ý với Chính sách bảo mật')).toBeTruthy()
+    expect(place).not.toHaveBeenCalled()
+    expect(screen.getByRole('link', { name: /Tôi đồng ý|Chính sách bảo mật/ }).getAttribute('href')).toBe('/dieu-khoan-giao-dich#bao-mat')
+    expect(screen.getByRole('link', { name: /Điều khoản giao dịch chung/ }).getAttribute('href')).toBe('/dieu-khoan-giao-dich')
+  })
+
+  it('says under the total that express delivery in HCMC is charged separately, confirmed by phone', async () => {
+    renderCheckout()
+    expect(await screen.findByText(/Giao hỏa tốc trong nội thành TP.HCM tính phí riêng/)).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Chính sách vận chuyển/ }).getAttribute('href')).toBe('/chinh-sach-van-chuyen')
+  })
+
+  it('starts with the privacy policy box unticked', () => {
+    renderCheckout()
+    expect(privacyBox().checked).toBe(false)
   })
 
   it('goes back to the cart with the shortages when stock ran out', async () => {
@@ -163,7 +192,7 @@ describe('CheckoutPage', () => {
     fireEvent.change(input('Họ và tên'), { target: { value: 'Khách Đã Nhập' } })
     first.unmount()
     auth.current = {
-      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true },
+      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true, privacyConsentRequired: false },
       loading: false,
     }
     renderCheckout()
@@ -181,7 +210,7 @@ describe('CheckoutPage', () => {
 
   it('prefills name, email and phone for a signed-in user', () => {
     auth.current = {
-      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true },
+      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true, privacyConsentRequired: false },
       loading: false,
     }
     renderCheckout()

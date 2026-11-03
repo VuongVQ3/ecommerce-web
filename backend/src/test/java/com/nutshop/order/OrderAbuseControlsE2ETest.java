@@ -81,7 +81,7 @@ class OrderAbuseControlsE2ETest {
 
 	private String place(long productId, int qty, String phone, String extraFields) throws Exception {
 		String body = mvc.perform(json(post("/api/orders"), """
-				{"idempotencyKey":"u-%s","customerName":"Khách Test","phone":"%s","provinceCode":1,"wardCode":4,
+				{"acceptPrivacy":true,"idempotencyKey":"u-%s","customerName":"Khách Test","phone":"%s","provinceCode":1,"wardCode":4,
 				 "addressLine":"1 Phố","items":[{"productId":%d,"quantity":%d}]%s}"""
 				.formatted(UUID.randomUUID(), phone, productId, qty, extraFields)))
 				.andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
@@ -127,7 +127,7 @@ class OrderAbuseControlsE2ETest {
 			.when(turnstile).verify(eq("bad-token"), any());
 
 		mvc.perform(json(post("/api/orders"), """
-				{"idempotencyKey":"u-%s","customerName":"Khách Test","phone":"0912345678","provinceCode":1,"wardCode":4,
+				{"acceptPrivacy":true,"idempotencyKey":"u-%s","customerName":"Khách Test","phone":"0912345678","provinceCode":1,"wardCode":4,
 				 "addressLine":"1 Phố","turnstileToken":"bad-token","items":[{"productId":%d,"quantity":1}]}"""
 				.formatted(UUID.randomUUID(), id))).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value(TurnstileVerifier.FAILED_CODE));

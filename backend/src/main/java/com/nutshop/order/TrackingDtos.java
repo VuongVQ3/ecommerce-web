@@ -41,6 +41,8 @@ public final class TrackingDtos {
 			@Size(min = 8, max = 72, message = "Mật khẩu phải từ 8 đến 72 ký tự")
 			@Pattern(regexp = AuthDtos.PASSWORD_PATTERN, message = "Mật khẩu phải có cả chữ và số") String password,
 			@NotNull(message = TERMS_REQUIRED) @AssertTrue(message = TERMS_REQUIRED) Boolean acceptTerms,
+			/** The separate, unticked "Tôi đồng ý với Chính sách bảo mật" checkbox, as on the register page. */
+			@NotNull(message = AuthDtos.PRIVACY_REQUIRED) @AssertTrue(message = AuthDtos.PRIVACY_REQUIRED) Boolean acceptPrivacy,
 			/** Only used when the order has no email. */
 			@Email(message = "Email không hợp lệ") @Size(max = 255, message = "Email quá dài") String email,
 			/** Optional: the account's name when it should differ from the name on the order. */
@@ -48,7 +50,7 @@ public final class TrackingDtos {
 			/** Optional Cloudflare Turnstile token; verified server-side when present (run-2 leads 11/12). */
 			@Size(max = 4096) String turnstileToken) {
 
-		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản giao dịch chung và Chính sách bảo mật";
+		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản giao dịch chung";
 	}
 
 	/** Guest lookup: no validation messages, any problem gives the same 404. */

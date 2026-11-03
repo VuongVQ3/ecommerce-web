@@ -32,8 +32,10 @@ interface Props {
   text: 'signin_with' | 'signup_with'
   /** Receives the Google ID token and exchanges it with the backend; a rejection is shown as a toast. */
   onCredential: (credential: string) => Promise<void>
-  /** Small print under the button (e.g. that a first Google sign-in accepts the terms). */
+  /** Small print under the button (e.g. that continuing with Google accepts the terms). */
   footnote?: ReactNode
+  /** Greyed out and unreachable (e.g. until the privacy policy checkbox is ticked); `footnote` should say why. */
+  disabled?: boolean
 }
 
 /**
@@ -41,7 +43,7 @@ interface Props {
  * separates the two. Renders nothing when the backend has no Google client ID or Google's script cannot be loaded,
  * so the email form works on its own.
  */
-export default function GoogleSignInButton({ text, onCredential, footnote }: Props) {
+export default function GoogleSignInButton({ text, onCredential, footnote, disabled = false }: Props) {
   const providers = useAsync((signal) => api.authProviders(signal), [])
   const clientId = providers.data?.googleClientId
   const toast = useToast()
@@ -54,9 +56,11 @@ export default function GoogleSignInButton({ text, onCredential, footnote }: Pro
   // Google keeps the first callback it was given, so route through refs to always call the latest props.
   const onCredentialRef = useRef(onCredential)
   const toastRef = useRef(toast)
+  const disabledRef = useRef(disabled)
   useEffect(() => {
     onCredentialRef.current = onCredential
     toastRef.current = toast
+    disabledRef.current = disabled
   })
 
   useEffect(() => {
@@ -70,7 +74,7 @@ export default function GoogleSignInButton({ text, onCredential, footnote }: Pro
           client_id: clientId,
           ux_mode: 'popup',
           callback: async ({ credential }) => {
-            if (busyRef.current) return
+            if (busyRef.current || disabledRef.current) return
             busyRef.current = true
             setBusy(true)
             try {
@@ -107,7 +111,12 @@ export default function GoogleSignInButton({ text, onCredential, footnote }: Pro
 
   return (
     <div className="mt-6" aria-busy={busy || undefined}>
-      <div ref={container} className={`flex min-h-11 justify-center ${busy ? 'pointer-events-none opacity-60' : ''}`} />
+      {/* inert: Google's iframe can be neither clicked nor tabbed to while disabled */}
+      <div
+        ref={container}
+        inert={disabled || undefined}
+        className={`flex min-h-11 justify-center ${busy ? 'pointer-events-none opacity-60' : disabled ? 'pointer-events-none opacity-40 grayscale' : ''}`}
+      />
       {busy && (
         <p className="mt-2 text-center text-sm text-muted" role="status">
           Đang đăng nhập với Google...

@@ -58,6 +58,10 @@ const fields = z.object({
   shortDescription: z.string().trim().max(SHORT_DESCRIPTION_MAX, SHORT_DESCRIPTION_TOO_LONG),
   description: z.string().trim().min(1, 'Vui lòng nhập mô tả').max(2000, 'Tối đa 2000 ký tự'),
   origin: z.string().trim().max(100, 'Tối đa 100 ký tự'),
+  // Label information, optional (same limits as the backend's ProductRequest)
+  shelfLife: z.string().trim().max(100, 'Tối đa 100 ký tự'),
+  ingredients: z.string().trim().max(500, 'Tối đa 500 ký tự'),
+  storageInstructions: z.string().trim().max(300, 'Tối đa 300 ký tự'),
   // Empty while the product is being prepared (hidden); see productSchemaFor
   price: optionalWhole('giá', 1000, 100_000_000),
   weightGrams: whole('khối lượng', 1, 100_000),
@@ -94,6 +98,9 @@ export const EMPTY_PRODUCT: ProductForm = {
   shortDescription: '',
   description: '',
   origin: '',
+  shelfLife: '',
+  ingredients: '',
+  storageInstructions: '',
   price: '',
   // Every pack of the shop is 500 g
   weightGrams: '500',
@@ -117,6 +124,9 @@ export function toInput(f: ProductForm): ProductInput {
     shortDescription: f.shortDescription.trim(),
     description: f.description.trim(),
     origin: f.origin.trim(),
+    shelfLife: f.shelfLife.trim(),
+    ingredients: f.ingredients.trim(),
+    storageInstructions: f.storageInstructions.trim(),
     price: intOrNull(f.price),
     weightGrams: int(f.weightGrams),
     calories: dec(f.calories),
@@ -140,6 +150,9 @@ export function toForm(p: AdminProduct): ProductForm {
     shortDescription: p.shortDescription ?? '',
     description: p.description,
     origin: p.origin ?? '',
+    shelfLife: p.shelfLife ?? '',
+    ingredients: p.ingredients ?? '',
+    storageInstructions: p.storageInstructions ?? '',
     // 0 = no price yet
     price: p.price ? String(p.price) : '',
     weightGrams: String(p.weightGrams),

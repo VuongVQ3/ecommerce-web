@@ -78,6 +78,10 @@ public final class AdminDtos {
 			@Size(max = ShortDescription.MAX, message = "Mô tả ngắn tối đa 160 ký tự") String shortDescription,
 			@NotBlank(message = "Vui lòng nhập mô tả") @Size(max = 2000, message = "Mô tả tối đa 2000 ký tự") String description,
 			@Size(max = 100, message = "Xuất xứ tối đa 100 ký tự") String origin,
+			// Optional label information, shown on the product page when set (blank = none)
+			@Size(max = 100, message = "Hạn sử dụng tối đa 100 ký tự") String shelfLife,
+			@Size(max = 500, message = "Thành phần tối đa 500 ký tự") String ingredients,
+			@Size(max = 300, message = "Bảo quản tối đa 300 ký tự") String storageInstructions,
 			// Optional while the product is hidden (being prepared); required to show it
 			@Min(value = 1000, message = "Giá tối thiểu 1.000₫") @Max(value = 100_000_000L, message = "Giá quá lớn") Long price,
 			@NotNull(message = "Vui lòng nhập khối lượng") @Min(value = 1, message = "Khối lượng phải lớn hơn 0") @Max(value = 100_000, message = "Khối lượng quá lớn") Integer weightGrams,
@@ -103,7 +107,9 @@ public final class AdminDtos {
 		}
 
 		Product.Details details() {
-			return new Product.Details(name.trim(), shortDescription, description.trim(), blankToNull(origin), price == null ? 0 : price,
+			return new Product.Details(name.trim(), shortDescription, description.trim(), blankToNull(origin),
+					new Product.LabelInfo(blankToNull(shelfLife), blankToNull(ingredients), blankToNull(storageInstructions)),
+					price == null ? 0 : price,
 					weightGrams, calories, protein, fat, carbs, fiber, lowStockThreshold == null ? 10 : lowStockThreshold,
 					sortOrder);
 		}

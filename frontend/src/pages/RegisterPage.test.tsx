@@ -28,6 +28,8 @@ vi.mock('../auth/Turnstile', async () => {
   return { default: TurnstileStub }
 })
 
+const privacyBox = () => screen.getByRole('checkbox', { name: /Tôi đồng ý với Chính sách bảo mật/ }) as HTMLInputElement
+
 const fill = (label: string, value: string) => {
   const input = screen.getByLabelText(label, { exact: true, selector: 'input' })
   fireEvent.change(input, { target: { value } })
@@ -58,12 +60,33 @@ describe('RegisterPage', () => {
     fill('Email', 'an@example.com')
     fill('Mật khẩu', 'matkhau123')
     fill('Nhập lại mật khẩu', 'matkhau123')
+    fireEvent.click(privacyBox())
     fireEvent.click(screen.getByRole('button', { name: 'Đăng ký' }))
 
     await waitFor(() => expect(register).toHaveBeenCalledTimes(1))
     const payload = register.mock.calls[0][0]
     expect(payload).not.toHaveProperty('confirmPassword')
-    expect(payload).toMatchObject({ email: 'an@example.com', password: 'matkhau123', acceptTerms: true })
+    expect(payload).toMatchObject({ email: 'an@example.com', password: 'matkhau123', acceptTerms: true, acceptPrivacy: true })
+  })
+
+  it('needs the privacy policy box (unticked at first, its own link) before registering', async () => {
+    render(
+      <ToastProvider>
+        <MemoryRouter>
+          <RegisterPage />
+        </MemoryRouter>
+      </ToastProvider>,
+    )
+    expect(privacyBox().checked).toBe(false)
+    fill('Họ và tên', 'Nguyễn An')
+    fill('Email', 'an@example.com')
+    fill('Mật khẩu', 'matkhau123')
+    fill('Nhập lại mật khẩu', 'matkhau123')
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng ký' }))
+
+    expect(await screen.findByText('Bạn cần đồng ý với Chính sách bảo mật')).toBeTruthy()
+    expect(register).not.toHaveBeenCalled()
+    expect(screen.getByRole('link', { name: /Chính sách bảo mật/ }).getAttribute('href')).toBe('/dieu-khoan-giao-dich#bao-mat')
   })
 
   it('shows the mismatch under the confirmation and blocks submit', async () => {

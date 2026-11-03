@@ -2,7 +2,9 @@ package com.nutshop.auth;
 
 import com.nutshop.audit.AuditLog;
 import com.nutshop.auth.GoogleTokenVerifier.GoogleUser;
+import com.nutshop.common.ApiException;
 import com.nutshop.common.UnauthorizedException;
+import com.nutshop.site.PolicyVersion;
 import com.nutshop.user.User;
 import com.nutshop.user.UserRepository;
 import com.nutshop.user.UserStatusCache;
@@ -93,7 +95,7 @@ class GoogleLoginServiceTest {
 	void anInvalidTokenIsRejectedBeforeAnyAccountIsLookedUp() {
 		given(googleVerifier.verify("id-token")).willThrow(new UnauthorizedException(GoogleTokenVerifier.FAILED));
 
-		assertThatThrownBy(() -> service.loginWithGoogle("id-token", CLIENT)).isInstanceOf(UnauthorizedException.class)
+		assertThatThrownBy(() -> service.loginWithGoogle("id-token", true, CLIENT)).isInstanceOf(UnauthorizedException.class)
 			.hasMessage(GoogleTokenVerifier.FAILED);
 		verifyNoInteractions(users, refreshTokens, verification);
 	}
@@ -105,7 +107,7 @@ class GoogleLoginServiceTest {
 		given(users.findByEmail("mai@gmail.com")).willReturn(Optional.empty());
 		given(users.saveAndFlush(any(User.class))).willAnswer(inv -> inv.getArgument(0));
 
-		service.loginWithGoogle("id-token", CLIENT);
+		service.loginWithGoogle("id-token", true, CLIENT);
 
 		ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
 		verify(users).saveAndFlush(saved.capture());
@@ -116,8 +118,34 @@ class GoogleLoginServiceTest {
 		assertThat(user.hasPassword()).isFalse();
 		assertThat(user.getRole().name()).isEqualTo("CUSTOMER");
 		assertThat(user.getTermsAcceptedAt()).isEqualTo(NOW);
+		assertThat(user.getPrivacyConsentAt()).isEqualTo(NOW);
+		assertThat(user.getPolicyVersion()).isEqualTo(PolicyVersion.CURRENT);
 		verify(verification).markVerified(user, "GOOGLE");
 		verify(refreshTokens).issue(user, CLIENT);
+	}
+
+	@Test
+	void aNewGoogleUserWithoutPrivacyConsentGetsNoAccount() {
+		googleSays("g-new", "mai@gmail.com", "Trần Thị Mai");
+		given(users.findByGoogleId("g-new")).willReturn(Optional.empty());
+		given(users.findByEmail("mai@gmail.com")).willReturn(Optional.empty());
+
+		assertThatThrownBy(() -> service.loginWithGoogle("id-token", false, CLIENT)).isInstanceOf(ApiException.class)
+			.extracting("code")
+			.isEqualTo(AuthService.PRIVACY_CONSENT_REQUIRED);
+		verify(users, never()).saveAndFlush(any());
+		verify(refreshTokens, never()).issue(any(), any());
+	}
+
+	@Test
+	void anExistingGoogleUserSignsInWithoutBeingAskedAgain() {
+		User existing = account("mai@gmail.com", null, true);
+		googleSays("g-1", "mai@gmail.com", "Mai");
+		given(users.findByGoogleId("g-1")).willReturn(Optional.of(existing));
+
+		service.loginWithGoogle("id-token", false, CLIENT);
+
+		verify(refreshTokens).issue(existing, CLIENT);
 	}
 
 	@Test
@@ -127,7 +155,7 @@ class GoogleLoginServiceTest {
 		given(users.findByEmail("binh.le@gmail.com")).willReturn(Optional.empty());
 		given(users.saveAndFlush(any(User.class))).willAnswer(inv -> inv.getArgument(0));
 
-		service.loginWithGoogle("id-token", CLIENT);
+		service.loginWithGoogle("id-token", true, CLIENT);
 
 		ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
 		verify(users).saveAndFlush(saved.capture());
@@ -141,7 +169,7 @@ class GoogleLoginServiceTest {
 		googleSays("g-1", "mai@gmail.com", "Mai");
 		given(users.findByGoogleId("g-1")).willReturn(Optional.of(linked));
 
-		service.loginWithGoogle("id-token", CLIENT);
+		service.loginWithGoogle("id-token", true, CLIENT);
 
 		verify(users, never()).findByEmail(anyString());
 		verify(users, never()).saveAndFlush(any());
@@ -156,7 +184,7 @@ class GoogleLoginServiceTest {
 		given(users.findByGoogleId("g-1")).willReturn(Optional.empty());
 		given(users.findByEmail("mai@gmail.com")).willReturn(Optional.of(owner));
 
-		service.loginWithGoogle("id-token", CLIENT);
+		service.loginWithGoogle("id-token", true, CLIENT);
 
 		assertThat(owner.getGoogleId()).isEqualTo("g-1");
 		assertThat(owner.getPasswordHash()).isEqualTo(HASH);
@@ -175,7 +203,7 @@ class GoogleLoginServiceTest {
 		given(users.findByGoogleId("g-1")).willReturn(Optional.empty());
 		given(users.findByEmail("mai@gmail.com")).willReturn(Optional.of(squatter));
 
-		service.loginWithGoogle("id-token", CLIENT);
+		service.loginWithGoogle("id-token", true, CLIENT);
 
 		assertThat(squatter.getGoogleId()).isEqualTo("g-1");
 		assertThat(squatter.hasPassword()).isFalse();
@@ -198,7 +226,7 @@ class GoogleLoginServiceTest {
 		given(users.findByGoogleId("g-2")).willReturn(Optional.empty());
 		given(users.findByEmail("an.nguyen@gmail.com")).willReturn(Optional.of(owner));
 
-		service.loginWithGoogle("id-token", CLIENT);
+		service.loginWithGoogle("id-token", true, CLIENT);
 
 		assertThat(owner.getGoogleId()).isEqualTo("g-2");
 		verify(users, never()).saveAndFlush(any());
@@ -212,7 +240,7 @@ class GoogleLoginServiceTest {
 		given(users.findByGoogleId("g-1")).willReturn(Optional.empty());
 		given(users.findByEmail("mai@gmail.com")).willReturn(Optional.of(locked));
 
-		assertThatThrownBy(() -> service.loginWithGoogle("id-token", CLIENT)).isInstanceOf(ResponseStatusException.class);
+		assertThatThrownBy(() -> service.loginWithGoogle("id-token", true, CLIENT)).isInstanceOf(ResponseStatusException.class);
 		assertThat(locked.getGoogleId()).isNull();
 		assertThat(locked.hasPassword()).isTrue();
 		assertThat(locked.getPhone()).isEqualTo("0987654321");

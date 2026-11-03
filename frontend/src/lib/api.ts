@@ -83,6 +83,10 @@ export interface ProductDetail extends Pricing {
   shortDescription: string | null
   description: string
   origin: string | null
+  /** Label information; each null when not entered (the page then leaves it out) */
+  shelfLife: string | null
+  ingredients: string | null
+  storageInstructions: string | null
   weightGrams: number
   /** False when discontinued: the page stays visible but the product cannot be bought. */
   active: boolean
@@ -120,6 +124,8 @@ export interface User {
   passwordChangeRequired: boolean
   /** False for an account that only signs in with Google (it can set a password, or use "Quên mật khẩu"). */
   hasPassword: boolean
+  /** An account from before the privacy policy checkbox: asked once after sign-in (PrivacyConsentPrompt). */
+  privacyConsentRequired: boolean
 }
 
 export interface RegisterInput {
@@ -130,6 +136,8 @@ export interface RegisterInput {
   phone?: string
   /** Sent as true when the user clicks "Đăng ký" under the terms notice. */
   acceptTerms: true
+  /** The separate, unticked "Tôi đồng ý với Chính sách bảo mật" checkbox (required). */
+  acceptPrivacy: true
   turnstileToken: string
   /** Honeypot: always empty for humans. */
   website: string
@@ -284,6 +292,8 @@ export interface CustomerCancelInput {
 export interface ClaimAccountInput {
   password: string
   acceptTerms: true
+  /** The separate, unticked "Tôi đồng ý với Chính sách bảo mật" checkbox (required). */
+  acceptPrivacy: true
   /** Only when the order has no email. */
   email?: string
   /** Only when the name on the order is not a valid name. */
@@ -311,6 +321,8 @@ export interface PlaceOrderInput {
   note?: string
   /** Generated once per checkout visit: resubmitting returns the same order. */
   idempotencyKey: string
+  /** The unticked "Tôi đồng ý với Chính sách bảo mật" checkbox (required). */
+  acceptPrivacy: true
 }
 
 /** One product that could not be reserved (409 OUT_OF_STOCK, property "items"). */
@@ -488,7 +500,9 @@ export const api = {
 
   login: (input: LoginInput) => apiRequest<User>('/api/auth/login', post(input)),
 
-  loginWithGoogle: (credential: string) => apiRequest<User>('/api/auth/google', post({ credential })),
+  /** `acceptPrivacy`: the register page's checkbox. Without it a Google account new to the shop gets 400 PRIVACY_CONSENT_REQUIRED. */
+  loginWithGoogle: (credential: string, acceptPrivacy?: true) =>
+    apiRequest<User>('/api/auth/google', post({ credential, acceptPrivacy })),
 
   logout: () => apiRequest<void>('/api/auth/logout', post()),
 
@@ -581,9 +595,12 @@ export const api = {
   changePassword: (currentPassword: string, newPassword: string) =>
     apiRequest<User>('/api/auth/change-password', post({ currentPassword, newPassword })),
 
-  /** First password of an invited staff account (public: the token is the proof). */
+  /** Signed in: the one-time privacy policy screen of an existing account. */
+  acceptPrivacyPolicy: () => apiRequest<User>('/api/auth/privacy-consent', post({ acceptPrivacy: true })),
+
+  /** First password of an invited staff account (public: the token is the proof). Only once the privacy box is ticked. */
   acceptInvite: (token: string, newPassword: string) =>
-    apiRequest<void>('/api/auth/accept-invite', post({ token, newPassword, acceptTerms: true })),
+    apiRequest<void>('/api/auth/accept-invite', post({ token, newPassword, acceptTerms: true, acceptPrivacy: true })),
 
   // Cart: guests (public). Same shape as a signed-in cart, priced by the server.
   cartValidate: (items: CartLineInput[], signal?: AbortSignal) =>

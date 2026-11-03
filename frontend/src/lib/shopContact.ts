@@ -13,6 +13,3 @@ export const SHOP = {
   fanpage: 'https://www.facebook.com/profile.php?id=61596137600993',
   zalo: 'https://zalo.me/0898986821',
 } as const
-
-/** Shown under the title of every policy page */
-export const POLICY_UPDATED = '02/11/2026'

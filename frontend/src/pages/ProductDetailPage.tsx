@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import ProductCard from '../components/ProductCard'
 import ProductDescription from '../components/ProductDescription'
-import { AddToCartControl, NutritionTable, ProductPrice, StockBadge } from '../components/ProductInfo'
+import { AddToCartControl, LabelInfo, NutritionTable, ProductPrice, StockBadge } from '../components/ProductInfo'
 import ProductImageSlider from '../components/ProductImageSlider'
 import QuickViewHost from '../components/QuickView'
 import { api, ApiError, type ProductDetail } from '../lib/api'
@@ -131,6 +131,8 @@ export default function ProductDetailPage() {
           <StockBadge product={product} />
 
           <ProductDescription text={product.description} className="mt-6" />
+
+          <LabelInfo product={product} />
 
           {/* Keyed by product so the chosen quantity resets when navigating to another product */}
           <AddToCartControl key={product.id} product={product} />

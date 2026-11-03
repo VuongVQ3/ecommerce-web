@@ -20,4 +20,12 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
 	@Modifying
 	@Query("UPDATE RefreshToken t SET t.revokedAt = :now WHERE t.user.id = :userId AND t.revokedAt IS NULL")
 	int revokeAllActive(@Param("userId") UUID userId, @Param("now") Instant now);
+
+	/**
+	 * Every new session token (sign-in or refresh) marks the account as in use, for the retention job. Native, on a
+	 * column the User entity does not map, so a later save of the entity cannot write an older value back.
+	 */
+	@Modifying
+	@Query(value = "UPDATE users SET last_login_at = :now WHERE id = :userId", nativeQuery = true)
+	int markUserActive(@Param("userId") UUID userId, @Param("now") Instant now);
 }

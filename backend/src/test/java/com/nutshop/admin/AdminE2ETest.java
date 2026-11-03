@@ -171,7 +171,7 @@ class AdminE2ETest {
 
 	private String placeOrder(long productId, int quantity) throws Exception {
 		String body = """
-				{"idempotencyKey":"admin-%s","customerName":"Khách Test","phone":"0912345678","email":"khach@example.com",
+				{"acceptPrivacy":true,"idempotencyKey":"admin-%s","customerName":"Khách Test","phone":"0912345678","email":"khach@example.com",
 				 "provinceCode":1,"wardCode":4,"addressLine":"1 Phố Test","items":[{"productId":%d,"quantity":%d}]}"""
 			.formatted(UUID.randomUUID(), productId, quantity);
 		orderCreateRateLimiter.reset();
@@ -334,6 +334,42 @@ class AdminE2ETest {
 		assertThat(jdbc.queryForObject("SELECT short_description FROM products WHERE id = ?", String.class, id)).isNull();
 	}
 
+	/** Shelf life, ingredients and storage: optional, trimmed, blank = none; the product page gets them when set. */
+	@Test
+	void labelInformationIsOptionalAndReachesTheProductPage() throws Exception {
+		Cookie admin = as("ADMIN");
+		String slug = "nhan-hang-" + UUID.randomUUID();
+		String base = productJson("Thông tin nhãn", slug, 120_000);
+		String created = mvc.perform(json(post("/api/admin/products"), base.replace("\"categoryId\"",
+				"\"shelfLife\":\" 12 tháng kể từ ngày sản xuất \",\"ingredients\":\"Hạt điều, muối\","
+						+ "\"storageInstructions\":\"Nơi khô ráo, đậy kín sau khi mở\",\"categoryId\"")).cookie(admin))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.shelfLife").value("12 tháng kể từ ngày sản xuất"))
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		long id = Long.parseLong(created.replaceAll("(?s).*?\"id\":(\\d+).*", "$1"));
+		createdProducts.add(id);
+		jdbc.update("UPDATE products SET active = true WHERE id = ?", id);
+		mvc.perform(get("/api/products/" + slug))
+			.andExpect(jsonPath("$.shelfLife").value("12 tháng kể từ ngày sản xuất"))
+			.andExpect(jsonPath("$.ingredients").value("Hạt điều, muối"))
+			.andExpect(jsonPath("$.storageInstructions").value("Nơi khô ráo, đậy kín sau khi mở"));
+
+		mvc.perform(json(put("/api/admin/products/" + id),
+				base.replace("\"categoryId\"", "\"shelfLife\":\"" + "x".repeat(101) + "\",\"categoryId\"")).cookie(admin))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.shelfLife").value("Hạn sử dụng tối đa 100 ký tự"));
+
+		// Left out or blank: stored as null, and the page shows nothing for them
+		mvc.perform(json(put("/api/admin/products/" + id), base.replace("\"categoryId\"", "\"ingredients\":\"  \",\"categoryId\""))
+			.cookie(admin)).andExpect(status().isOk());
+		mvc.perform(get("/api/products/" + slug))
+			.andExpect(jsonPath("$.shelfLife").isEmpty())
+			.andExpect(jsonPath("$.ingredients").isEmpty())
+			.andExpect(jsonPath("$.storageInstructions").isEmpty());
+	}
+
 	/** Nutrition figures are whole numbers above 0: 20.5, 0 and -3 are refused (Vietnamese message), 21 is saved. */
 	@Test
 	void nutritionFiguresAreWholeNumbersAboveZero() throws Exception {
@@ -431,7 +467,7 @@ class AdminE2ETest {
 		long id = createProduct(admin, "Hạt đặt bằng tài khoản", null);
 		importStock(admin, id, 5);
 		String body = """
-				{"idempotencyKey":"admin-%s","customerName":"Khách Test","phone":"0912345678",
+				{"acceptPrivacy":true,"idempotencyKey":"admin-%s","customerName":"Khách Test","phone":"0912345678",
 				 "provinceCode":1,"wardCode":4,"addressLine":"1 Phố Test","items":[{"productId":%d,"quantity":1}]}"""
 			.formatted(UUID.randomUUID(), id);
 		orderCreateRateLimiter.reset();

@@ -95,6 +95,30 @@ class AuthFlowE2ETest {
 
 	// ---- tests ----------------------------------------------------------------------------------------------
 
+	/** An account from before the privacy policy checkbox is asked once after sign-in; accepting records it. */
+	@Test
+	void anExistingAccountWithoutPrivacyConsentAcceptsItOnceAfterSignIn() throws Exception {
+		String email = uniqueEmail();
+		register(email).andExpect(status().isCreated()).andExpect(jsonPath("$.privacyConsentRequired").value(false));
+		jdbc.update("UPDATE users SET privacy_consent_at = NULL, policy_version = NULL WHERE email = ?", email);
+
+		MvcResult signedIn = login(email, PASSWORD).andExpect(status().isOk())
+			.andExpect(jsonPath("$.privacyConsentRequired").value(true))
+			.andReturn();
+		Cookie access = cookie(signedIn, AuthCookies.ACCESS_COOKIE);
+
+		postJson("/api/auth/privacy-consent", "{}", access).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.acceptPrivacy").value(AuthDtos.PRIVACY_REQUIRED));
+		postJson("/api/auth/privacy-consent", "{\"acceptPrivacy\":true}").andExpect(status().isUnauthorized());
+		postJson("/api/auth/privacy-consent", "{\"acceptPrivacy\":true}", access).andExpect(status().isOk())
+			.andExpect(jsonPath("$.privacyConsentRequired").value(false));
+
+		assertThat(jdbc.queryForMap("SELECT privacy_consent_at IS NOT NULL AS consented, policy_version FROM users WHERE email = ?", email))
+			.containsEntry("consented", true)
+			.containsEntry("policy_version", com.nutshop.site.PolicyVersion.CURRENT);
+		mvc.perform(ajax(get("/api/auth/me")).cookie(access)).andExpect(jsonPath("$.privacyConsentRequired").value(false));
+	}
+
 	@Test
 	void registerThenMeThenRefreshThenLogout() throws Exception {
 		String email = uniqueEmail();

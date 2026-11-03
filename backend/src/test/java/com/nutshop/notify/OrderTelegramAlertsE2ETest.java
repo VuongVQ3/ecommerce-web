@@ -87,7 +87,7 @@ class OrderTelegramAlertsE2ETest {
 			items.append(i > 1 ? "," : "").append("{\"productId\":").append(id).append(",\"quantity\":").append(i).append('}');
 		}
 		String body = mvc.perform(json(post("/api/orders"), """
-				{"idempotencyKey":"tg-%s","customerName":"Nguyễn Khách","phone":"0912345678",
+				{"acceptPrivacy":true,"idempotencyKey":"tg-%s","customerName":"Nguyễn Khách","phone":"0912345678",
 				 "provinceCode":1,"wardCode":4,"addressLine":"12 Phố Test","items":[%s]}"""
 			.formatted(UUID.randomUUID(), items))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
 		String code = field(body, "code");
@@ -96,21 +96,20 @@ class OrderTelegramAlertsE2ETest {
 		ArgumentCaptor<String> sent = ArgumentCaptor.forClass(String.class);
 		verify(telegram, timeout(5000)).send(sent.capture());
 		String placed = sent.getValue();
-		assertThat(placed).startsWith("🛒 <b>Đơn mới #" + code + "</b>\n👤 Nguyễn Khách – 0912345678\n📍 ")
-			.contains("- Hạt &lt;số 1&gt; &amp; mix x1\n")
-			.doesNotContain("số 6")
-			.contains("+2 món khác\n")
-			.endsWith("</b> – COD\n🔗 http://localhost:8080/admin/don-hang/" + code);
 		// 1..7 × 100.000₫ + shipping (free above the threshold)
 		long total = jdbc.queryForObject("SELECT total FROM orders WHERE code = ?", Long.class, code);
-		assertThat(placed).contains("💰 <b>" + OrderTelegramAlerts.price(total) + "</b>");
+		// Only the code and the total: no name, phone, address or products (privacy policy B.5)
+		assertThat(placed).isEqualTo("🛒 <b>Đơn mới #" + code + "</b>\n💰 <b>" + OrderTelegramAlerts.price(total)
+				+ "</b>\n🔗 http://localhost:8080/admin/don-hang/" + code);
+		assertThat(placed).doesNotContain("Nguyễn", "0912345678", "Phố Test", "Hạt");
 		assertThat(OrderTelegramAlerts.price(2_800_000)).isEqualTo("2.800.000₫");
 
 		mvc.perform(json(post("/api/orders/track/" + code + "/cancel").param("t", token),
 				"{\"reasonCode\":\"OTHER\",\"reason\":\"Đặt <nhầm>\"}")).andExpect(status().isOk());
 		verify(telegram, timeout(5000).times(2)).send(sent.capture());
-		assertThat(sent.getValue()).isEqualTo("❌ <b>Khách huỷ đơn #" + code
-				+ "</b> – lý do: Lý do khác – Đặt &lt;nhầm&gt;\n🔗 http://localhost:8080/admin/don-hang/" + code);
+		// The customer's own note stays out (it may hold personal details)
+		assertThat(sent.getValue()).isEqualTo("❌ <b>Khách huỷ đơn #" + code + "</b> – lý do: Lý do khác\n💰 "
+				+ OrderTelegramAlerts.price(total) + "\n🔗 http://localhost:8080/admin/don-hang/" + code);
 	}
 
 	@Test

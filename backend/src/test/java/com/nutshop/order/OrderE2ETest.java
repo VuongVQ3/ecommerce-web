@@ -4,6 +4,7 @@ import com.nutshop.IntegrationTest;
 import com.nutshop.auth.AuthCookies;
 import com.nutshop.mail.EmailMessage;
 import com.nutshop.security.RateLimiter;
+import com.nutshop.site.PolicyVersion;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -105,7 +106,7 @@ class OrderE2ETest {
 
 	private static String body(String key, String phone, String items) {
 		return """
-				{"idempotencyKey":"%s","customerName":"Nguyễn Văn Khách","phone":"%s","email":"khach@example.com",
+				{"acceptPrivacy":true,"idempotencyKey":"%s","customerName":"Nguyễn Văn Khách","phone":"%s","email":"khach@example.com",
 				 "provinceCode":%d,"wardCode":%d,"addressLine":"12 Phố Test","note":"Giao giờ hành chính",
 				 "items":[%s]}""".formatted(key, phone, HANOI, BA_DINH, items);
 	}
@@ -165,6 +166,23 @@ class OrderE2ETest {
 				+ "WHERE i.product_id = ? AND o.user_id IS NULL", Integer.class, id)).isEqualTo(1);
 		assertThat(jdbc.queryForList("SELECT type || ':' || quantity FROM inventory_movements WHERE product_id = ?",
 				String.class, id)).containsExactly("ORDER_RESERVE:2");
+	}
+
+	@Test
+	void anOrderRecordsThePrivacyConsentAndIsRefusedWithoutIt() throws Exception {
+		long id = product(120_000, 10);
+		String json = body(key(), "0912 345 678", line(id, 1));
+
+		place(json.replace("\"acceptPrivacy\":true,", "")).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.acceptPrivacy").value("Bạn cần đồng ý với Chính sách bảo mật"));
+		place(json.replace("\"acceptPrivacy\":true", "\"acceptPrivacy\":false")).andExpect(status().isBadRequest());
+		assertThat(reserved(id)).isZero();
+
+		place(json).andExpect(status().isCreated());
+		assertThat(jdbc.queryForMap("SELECT o.privacy_consent_at IS NOT NULL AS consented, o.policy_version FROM orders o "
+				+ "JOIN order_items i ON i.order_id = o.id WHERE i.product_id = ?", id))
+			.containsEntry("consented", true)
+			.containsEntry("policy_version", PolicyVersion.CURRENT);
 	}
 
 	@Test

@@ -1,8 +1,15 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
 import { createMemoryRouter, Navigate, RouterProvider, useLocation } from 'react-router'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { formatPolicyVersion } from '../lib/siteInfo'
 import { ContactPage, ReturnPolicyPage, ShippingPolicyPage, TermsPage } from './PolicyPages'
+
+// The server's PolicyVersion.CURRENT, as /api/site hands it out
+vi.mock('../lib/siteInfo', async (importActual) => ({
+  ...(await importActual<typeof import('../lib/siteInfo')>()),
+  useSiteInfo: () => ({ siteUrl: '', business: {}, policyVersion: '2026-11-03' }),
+}))
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = () => {}
@@ -36,8 +43,14 @@ describe('policy pages', () => {
   it.each(PAGES)('%s shows the final text, no draft marker or internal note', (path) => {
     const { container } = renderAt(path)
     const text = container.textContent ?? ''
-    expect(text).toContain('Cập nhật lần cuối: 02/11/2026')
+    expect(text).toContain('Cập nhật lần cuối: 03/11/2026')
     for (const hidden of ['Bản nháp', 'CẦN ĐIỀN', 'AGENT', 'Tên chủ sở hữu', '[link:']) expect(text).not.toContain(hidden)
+  })
+
+  it('dates the pages from the server policy version only', () => {
+    expect(formatPolicyVersion('2026-11-03')).toBe('03/11/2026')
+    expect(formatPolicyVersion(undefined)).toBeNull()
+    expect(formatPolicyVersion('03/11/2026')).toBeNull()
   })
 
   it('links the phone, the email and the fanpage', () => {
@@ -55,12 +68,46 @@ describe('policy pages', () => {
     expect(screen.getByRole('link', { name: 'Chính sách đổi trả và Đồng kiểm' }).getAttribute('href')).toBe('/chinh-sach-doi-tra')
   })
 
-  it('puts the privacy policy in part B (#bao-mat) of the terms page, Telegram among the third parties', () => {
+  it('puts the privacy policy in part B (#bao-mat) of the terms page; Telegram (no customer data) is not a third party', () => {
     const { container } = renderAt('/dieu-khoan-giao-dich')
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Điều khoản giao dịch chung và Chính sách bảo mật')
     const privacy = container.querySelector('#bao-mat')!
     expect(privacy.textContent).toBe('Phần B. Chính sách bảo mật')
-    expect(privacy.closest('section')!.textContent).toContain('Thông báo đơn hàng nội bộ: Telegram.')
+    expect(privacy.closest('section')!.textContent).not.toContain('Telegram')
+  })
+
+  it('lists every data right with its response time, and concrete retention periods', () => {
+    const { container } = renderAt('/dieu-khoan-giao-dich')
+    const privacy = container.querySelector('#bao-mat')!.closest('section')!.textContent ?? ''
+    for (const right of ['hạn chế xử lý', 'Phản đối', 'Khiếu nại', 'Rút lại sự đồng ý', 'Yêu cầu xoá dữ liệu'])
+      expect(privacy).toContain(right)
+    for (const time of ['02 ngày làm việc', 'chỉnh sửa dữ liệu: trong 10 ngày', 'phản đối xử lý: trong 15 ngày', 'Xoá dữ liệu: trong 20 ngày'])
+      expect(privacy).toContain(time)
+    expect(privacy).not.toContain('thời gian cần thiết')
+    expect(privacy).not.toContain('TODO')
+  })
+
+  it('does not treat visiting the site as agreeing, and applies changes only to later orders', () => {
+    const { container } = renderAt('/dieu-khoan-giao-dich')
+    const text = container.textContent ?? ''
+    expect(text).not.toMatch(/truy cập[^.]*đồng nghĩa/)
+    expect(text).toContain('chỉ áp dụng cho các đơn hàng đặt từ ngày có hiệu lực đó trở đi')
+  })
+
+  it('states one shipping rule, the one the checkout applies (no "Hoặc" alternative)', () => {
+    const { container } = renderAt('/chinh-sach-van-chuyen')
+    const text = container.textContent ?? ''
+    expect(text).not.toContain('Hoặc:')
+    expect(text).toContain('Phí đồng giá 30.000 VNĐ cho mỗi đơn hàng chưa đạt mức miễn phí vận chuyển')
+  })
+
+  it('keeps the 72-hour limit for transport damage, wrong or missing items, and quality defects until the expiry date', () => {
+    const { container } = renderAt('/chinh-sach-doi-tra')
+    const text = container.textContent ?? ''
+    expect(text).toMatch(/Hư hỏng do vận chuyển, giao sai[^:]*thiếu số lượng[^:]*: trong vòng 03 ngày \(72 giờ\)/)
+    expect(text).toMatch(/Lỗi chất lượng[^:]*mốc, hôi dầu[^:]*: Hạt Lành tiếp nhận cho đến hết hạn sử dụng/)
+    // Unchanged until the owner hears from a lawyer
+    expect(text).toContain('Khách hàng thay đổi ý định mua hàng (không muốn mua nữa).')
   })
 
   it('sends the old addresses to the merged page', async () => {

@@ -2,11 +2,8 @@ package com.nutshop.notify;
 
 import com.nutshop.order.Order;
 import com.nutshop.order.OrderCancelledByCustomerEvent;
-import com.nutshop.order.OrderItem;
 import com.nutshop.order.OrderPlacedEvent;
 import com.nutshop.order.OrderRepository;
-import com.nutshop.order.PhoneFlag;
-import com.nutshop.order.PhoneFlagService;
 import com.nutshop.site.SiteProperties;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -15,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-import java.util.List;
 import java.util.Locale;
 
 import static com.nutshop.notify.TelegramNotifier.escape;
@@ -23,22 +19,20 @@ import static com.nutshop.notify.TelegramNotifier.escape;
 /**
  * Telegram alerts to the shop: a new order, and an order the customer cancelled. Sent after the transaction commits,
  * off the request thread; the order is read again by id.
+ * <p>
+ * No personal data goes to Telegram (privacy policy B.5): only the order code, the total and the admin link, where
+ * staff sign in to see the rest. No name, phone, address, products, phone flag or free-text cancel note.
  */
 @Component
 public class OrderTelegramAlerts {
 
-	private static final int MAX_LINES = 5;
-
 	private final TelegramNotifier telegram;
 	private final OrderRepository orders;
-	private final PhoneFlagService phoneFlags;
 	private final SiteProperties site;
 
-	public OrderTelegramAlerts(TelegramNotifier telegram, OrderRepository orders, PhoneFlagService phoneFlags,
-			SiteProperties site) {
+	public OrderTelegramAlerts(TelegramNotifier telegram, OrderRepository orders, SiteProperties site) {
 		this.telegram = telegram;
 		this.orders = orders;
-		this.phoneFlags = phoneFlags;
 		this.site = site;
 	}
 
@@ -60,41 +54,19 @@ public class OrderTelegramAlerts {
 		}
 	}
 
-	/** Customer, short address, up to 5 lines (then "+N món khác"), total, admin link; ⚠️ for a flagged phone. */
+	/** Code, total, admin link. */
 	String placedMessage(Order order) {
-		StringBuilder text = new StringBuilder();
-		text.append("🛒 <b>Đơn mới #").append(escape(order.getCode())).append("</b>\n");
-		text.append("👤 ").append(escape(order.getCustomerName())).append(" – ").append(escape(order.getPhone()));
-		PhoneFlag flag = phoneFlags.findAll(List.of(order.getPhone())).get(order.getPhone());
-		if (flag != null) {
-			text.append(" ⚠️ ").append(flag.getLevel().name());
-		}
-		text.append('\n');
-		text.append("📍 ").append(escape(order.getWard())).append(", ").append(escape(order.getProvince())).append('\n');
-		List<OrderItem> items = order.getItems();
-		for (OrderItem item : items.subList(0, Math.min(MAX_LINES, items.size()))) {
-			text.append("- ").append(escape(item.getProductName())).append(" x").append(item.getQuantity()).append('\n');
-		}
-		if (items.size() > MAX_LINES) {
-			text.append('+').append(items.size() - MAX_LINES).append(" món khác\n");
-		}
-		text.append("💰 <b>").append(price(order.getTotal())).append("</b> – ").append(escape(order.getPaymentMethod()))
-			.append('\n');
-		text.append("🔗 ").append(escape(adminLink(order)));
-		return text.toString();
+		return "🛒 <b>Đơn mới #" + escape(order.getCode()) + "</b>\n"
+				+ "💰 <b>" + price(order.getTotal()) + "</b>\n"
+				+ "🔗 " + escape(adminLink(order));
 	}
 
-	/** Reason label, the customer's note if any, admin link. */
+	/** Code, total, the fixed reason label (never the customer's own note), admin link. */
 	String cancelledMessage(Order order) {
-		StringBuilder text = new StringBuilder();
-		text.append("❌ <b>Khách huỷ đơn #").append(escape(order.getCode())).append("</b> – lý do: ");
-		text.append(order.getCancelReason() == null ? "không rõ" : escape(order.getCancelReason().label()));
-		String note = order.getCancelReasonNote();
-		if (note != null && !note.isBlank()) {
-			text.append(" – ").append(escape(note.trim()));
-		}
-		text.append("\n🔗 ").append(escape(adminLink(order)));
-		return text.toString();
+		String reason = order.getCancelReason() == null ? "không rõ" : escape(order.getCancelReason().label());
+		return "❌ <b>Khách huỷ đơn #" + escape(order.getCode()) + "</b> – lý do: " + reason + "\n"
+				+ "💰 " + price(order.getTotal()) + "\n"
+				+ "🔗 " + escape(adminLink(order));
 	}
 
 	private String adminLink(Order order) {
