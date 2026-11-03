@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import { RefreshCw, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { ErrorMessage } from '../components/Feedback'
@@ -12,6 +12,7 @@ import { Skeleton } from './Skeleton'
 import { DateRangeFilter } from './DateField'
 import { vnTodayIso } from './dates'
 import { OVERDUE_PARAM } from './labels'
+import { useOnNewOrder } from './newOrders'
 import { FlagIcon } from './phoneFlags'
 import { btn, filterInput, input, table } from './styles'
 import { Dialog, EmptyState, FilterBar, PageHeader, Pagination, SearchFilter, TableFrame } from './ui'
@@ -181,11 +182,12 @@ export default function OrdersPage() {
     [status, from, listTo, q, cancelReasonCode, page],
   )
   // Number of orders behind each status chip, for the same search and dates (one tiny request per status)
-  const counts = useAsync(
+  const countsQuery = useAsync(
     (signal) =>
       Promise.all(STATUSES.map((s) => adminApi.orders({ status: s.value, from, to, q, size: 1 }, signal).then((r) => r.page.totalItems))),
     [from, to, q],
-  ).data
+  )
+  const counts = countsQuery.data
   const rows = data ? (overdue ? data.page.items.filter((o) => new Date(o.createdAt).getTime() <= cutoff) : data.page.items) : []
 
   // Keep the selected status chip visible when the row scrolls sideways
@@ -208,6 +210,17 @@ export default function OrdersPage() {
 
   const activeFilters = (q ? 1 : 0) + (from || to ? 1 : 0)
 
+  // A new order (the layout polls every 20 s): on the first page with no filter the list reloads by itself; anywhere
+  // else a bar offers to reload, so the rows being looked at do not move. The bar belongs to the current filters.
+  const filtered = Boolean(status || from || to || q || cancelReasonCode)
+  const [staleFor, setStaleFor] = useState<string | null>(null)
+  const stale = staleFor === params.toString()
+  useOnNewOrder(() => {
+    countsQuery.reload()
+    if (!filtered && page === 0) reload()
+    else setStaleFor(params.toString())
+  })
+
   return (
     <>
       <PageHeader title="Đơn hàng">
@@ -220,6 +233,23 @@ export default function OrdersPage() {
           </button>
         )}
       </PageHeader>
+
+      {stale && (
+        <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm text-stone-800">
+          <span className="font-medium">Có đơn mới</span>
+          <button
+            type="button"
+            onClick={() => {
+              setStaleFor(null)
+              reload()
+            }}
+            className={`${btn.secondary} py-1.5`}
+          >
+            <RefreshCw aria-hidden className="size-4" />
+            Tải lại
+          </button>
+        </div>
+      )}
 
       <div ref={chips} className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0" role="group" aria-label="Lọc theo trạng thái">
         {STATUSES.map((s, i) => (

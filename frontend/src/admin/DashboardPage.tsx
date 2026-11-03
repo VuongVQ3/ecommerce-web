@@ -11,6 +11,7 @@ import { Skeleton } from './Skeleton'
 import { axisTicks, chartSource, chartWindow } from './chartAxis'
 import { compareDays, statusCounts } from './dayMetrics'
 import { OVERDUE_PARAM } from './labels'
+import { useOnNewOrder } from './newOrders'
 import { DayPicker } from './DayPicker'
 import { addDays, dayMonth, fromIso, shortDay, shortWeekday, vnTodayIso, WEEKDAY_NAMES } from './dates'
 import { card } from './styles'
@@ -652,6 +653,11 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [date, metric],
   )
+  // A new order (the layout polls every 20 s): the to-do counts change; today's numbers too
+  useOnNewOrder(() => {
+    now.reload()
+    if (date === today) day.reload()
+  })
   // While a new day loads: that day from the cache, else the previous day's numbers (dimmed)
   const shown = dayCache.get(date) ?? day.data
   // Re-read on every render: these answers changing re-render once the caches have the new days
