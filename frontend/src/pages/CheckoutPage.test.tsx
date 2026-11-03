@@ -86,7 +86,7 @@ async function fillValidForm() {
 
 const privacyBox = () => screen.getByRole('checkbox', { name: /Tôi đồng ý với Chính sách bảo mật/ }) as HTMLInputElement
 
-const ADMIN: User = { id: 'a1', email: 'admin@example.com', fullName: 'Quản Trị', phone: null, role: 'ADMIN', emailVerified: true, passwordChangeRequired: false, hasPassword: true }
+const ADMIN: User = { id: 'a1', email: 'admin@example.com', fullName: 'Quản Trị', phone: null, role: 'ADMIN', emailVerified: true, passwordChangeRequired: false, hasPassword: true, privacyConsentRequired: false }
 
 beforeEach(() => {
   auth.current = { user: null, loading: false }
@@ -192,7 +192,7 @@ describe('CheckoutPage', () => {
     fireEvent.change(input('Họ và tên'), { target: { value: 'Khách Đã Nhập' } })
     first.unmount()
     auth.current = {
-      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true },
+      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true, privacyConsentRequired: false },
       loading: false,
     }
     renderCheckout()
@@ -210,7 +210,7 @@ describe('CheckoutPage', () => {
 
   it('prefills name, email and phone for a signed-in user', () => {
     auth.current = {
-      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true },
+      user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0987654321', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true, privacyConsentRequired: false },
       loading: false,
     }
     renderCheckout()

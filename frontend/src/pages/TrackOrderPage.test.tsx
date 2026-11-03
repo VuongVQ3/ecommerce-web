@@ -140,7 +140,7 @@ describe('TrackOrderPage', () => {
   it('creates an account from the order and goes to the saved order', async () => {
     saveRecentOrder(CODE, TOKEN)
     vi.spyOn(api, 'trackOrder').mockResolvedValue(tracked)
-    const user: User = { id: 'u1', email: 'khach@example.com', fullName: 'Nguyễn Khách', phone: '0912345678', role: 'CUSTOMER', emailVerified: false, passwordChangeRequired: false, hasPassword: true }
+    const user: User = { id: 'u1', email: 'khach@example.com', fullName: 'Nguyễn Khách', phone: '0912345678', role: 'CUSTOMER', emailVerified: false, passwordChangeRequired: false, hasPassword: true, privacyConsentRequired: false }
     const claim = vi.spyOn(api, 'claimAccount').mockResolvedValue(user)
     renderPage()
 
@@ -194,7 +194,7 @@ describe('TrackOrderPage', () => {
   })
 
   it('a signed-in visitor (staff helping the buyer) neither remembers nor saves the order', async () => {
-    auth.current = { user: { id: 'a1', email: 'admin@example.com', fullName: 'Quản Trị', phone: null, role: 'ADMIN', emailVerified: true, passwordChangeRequired: false, hasPassword: true }, loading: false }
+    auth.current = { user: { id: 'a1', email: 'admin@example.com', fullName: 'Quản Trị', phone: null, role: 'ADMIN', emailVerified: true, passwordChangeRequired: false, hasPassword: true, privacyConsentRequired: false }, loading: false }
     vi.spyOn(api, 'trackOrder').mockResolvedValue(tracked)
     const claim = vi.spyOn(api, 'claimOrders')
     renderPage()
@@ -206,7 +206,7 @@ describe('TrackOrderPage', () => {
   })
 
   it('a signed-in customer saves the order only after confirming', async () => {
-    auth.current = { user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0912345678', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true }, loading: false }
+    auth.current = { user: { id: 'u1', email: 'an@example.com', fullName: 'Trần An', phone: '0912345678', role: 'CUSTOMER', emailVerified: true, passwordChangeRequired: false, hasPassword: true, privacyConsentRequired: false }, loading: false }
     vi.spyOn(api, 'trackOrder').mockResolvedValue(tracked)
     const claim = vi.spyOn(api, 'claimOrders').mockResolvedValue({ claimed: [CODE], skipped: [] })
     renderPage()

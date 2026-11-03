@@ -6,6 +6,7 @@ import com.nutshop.auth.AuthDtos.ForgotPasswordRequest;
 import com.nutshop.auth.AuthDtos.GoogleLoginRequest;
 import com.nutshop.auth.AuthDtos.LoginRequest;
 import com.nutshop.auth.AuthDtos.MessageResponse;
+import com.nutshop.auth.AuthDtos.PrivacyConsentRequest;
 import com.nutshop.auth.AuthDtos.ProvidersResponse;
 import com.nutshop.auth.AuthDtos.RegisterRequest;
 import com.nutshop.auth.AuthDtos.ResetPasswordRequest;
@@ -69,7 +70,7 @@ public class AuthController {
 		if (req.isHoneypotFilled()) {
 			log.info("Registration honeypot triggered from {}", request.getRemoteAddr());
 			return new UserResponse(UUID.randomUUID(), req.email().trim().toLowerCase(Locale.ROOT), req.fullName().trim(),
-					null, Role.CUSTOMER.name(), false, false, true);
+					null, Role.CUSTOMER.name(), false, false, true, false);
 		}
 		return complete(authService.register(req, ClientInfo.from(request)), response);
 	}
@@ -161,6 +162,12 @@ public class AuthController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void acceptInvite(@Valid @RequestBody AcceptInviteRequest req) {
 		invitations.accept(req.token(), req.newPassword());
+	}
+
+	/** Signed in: an existing account accepts the current privacy policy (the one-time screen after sign-in). */
+	@PostMapping("/privacy-consent")
+	public UserResponse privacyConsent(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody PrivacyConsentRequest req) {
+		return authService.acceptPrivacyPolicy(UUID.fromString(jwt.getSubject()));
 	}
 
 	@GetMapping("/me")

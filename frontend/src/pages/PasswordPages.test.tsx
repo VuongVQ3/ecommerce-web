@@ -18,6 +18,7 @@ const user = (hasPassword: boolean): User => ({
   emailVerified: true,
   passwordChangeRequired: false,
   hasPassword,
+  privacyConsentRequired: false,
 })
 
 function renderPage() {

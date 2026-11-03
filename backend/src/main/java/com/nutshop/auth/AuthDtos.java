@@ -87,13 +87,22 @@ public final class AuthDtos {
 	/** Public view of a user. Never contains the password hash. */
 	/** @param passwordChangeRequired staff/admin with a password below the rules: must change it first */
 	/** @param hasPassword false for accounts that only sign in with Google (they can set one, or use "Quên mật khẩu") */
+	/**
+	 * @param privacyConsentRequired an account from before the separate privacy policy checkbox (no consent recorded):
+	 *        the site asks once, after sign-in (POST /api/auth/privacy-consent)
+	 */
 	public record UserResponse(UUID id, String email, String fullName, String phone, String role,
-			boolean emailVerified, boolean passwordChangeRequired, boolean hasPassword) {
+			boolean emailVerified, boolean passwordChangeRequired, boolean hasPassword, boolean privacyConsentRequired) {
 
 		public static UserResponse from(User u) {
 			return new UserResponse(u.getId(), u.getEmail(), u.getFullName(), u.getPhone(), u.getRole().name(),
-					u.isEmailVerified(), u.isPasswordChangeRequired(), u.hasPassword());
+					u.isEmailVerified(), u.isPasswordChangeRequired(), u.hasPassword(), u.getPrivacyConsentAt() == null);
 		}
+	}
+
+	/** The one-time privacy policy screen for existing accounts. */
+	public record PrivacyConsentRequest(
+			@NotNull(message = PRIVACY_REQUIRED) @AssertTrue(message = PRIVACY_REQUIRED) Boolean acceptPrivacy) {
 	}
 
 	/** {@code currentPassword} may be empty only for accounts without a password yet (Google sign-in). */

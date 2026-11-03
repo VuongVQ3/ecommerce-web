@@ -190,6 +190,21 @@ public class AuthService {
 		return issue(user, client);
 	}
 
+	/**
+	 * Records the privacy policy consent of an account that has none (created before the separate checkbox). Already
+	 * recorded: kept as it was (the first consent and its version stay).
+	 */
+	@Transactional
+	public UserResponse acceptPrivacyPolicy(UUID userId) {
+		User user = users.findById(userId)
+			.filter(User::isActive)
+			.orElseThrow(() -> new UnauthorizedException(RefreshTokenService.INVALID_SESSION));
+		if (user.getPrivacyConsentAt() == null) {
+			user.recordPrivacyConsent(clock.instant(), PolicyVersion.CURRENT);
+		}
+		return UserResponse.from(user);
+	}
+
 	@Transactional(readOnly = true)
 	public UserResponse currentUser(UUID userId) {
 		return users.findById(userId)

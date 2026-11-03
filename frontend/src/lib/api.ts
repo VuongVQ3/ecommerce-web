@@ -124,6 +124,8 @@ export interface User {
   passwordChangeRequired: boolean
   /** False for an account that only signs in with Google (it can set a password, or use "Quên mật khẩu"). */
   hasPassword: boolean
+  /** An account from before the privacy policy checkbox: asked once after sign-in (PrivacyConsentPrompt). */
+  privacyConsentRequired: boolean
 }
 
 export interface RegisterInput {
@@ -592,6 +594,9 @@ export const api = {
   /** Signed in. Other sessions are signed out; this browser gets new cookies. */
   changePassword: (currentPassword: string, newPassword: string) =>
     apiRequest<User>('/api/auth/change-password', post({ currentPassword, newPassword })),
+
+  /** Signed in: the one-time privacy policy screen of an existing account. */
+  acceptPrivacyPolicy: () => apiRequest<User>('/api/auth/privacy-consent', post({ acceptPrivacy: true })),
 
   /** First password of an invited staff account (public: the token is the proof). Only once the privacy box is ticked. */
   acceptInvite: (token: string, newPassword: string) =>

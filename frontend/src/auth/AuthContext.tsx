@@ -17,6 +17,8 @@ interface AuthContextValue {
   logout: () => Promise<void>
   /** The server already signed this user in (cookies set), e.g. after creating an account from an order. */
   signedIn: (user: User) => void
+  /** The signed-in account accepts the current privacy policy (privacyConsentRequired → false). */
+  acceptPrivacyPolicy: () => Promise<void>
   /**
    * Asks the backend again who is signed in (the cookies may have changed in another tab) and returns that user.
    * A network error or 5xx leaves the state as it was (and returns it): only a 401 means "signed out".
@@ -174,6 +176,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [apply],
   )
 
+  // Not a new sign-in (no lastSignInAt): only the user's flag changes
+  const acceptPrivacyPolicy = useCallback(async () => {
+    apply(await api.acceptPrivacyPolicy())
+    tellOtherTabs()
+  }, [apply])
+
   const login = useCallback(async (input: LoginInput) => signedIn(await api.login(input)), [signedIn])
 
   const register = useCallback(async (input: RegisterInput) => signedIn(await api.register(input)), [signedIn])
@@ -196,8 +204,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [apply])
 
   const value = useMemo(
-    () => ({ user, loading, login, register, loginWithGoogle, logout, signedIn, refresh, lastSignInAt }),
-    [user, loading, login, register, loginWithGoogle, logout, signedIn, refresh, lastSignInAt],
+    () => ({ user, loading, login, register, loginWithGoogle, logout, signedIn, acceptPrivacyPolicy, refresh, lastSignInAt }),
+    [user, loading, login, register, loginWithGoogle, logout, signedIn, acceptPrivacyPolicy, refresh, lastSignInAt],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
