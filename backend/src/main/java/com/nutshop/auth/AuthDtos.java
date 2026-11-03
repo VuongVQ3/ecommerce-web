@@ -90,13 +90,17 @@ public final class AuthDtos {
 	/**
 	 * @param privacyConsentRequired an account from before the separate privacy policy checkbox (no consent recorded):
 	 *        the site asks once, after sign-in (POST /api/auth/privacy-consent)
+	 * @param policyVersion the policy version that consent was given to (null = none): equal to /api/site's
+	 *        policyVersion, checkout does not ask again
 	 */
 	public record UserResponse(UUID id, String email, String fullName, String phone, String role,
-			boolean emailVerified, boolean passwordChangeRequired, boolean hasPassword, boolean privacyConsentRequired) {
+			boolean emailVerified, boolean passwordChangeRequired, boolean hasPassword, boolean privacyConsentRequired,
+			String policyVersion) {
 
 		public static UserResponse from(User u) {
 			return new UserResponse(u.getId(), u.getEmail(), u.getFullName(), u.getPhone(), u.getRole().name(),
-					u.isEmailVerified(), u.isPasswordChangeRequired(), u.hasPassword(), u.getPrivacyConsentAt() == null);
+					u.isEmailVerified(), u.isPasswordChangeRequired(), u.hasPassword(), u.getPrivacyConsentAt() == null,
+					u.getPolicyVersion());
 		}
 	}
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { checkoutSchema } from '../auth/schemas'
@@ -9,12 +9,14 @@ import { Checkbox, FormError, RequiredLegend, SelectField, SubmitButton, TextFie
 import { PriceTag } from '../components/Price'
 import ProductImage from '../components/ProductImage'
 import { useProvinces } from '../lib/adminUnits'
+import { useMediaQuery } from '../lib/media'
+import { useSiteInfo } from '../lib/siteInfo'
 import { api, type CartView, type Shortage } from '../lib/api'
 import { formatPrice } from '../lib/format'
 import { normalizePhone } from '../lib/phone'
 import { saveRecentOrder, trackingPath } from '../lib/recentOrders'
 import { loginUrl } from '../lib/redirect'
-import { PrivacyConsentLabel, TermsLink } from './AuthPages'
+import { PrivacyConsentLabel, PrivacyLink, TermsLink } from './AuthPages'
 import type { TrackOrderState } from './TrackOrderPage'
 
 /** State handed to the cart page when the order bounced for lack of stock. */
@@ -53,9 +55,19 @@ function writeDraft(draft: Draft | null) {
 const newKey = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`
 
-function Summary({ view }: { view: CartView }) {
+/** From here the summary is a sticky sidebar; below, it sits in the form above the consent and "Đặt hàng". */
+const WIDE = '(min-width: 1024px)'
+
+/**
+ * `inline`: in the form (narrow screens). The floating contact / back-to-top buttons cover the last ~64px on the right
+ * while it scrolls past them, so its text (prices included) ends before that.
+ */
+function Summary({ view, inline = false }: { view: CartView; inline?: boolean }) {
   return (
-    <aside className="h-fit rounded-2xl border border-stone-200 bg-white p-5 md:sticky md:top-24" aria-labelledby="checkout-summary">
+    <aside
+      className={`h-fit rounded-2xl border border-stone-200 bg-white p-5 lg:sticky lg:top-24 ${inline ? 'pr-14' : ''}`}
+      aria-labelledby="checkout-summary"
+    >
       <h2 id="checkout-summary" className="font-bold text-stone-900">
         Đơn hàng ({view.totalQuantity} sản phẩm)
       </h2>
@@ -129,8 +141,11 @@ export interface PlacedOrderState {
   placedCode?: string
 }
 
-function CheckoutForm({ view }: { view: CartView }) {
+function CheckoutForm({ view, summary }: { view: CartView; summary?: ReactNode }) {
   const { user, refresh, logout } = useAuth()
+  // An account that already consented to the current policy version is not asked again (the server checks it too)
+  const currentPolicy = useSiteInfo()?.policyVersion
+  const hasCurrentConsent = !!user?.policyVersion && user.policyVersion === currentPolicy
   const { resetAfterOrder } = useCart()
   const navigate = useNavigate()
   const provinces = useProvinces()
@@ -165,7 +180,7 @@ function CheckoutForm({ view }: { view: CartView }) {
         addressLine: values.addressLine,
         note: values.note || undefined,
         idempotencyKey,
-        acceptPrivacy: true,
+        acceptPrivacy: hasCurrentConsent ? undefined : true,
       })
       resetAfterOrder()
       writeDraft(null)
@@ -204,6 +219,10 @@ function CheckoutForm({ view }: { view: CartView }) {
     return () => subscription.unsubscribe()
   }, [form])
   const wards = provinces?.find((p) => String(p.code) === provinceCode)?.wards ?? []
+  // The hidden box counts as ticked; signing out (or a newer policy) brings it back unticked
+  useEffect(() => {
+    form.setValue('acceptPrivacy', hasCurrentConsent)
+  }, [form, hasCurrentConsent])
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-5">
@@ -315,7 +334,14 @@ function CheckoutForm({ view }: { view: CartView }) {
           </button>
         </p>
       )}
-      <Checkbox label={<PrivacyConsentLabel />} requiredMark error={errors.acceptPrivacy?.message} {...form.register('acceptPrivacy')} />
+      {summary}
+      {hasCurrentConsent ? (
+        <p className="text-sm text-stone-700">
+          Đơn hàng được xử lý theo <PrivacyLink /> bạn đã đồng ý.
+        </p>
+      ) : (
+        <Checkbox label={<PrivacyConsentLabel />} requiredMark error={errors.acceptPrivacy?.message} {...form.register('acceptPrivacy')} />
+      )}
       <div>
         <SubmitButton pending={pending} pendingLabel="Đang đặt hàng...">
           Đặt hàng · {formatPrice(view.total)}
@@ -331,6 +357,7 @@ function CheckoutForm({ view }: { view: CartView }) {
 export default function CheckoutPage() {
   const { user, loading: authLoading, refresh } = useAuth()
   const { view, loading } = useCart()
+  const wide = useMediaQuery(WIDE)
   // The order is saved to whoever the cookies say is signed in: make the page agree before "Đặt hàng"
   useEffect(() => {
     void refresh()
@@ -365,9 +392,9 @@ export default function CheckoutPage() {
           </Link>
         </div>
       ) : (
-        <div className="mt-6 grid gap-8 md:grid-cols-[1fr_340px]">
-          <CheckoutForm view={view} />
-          <Summary view={view} />
+        <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_340px]">
+          <CheckoutForm view={view} summary={wide ? undefined : <Summary view={view} inline />} />
+          {wide && <Summary view={view} />}
         </div>
       )}
     </div>

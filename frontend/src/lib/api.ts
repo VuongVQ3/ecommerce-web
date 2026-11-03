@@ -126,6 +126,8 @@ export interface User {
   hasPassword: boolean
   /** An account from before the privacy policy checkbox: asked once after sign-in (PrivacyConsentPrompt). */
   privacyConsentRequired: boolean
+  /** Policy version the account consented to (null = none); equal to /api/site's, checkout does not ask again */
+  policyVersion?: string | null
 }
 
 export interface RegisterInput {
@@ -321,8 +323,11 @@ export interface PlaceOrderInput {
   note?: string
   /** Generated once per checkout visit: resubmitting returns the same order. */
   idempotencyKey: string
-  /** The unticked "Tôi đồng ý với Chính sách bảo mật" checkbox (required). */
-  acceptPrivacy: true
+  /**
+   * The unticked "Tôi đồng ý với Chính sách bảo mật" checkbox: required for guests and accounts without consent to the
+   * current version; left out when the account has it (the order then records the account's consent).
+   */
+  acceptPrivacy?: true
 }
 
 /** One product that could not be reserved (409 OUT_OF_STOCK, property "items"). */

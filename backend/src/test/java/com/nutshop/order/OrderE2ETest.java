@@ -168,21 +168,63 @@ class OrderE2ETest {
 				String.class, id)).containsExactly("ORDER_RESERVE:2");
 	}
 
+	private String userId(Cookie session) throws Exception {
+		String me = mvc.perform(get("/api/auth/me").header("X-Requested-With", "XMLHttpRequest").cookie(session))
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		return com.jayway.jsonpath.JsonPath.read(me, "$.id");
+	}
+
+	private Map<String, Object> orderConsent(long productId) {
+		return jdbc.queryForMap("SELECT o.privacy_consent_at, o.policy_version FROM orders o "
+				+ "JOIN order_items i ON i.order_id = o.id WHERE i.product_id = ?", productId);
+	}
+
+	/** Guest: the box is required every time; the order records it, now, current version. */
 	@Test
-	void anOrderRecordsThePrivacyConsentAndIsRefusedWithoutIt() throws Exception {
+	void aGuestOrderNeedsTheBoxAndRecordsTheConsent() throws Exception {
 		long id = product(120_000, 10);
 		String json = body(key(), "0912 345 678", line(id, 1));
 
 		place(json.replace("\"acceptPrivacy\":true,", "")).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("PRIVACY_CONSENT_REQUIRED"))
 			.andExpect(jsonPath("$.errors.acceptPrivacy").value("Bạn cần đồng ý với Chính sách bảo mật"));
 		place(json.replace("\"acceptPrivacy\":true", "\"acceptPrivacy\":false")).andExpect(status().isBadRequest());
 		assertThat(reserved(id)).isZero();
 
 		place(json).andExpect(status().isCreated());
-		assertThat(jdbc.queryForMap("SELECT o.privacy_consent_at IS NOT NULL AS consented, o.policy_version FROM orders o "
-				+ "JOIN order_items i ON i.order_id = o.id WHERE i.product_id = ?", id))
-			.containsEntry("consented", true)
-			.containsEntry("policy_version", PolicyVersion.CURRENT);
+		assertThat(orderConsent(id)).containsEntry("policy_version", PolicyVersion.CURRENT)
+			.extractingByKey("privacy_consent_at").isNotNull();
+	}
+
+	/** Signed in, consented to the current version: no box, the order records the account's consent. */
+	@Test
+	void anAccountWithCurrentConsentIsNotAskedAgainAndTheOrderCarriesItsConsent() throws Exception {
+		long id = product(120_000, 10);
+		Cookie session = signUp();
+		Map<String, Object> account = jdbc.queryForMap("SELECT privacy_consent_at, policy_version FROM users WHERE id = ?::uuid", userId(session));
+		assertThat(account).containsEntry("policy_version", PolicyVersion.CURRENT);
+
+		place(body(key(), "0912 345 678", line(id, 1)).replace("\"acceptPrivacy\":true,", ""), session)
+			.andExpect(status().isCreated());
+		assertThat(orderConsent(id)).isEqualTo(account);
+	}
+
+	/** Signed in, but consented to an older version (or never): the box is required, as for a guest. */
+	@Test
+	void anAccountWithAnOlderConsentMustTickTheBox() throws Exception {
+		long id = product(120_000, 10);
+		Cookie session = signUp();
+		jdbc.update("UPDATE users SET policy_version = '2026-01-01' WHERE id = ?::uuid", userId(session));
+		String json = body(key(), "0912 345 678", line(id, 1));
+
+		place(json.replace("\"acceptPrivacy\":true,", ""), session).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.acceptPrivacy").value("Bạn cần đồng ý với Chính sách bảo mật"));
+		assertThat(reserved(id)).isZero();
+
+		place(json, session).andExpect(status().isCreated());
+		assertThat(orderConsent(id)).containsEntry("policy_version", PolicyVersion.CURRENT);
 	}
 
 	@Test
