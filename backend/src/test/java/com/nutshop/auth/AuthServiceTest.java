@@ -89,7 +89,7 @@ class AuthServiceTest {
 	}
 
 	private static RegisterRequest registration(String email, String phone) {
-		return new RegisterRequest("An", email, "matkhau123", phone, true, "token", null);
+		return new RegisterRequest("An", email, "matkhau123", phone, true, true, "token", null);
 	}
 
 	@Test

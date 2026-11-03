@@ -7,11 +7,11 @@ import Turnstile, { type TurnstileHandle } from '../auth/Turnstile'
 import { useAuthForm } from '../auth/useAuthForm'
 import { useNextPath } from '../auth/useNextPath'
 import { Spinner } from '../components/Feedback'
-import { FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton, TextField } from '../components/FormFields'
+import { Checkbox, FormError, PasswordChecklist, PasswordField, RequiredLegend, SubmitButton, TextField } from '../components/FormFields'
 import { suggestEmail } from '../lib/emailSuggestion'
 import { normalizePhone } from '../lib/phone'
 import { FORGOT_PASSWORD_PATH, LOGIN_PATH, withNext } from '../lib/redirect'
-import { AuthCard, LegalLinks, type LoginPageState } from './AuthPages'
+import { AuthCard, PrivacyConsentLabel, TermsLink, type LoginPageState } from './AuthPages'
 
 const EMAIL_EXISTS_MESSAGE = 'Email này đã có tài khoản.'
 
@@ -35,6 +35,8 @@ export function RegisterPage() {
       confirmPassword: '',
       phone: '',
       website: '',
+      // Never ticked in advance
+      acceptPrivacy: false,
     },
     async (values) => {
       const turnstileToken = await turnstile.current!.getToken()
@@ -47,6 +49,7 @@ export function RegisterPage() {
           phone: values.phone ? normalizePhone(values.phone) : undefined,
           website: values.website,
           acceptTerms: true,
+          acceptPrivacy: true,
           turnstileToken,
         })
       } finally {
@@ -72,6 +75,7 @@ export function RegisterPage() {
   const email = form.watch('email')
   const password = form.watch('password')
   const confirmPassword = form.watch('confirmPassword')
+  const acceptPrivacy = form.watch('acceptPrivacy')
   const passwordsMatch = confirmPassword !== '' && confirmPassword === password && !errors.confirmPassword
 
   // Once the confirmation has been touched, editing the password re-checks it (error appears/disappears live)
@@ -104,13 +108,23 @@ export function RegisterPage() {
         </>
       }
     >
+      {/* Above both ways of signing up: Google sends the name and email as soon as its button is used. Rendered
+          outside the <form>, still part of it for react-hook-form (validated and focused on submit). */}
+      <div className="mt-6 rounded-xl bg-stone-50 px-4 py-3">
+        <Checkbox label={<PrivacyConsentLabel />} requiredMark error={errors.acceptPrivacy?.message} {...form.register('acceptPrivacy')} />
+      </div>
       <GoogleSignInButton
         text="signup_with"
-        onCredential={loginWithGoogle}
+        onCredential={(credential) => loginWithGoogle(credential, true)}
+        disabled={!acceptPrivacy}
         footnote={
-          <>
-            Lần đầu tiếp tục với Google, bạn đồng ý với <LegalLinks />.
-          </>
+          acceptPrivacy ? (
+            <>
+              Bằng việc tiếp tục với Google, bạn đồng ý với <TermsLink />.
+            </>
+          ) : (
+            'Đánh dấu ô “Tôi đồng ý với Chính sách bảo mật” ở trên để đăng ký bằng Google.'
+          )
         }
       />
       {/* No token yet: the button is disabled, and Enter does nothing either */}
@@ -211,7 +225,7 @@ export function RegisterPage() {
         </div>
 
         <p className="text-sm text-stone-700">
-          Bằng việc đăng ký, bạn đồng ý với <LegalLinks />.
+          Bằng việc đăng ký, bạn đồng ý với <TermsLink />.
         </p>
 
         <Turnstile ref={turnstile} action="register" onStatusChange={(s) => setVerified(s === 'ready')} />

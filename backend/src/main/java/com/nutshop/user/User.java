@@ -41,6 +41,14 @@ public class User {
 	@Column(name = "terms_accepted_at")
 	private Instant termsAcceptedAt;
 
+	/** When the user ticked "Tôi đồng ý với Chính sách bảo mật" (null for accounts from before that checkbox). */
+	@Column(name = "privacy_consent_at")
+	private Instant privacyConsentAt;
+
+	/** Version of the policy page that consent was given to (site.PolicyVersion). */
+	@Column(name = "policy_version")
+	private String policyVersion;
+
 	/** Staff/admin password below the current rules: the back office is closed until it is changed. */
 	@Column(name = "password_change_required", nullable = false)
 	private boolean passwordChangeRequired;
@@ -71,7 +79,7 @@ public class User {
 		this.termsAcceptedAt = termsAcceptedAt;
 	}
 
-	/** Google sign-up: the sign-in pages state that continuing with Google accepts the terms. */
+	/** Google sign-up from the register page, once its privacy policy checkbox is ticked (AuthService#loginWithGoogle). */
 	public static User fromGoogle(String email, String fullName, String googleId, Instant termsAcceptedAt) {
 		User user = new User(email, null, fullName, null, termsAcceptedAt);
 		user.googleId = googleId;
@@ -121,6 +129,20 @@ public class User {
 		if (termsAcceptedAt == null) {
 			termsAcceptedAt = now;
 		}
+	}
+
+	/** The privacy policy consent given on sign-up (its own checkbox, separate from the terms). */
+	public void recordPrivacyConsent(Instant at, String version) {
+		this.privacyConsentAt = at;
+		this.policyVersion = version;
+	}
+
+	public Instant getPrivacyConsentAt() {
+		return privacyConsentAt;
+	}
+
+	public String getPolicyVersion() {
+		return policyVersion;
 	}
 
 	/** A staff account created by an admin: no password until the invitation link is used. */

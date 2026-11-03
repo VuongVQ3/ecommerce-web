@@ -36,7 +36,7 @@ describe('policy pages', () => {
   it.each(PAGES)('%s shows the final text, no draft marker or internal note', (path) => {
     const { container } = renderAt(path)
     const text = container.textContent ?? ''
-    expect(text).toContain('Cập nhật lần cuối: 02/11/2026')
+    expect(text).toContain('Cập nhật lần cuối: 03/11/2026')
     for (const hidden of ['Bản nháp', 'CẦN ĐIỀN', 'AGENT', 'Tên chủ sở hữu', '[link:']) expect(text).not.toContain(hidden)
   })
 
@@ -61,6 +61,13 @@ describe('policy pages', () => {
     const privacy = container.querySelector('#bao-mat')!
     expect(privacy.textContent).toBe('Phần B. Chính sách bảo mật')
     expect(privacy.closest('section')!.textContent).toContain('Thông báo đơn hàng nội bộ: Telegram.')
+  })
+
+  it('does not treat visiting the site as agreeing, and applies changes only to later orders', () => {
+    const { container } = renderAt('/dieu-khoan-giao-dich')
+    const text = container.textContent ?? ''
+    expect(text).not.toMatch(/truy cập[^.]*đồng nghĩa/)
+    expect(text).toContain('chỉ áp dụng cho các đơn hàng đặt từ ngày có hiệu lực đó trở đi')
   })
 
   it('sends the old addresses to the merged page', async () => {

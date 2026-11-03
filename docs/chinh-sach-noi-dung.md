@@ -1,7 +1,7 @@
 # Nội dung chính sách Hạt Lành (nguồn để đưa lên web)
 
 Nguồn: Google Docs "HẠT LÀNH - CHÍNH SÁCH" + phần Chính sách bảo mật / Điều khoản sử dụng đang có trên web,
-đã cập nhật theo yêu cầu của chủ shop ngày 2026-11-02:
+đã cập nhật theo yêu cầu của chủ shop ngày 2026-11-02 (bản sửa gần nhất: 2026-11-03, xem "Lịch sử sửa đổi" cuối file):
 - Hotline/Zalo: 0898 98 68 21 (thay cho số cũ trong Google Docs)
 - Email: hatlanhstore@gmail.com
 - Fanpage: https://www.facebook.com/profile.php?id=61596137600993
@@ -91,7 +91,9 @@ Mọi đơn hàng tại Hạt Lành (từ hạt nguyên, nhân mắc ca, ngũ c�
 ### PHẦN A. ĐIỀU KHOẢN GIAO DỊCH CHUNG
 
 #### 1. Giới thiệu chung và Phạm vi áp dụng
-Chào mừng quý khách đến với website mua sắm trực tuyến Hạt Lành. Khi quý khách truy cập và thực hiện đặt hàng tại website, đồng nghĩa với việc quý khách đã đọc, hiểu và đồng ý với các Điều khoản giao dịch chung này. Các điều khoản này có thể được cập nhật tùy thời điểm để tuân thủ pháp luật hiện hành (bao gồm Luật Thương mại điện tử số 122/2025/QH15 và Nghị định 248/2026/NĐ-CP). Hạt Lành sẽ thông báo trên website khi có sự thay đổi.
+Chào mừng quý khách đến với website mua sắm trực tuyến Hạt Lành. Các Điều khoản giao dịch chung này áp dụng cho các đơn hàng đặt tại website. Quý khách xác nhận đã đọc và đồng ý với các điều khoản này khi bấm nút "Đặt hàng" (bên cạnh nút có đường dẫn tới trang này). Việc đồng ý với Chính sách bảo mật (Phần B) được thực hiện riêng, bằng ô đánh dấu khi đăng ký tài khoản hoặc khi đặt hàng.
+
+Các điều khoản này có thể được cập nhật để tuân thủ pháp luật hiện hành (bao gồm Luật Thương mại điện tử số 122/2025/QH15 và Nghị định 248/2026/NĐ-CP). Khi có thay đổi, Hạt Lành sẽ thông báo trên website kèm ngày có hiệu lực của bản mới. Nội dung thay đổi chỉ áp dụng cho các đơn hàng đặt từ ngày có hiệu lực đó trở đi; đơn hàng đã đặt trước đó tiếp tục áp dụng điều khoản tại thời điểm đặt hàng.
 
 #### 2. Tài khoản
 Quý khách chịu trách nhiệm giữ bí mật mật khẩu. Hạt Lành có thể tạm khoá tài khoản có dấu hiệu gian lận hoặc lạm dụng. Quý khách vẫn có thể đặt hàng mà không cần tài khoản.
@@ -169,3 +171,10 @@ Dữ liệu tài khoản và đơn hàng được lưu trong thời gian cần t
 - Khung giờ làm việc: Thứ 2 - Thứ 7, 08:30 - 17:00.
 - Fanpage Facebook: https://www.facebook.com/profile.php?id=61596137600993
 - Về đơn hàng: Kiểm tra tình trạng đơn bằng mã đơn và số điện thoại tại Tra cứu đơn hàng [link: /tra-cuu-don-hang]. Khi liên hệ, vui lòng cho biết mã đơn (dạng HL…).
+
+---
+
+## Lịch sử sửa đổi
+Mỗi lần sửa: đổi `POLICY_UPDATED` (frontend/src/lib/shopContact.ts) và `PolicyVersion.CURRENT` (backend, phiên bản lưu kèm sự đồng ý của khách).
+
+- **2026-11-03:** Ô đồng ý Chính sách bảo mật riêng khi đăng ký và đặt hàng; A.1 bỏ câu "truy cập ... đồng nghĩa với việc đã đồng ý", thay đổi điều khoản chỉ áp dụng cho đơn đặt sau ngày hiệu lực mới.

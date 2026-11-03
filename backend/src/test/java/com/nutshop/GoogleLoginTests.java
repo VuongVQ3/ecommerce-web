@@ -1,6 +1,7 @@
 package com.nutshop;
 
 import com.nutshop.auth.AuthCookies;
+import com.nutshop.auth.AuthService;
 import com.nutshop.auth.GoogleTokenVerifier;
 import com.nutshop.auth.GoogleTokenVerifier.GoogleUser;
 import com.nutshop.common.UnauthorizedException;
@@ -56,7 +57,21 @@ class GoogleLoginTests {
 	}
 
 	private ResultActions googleLogin(String credential) throws Exception {
-		return postJson("/api/auth/google", "{\"credential\":\"" + credential + "\"}");
+		return postJson("/api/auth/google", "{\"credential\":\"" + credential + "\",\"acceptPrivacy\":true}");
+	}
+
+	@Test
+	void aFirstGoogleSignInWithoutPrivacyConsentCreatesNoAccount() throws Exception {
+		given(googleVerifier.verify("tok-noconsent")).willReturn(new GoogleUser("g-050", "lan@gmail.com", "Lan"));
+
+		postJson("/api/auth/google", "{\"credential\":\"tok-noconsent\"}").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(AuthService.PRIVACY_CONSENT_REQUIRED))
+			.andExpect(cookie().doesNotExist(AuthCookies.ACCESS_COOKIE));
+		assertThat(users.findByGoogleId("g-050")).isEmpty();
+
+		// Once the account exists, the login page's button (no checkbox) signs in
+		googleLogin("tok-noconsent").andExpect(status().isOk());
+		postJson("/api/auth/google", "{\"credential\":\"tok-noconsent\"}").andExpect(status().isOk());
 	}
 
 	@Test

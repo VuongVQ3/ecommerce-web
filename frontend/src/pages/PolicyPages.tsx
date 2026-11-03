@@ -4,8 +4,9 @@ import { POLICY_UPDATED, SHOP } from '../lib/shopContact'
 import { BRAND, usePageMeta } from '../lib/usePageMeta'
 
 /**
- * Policy pages, word for word from docs/chinh-sach-noi-dung.md (final text agreed with the shop owner on 02/11/2026).
- * Change the wording there first, then here.
+ * Policy pages, word for word from docs/chinh-sach-noi-dung.md (first agreed with the shop owner on 02/11/2026; its
+ * "Lịch sử sửa đổi" lists later changes). Change the wording there first, then here, then bump POLICY_UPDATED
+ * (lib/shopContact.ts) and PolicyVersion.CURRENT (backend).
  */
 
 const linkClass = 'font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800'
@@ -249,10 +250,16 @@ export function TermsPage() {
         <div>
           <h3>1. Giới thiệu chung và Phạm vi áp dụng</h3>
           <p>
-            Chào mừng quý khách đến với website mua sắm trực tuyến Hạt Lành. Khi quý khách truy cập và thực hiện đặt hàng tại website,
-            đồng nghĩa với việc quý khách đã đọc, hiểu và đồng ý với các Điều khoản giao dịch chung này. Các điều khoản này có thể được
-            cập nhật tùy thời điểm để tuân thủ pháp luật hiện hành (bao gồm Luật Thương mại điện tử số 122/2025/QH15 và Nghị định
-            248/2026/NĐ-CP). Hạt Lành sẽ thông báo trên website khi có sự thay đổi.
+            Chào mừng quý khách đến với website mua sắm trực tuyến Hạt Lành. Các Điều khoản giao dịch chung này áp dụng cho các đơn hàng
+            đặt tại website. Quý khách xác nhận đã đọc và đồng ý với các điều khoản này khi bấm nút "Đặt hàng" (bên cạnh nút có đường
+            dẫn tới trang này). Việc đồng ý với <a href="#bao-mat" className={linkClass}>Chính sách bảo mật</a> (Phần B) được thực hiện
+            riêng, bằng ô đánh dấu khi đăng ký tài khoản hoặc khi đặt hàng.
+          </p>
+          <p>
+            Các điều khoản này có thể được cập nhật để tuân thủ pháp luật hiện hành (bao gồm Luật Thương mại điện tử số 122/2025/QH15 và
+            Nghị định 248/2026/NĐ-CP). Khi có thay đổi, Hạt Lành sẽ thông báo trên website kèm ngày có hiệu lực của bản mới. Nội dung thay
+            đổi chỉ áp dụng cho các đơn hàng đặt từ ngày có hiệu lực đó trở đi; đơn hàng đã đặt trước đó tiếp tục áp dụng điều khoản tại
+            thời điểm đặt hàng.
           </p>
         </div>
         <div>

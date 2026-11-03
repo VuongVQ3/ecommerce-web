@@ -2,6 +2,7 @@ package com.nutshop.auth;
 
 import com.nutshop.IntegrationTest;
 import com.nutshop.security.RateLimiter;
+import com.nutshop.site.PolicyVersion;
 import com.nutshop.user.User;
 import com.nutshop.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,13 +67,27 @@ class RegistrationE2ETest {
 
 		// marketingConsent: the opt-in no longer exists, an older page still sending it must not get a 400
 		register("{\"fullName\":\"Phạm Hạt\",\"email\":\"" + email + "\",\"password\":\"" + PASSWORD
-				+ "\",\"phone\":\"" + typed + "\",\"acceptTerms\":true,\"marketingConsent\":true,\"turnstileToken\":\""
+				+ "\",\"phone\":\"" + typed + "\",\"acceptTerms\":true,\"acceptPrivacy\":true,\"marketingConsent\":true,\"turnstileToken\":\""
 				+ RegisterJson.TURNSTILE_TEST_TOKEN + "\",\"website\":\"\"}")
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.phone").value(phone));
 
 		User user = users.findByEmail(email).orElseThrow();
 		assertThat(user.getTermsAcceptedAt()).isNotNull();
+		assertThat(user.getPrivacyConsentAt()).isNotNull();
+		assertThat(user.getPolicyVersion()).isEqualTo(PolicyVersion.CURRENT);
+	}
+
+	@Test
+	void missingOrFalseAcceptPrivacyIsRejectedAndCreatesNothing() throws Exception {
+		String email = uniqueEmail();
+		String json = RegisterJson.of("An", email, PASSWORD);
+
+		register(json.replace(",\"acceptPrivacy\":true", "")).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.acceptPrivacy").value(AuthDtos.PRIVACY_REQUIRED));
+		register(json.replace("\"acceptPrivacy\":true", "\"acceptPrivacy\":false")).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.acceptPrivacy").value(AuthDtos.PRIVACY_REQUIRED));
+		assertThat(users.findByEmail(email)).isEmpty();
 	}
 
 	@Test

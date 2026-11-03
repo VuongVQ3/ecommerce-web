@@ -83,7 +83,8 @@ public class AuthController {
 	@PostMapping("/google")
 	public UserResponse google(@Valid @RequestBody GoogleLoginRequest req, HttpServletRequest request,
 			HttpServletResponse response) {
-		return complete(authService.loginWithGoogle(req.credential(), ClientInfo.from(request)), response);
+		return complete(authService.loginWithGoogle(req.credential(), Boolean.TRUE.equals(req.acceptPrivacy()),
+				ClientInfo.from(request)), response);
 	}
 
 	/**

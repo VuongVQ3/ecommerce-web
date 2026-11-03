@@ -171,7 +171,7 @@ class AdminE2ETest {
 
 	private String placeOrder(long productId, int quantity) throws Exception {
 		String body = """
-				{"idempotencyKey":"admin-%s","customerName":"Khách Test","phone":"0912345678","email":"khach@example.com",
+				{"acceptPrivacy":true,"idempotencyKey":"admin-%s","customerName":"Khách Test","phone":"0912345678","email":"khach@example.com",
 				 "provinceCode":1,"wardCode":4,"addressLine":"1 Phố Test","items":[{"productId":%d,"quantity":%d}]}"""
 			.formatted(UUID.randomUUID(), productId, quantity);
 		orderCreateRateLimiter.reset();
@@ -431,7 +431,7 @@ class AdminE2ETest {
 		long id = createProduct(admin, "Hạt đặt bằng tài khoản", null);
 		importStock(admin, id, 5);
 		String body = """
-				{"idempotencyKey":"admin-%s","customerName":"Khách Test","phone":"0912345678",
+				{"acceptPrivacy":true,"idempotencyKey":"admin-%s","customerName":"Khách Test","phone":"0912345678",
 				 "provinceCode":1,"wardCode":4,"addressLine":"1 Phố Test","items":[{"productId":%d,"quantity":1}]}"""
 			.formatted(UUID.randomUUID(), id);
 		orderCreateRateLimiter.reset();

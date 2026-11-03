@@ -130,6 +130,8 @@ export interface RegisterInput {
   phone?: string
   /** Sent as true when the user clicks "Đăng ký" under the terms notice. */
   acceptTerms: true
+  /** The separate, unticked "Tôi đồng ý với Chính sách bảo mật" checkbox (required). */
+  acceptPrivacy: true
   turnstileToken: string
   /** Honeypot: always empty for humans. */
   website: string
@@ -311,6 +313,8 @@ export interface PlaceOrderInput {
   note?: string
   /** Generated once per checkout visit: resubmitting returns the same order. */
   idempotencyKey: string
+  /** The unticked "Tôi đồng ý với Chính sách bảo mật" checkbox (required). */
+  acceptPrivacy: true
 }
 
 /** One product that could not be reserved (409 OUT_OF_STOCK, property "items"). */
@@ -488,7 +492,9 @@ export const api = {
 
   login: (input: LoginInput) => apiRequest<User>('/api/auth/login', post(input)),
 
-  loginWithGoogle: (credential: string) => apiRequest<User>('/api/auth/google', post({ credential })),
+  /** `acceptPrivacy`: the register page's checkbox. Without it a Google account new to the shop gets 400 PRIVACY_CONSENT_REQUIRED. */
+  loginWithGoogle: (credential: string, acceptPrivacy?: true) =>
+    apiRequest<User>('/api/auth/google', post({ credential, acceptPrivacy })),
 
   logout: () => apiRequest<void>('/api/auth/logout', post()),
 

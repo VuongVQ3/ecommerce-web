@@ -22,6 +22,7 @@ import com.nutshop.product.PricingService.Price;
 import com.nutshop.product.Product;
 import com.nutshop.auth.TurnstileVerifier;
 import com.nutshop.product.ProductRepository;
+import com.nutshop.site.PolicyVersion;
 import com.nutshop.user.PhoneNumbers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -230,6 +231,7 @@ public class OrderService {
 		var delivery = new Order.Delivery(name, phone, blankToNull(req.email()), address.province(), address.ward(),
 				req.addressLine().trim());
 		Order order = new Order(newCode(), key, userId, delivery, blankToNull(req.note()));
+		order.recordPrivacyConsent(clock.instant(), PolicyVersion.CURRENT); // acceptPrivacy is validated true
 		List<Shortage> shortages = new ArrayList<>();
 		long subtotal = 0;
 		for (var entry : wanted.entrySet()) {

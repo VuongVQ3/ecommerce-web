@@ -9,8 +9,11 @@ interface AuthContextValue {
   loading: boolean
   login: (input: LoginInput) => Promise<void>
   register: (input: RegisterInput) => Promise<void>
-  /** `credential` is the ID token returned by Google Identity Services. */
-  loginWithGoogle: (credential: string) => Promise<void>
+  /**
+   * `credential` is the ID token returned by Google Identity Services. `acceptPrivacy` only from the register page:
+   * a Google account that has no account here yet is refused without it.
+   */
+  loginWithGoogle: (credential: string, acceptPrivacy?: true) => Promise<void>
   logout: () => Promise<void>
   /** The server already signed this user in (cookies set), e.g. after creating an account from an order. */
   signedIn: (user: User) => void
@@ -176,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(async (input: RegisterInput) => signedIn(await api.register(input)), [signedIn])
 
   const loginWithGoogle = useCallback(
-    async (credential: string) => signedIn(await api.loginWithGoogle(credential)),
+    async (credential: string, acceptPrivacy?: true) => signedIn(await api.loginWithGoogle(credential, acceptPrivacy)),
     [signedIn],
   )
 

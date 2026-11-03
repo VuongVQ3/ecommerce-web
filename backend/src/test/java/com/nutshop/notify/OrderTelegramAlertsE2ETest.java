@@ -87,7 +87,7 @@ class OrderTelegramAlertsE2ETest {
 			items.append(i > 1 ? "," : "").append("{\"productId\":").append(id).append(",\"quantity\":").append(i).append('}');
 		}
 		String body = mvc.perform(json(post("/api/orders"), """
-				{"idempotencyKey":"tg-%s","customerName":"Nguyễn Khách","phone":"0912345678",
+				{"acceptPrivacy":true,"idempotencyKey":"tg-%s","customerName":"Nguyễn Khách","phone":"0912345678",
 				 "provinceCode":1,"wardCode":4,"addressLine":"12 Phố Test","items":[%s]}"""
 			.formatted(UUID.randomUUID(), items))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
 		String code = field(body, "code");

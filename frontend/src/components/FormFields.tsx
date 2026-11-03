@@ -237,24 +237,35 @@ export function SelectField({ label, error, hint, placeholder, options, required
 export function Checkbox({
   label,
   requiredMark,
+  error,
   ...input
-}: Omit<ComponentProps<'input'>, 'type' | 'id'> & { label: ReactNode; requiredMark?: boolean }) {
+}: Omit<ComponentProps<'input'>, 'type' | 'id'> & { label: ReactNode; requiredMark?: boolean; error?: string }) {
   const id = useId()
+  const errorId = `${id}-error`
   return (
-    <div className="flex items-start gap-3">
-      <input
-        id={id}
-        type="checkbox"
-        aria-required={requiredMark || undefined}
-        className="mt-0.5 size-5 shrink-0 cursor-pointer rounded border-stone-300 accent-brand-600"
-        {...input}
-      />
-      <p className="text-sm text-stone-700">
-        <label htmlFor={id} className="cursor-pointer">
-          {label}
-        </label>
-        {requiredMark && <RequiredMark />}
-      </p>
+    <div>
+      <div className="flex items-start gap-3">
+        <input
+          id={id}
+          type="checkbox"
+          aria-required={requiredMark || undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          className="mt-0.5 size-5 shrink-0 cursor-pointer rounded border-stone-300 accent-brand-600"
+          {...input}
+        />
+        <p className="text-sm text-stone-700">
+          <label htmlFor={id} className="cursor-pointer">
+            {label}
+          </label>
+          {requiredMark && <RequiredMark />}
+        </p>
+      </div>
+      {error && (
+        <p id={errorId} className="mt-1 pl-8 text-sm text-danger">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

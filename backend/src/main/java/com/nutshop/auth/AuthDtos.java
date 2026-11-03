@@ -22,7 +22,8 @@ public final class AuthDtos {
 
 	/**
 	 * @param phone optional; accepts "0912 345 678", "0912.345.678", "+84912345678"... normalized before storing
-	 * @param acceptTerms must be true (terms of use + privacy policy)
+	 * @param acceptTerms must be true (terms of sale: the notice above the button)
+	 * @param acceptPrivacy must be true: the separate, unticked "Tôi đồng ý với Chính sách bảo mật" checkbox
 	 * @param turnstileToken Cloudflare Turnstile token from the widget
 	 * @param website honeypot: hidden from humans, so any value means a bot
 	 */
@@ -36,15 +37,18 @@ public final class AuthDtos {
 			@Pattern(regexp = PASSWORD_PATTERN, message = "Mật khẩu phải có cả chữ và số") String password,
 			@VietnamesePhone String phone,
 			@NotNull(message = TERMS_REQUIRED) @AssertTrue(message = TERMS_REQUIRED) Boolean acceptTerms,
+			@NotNull(message = PRIVACY_REQUIRED) @AssertTrue(message = PRIVACY_REQUIRED) Boolean acceptPrivacy,
 			String turnstileToken,
 			String website) {
 
-		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản giao dịch chung và Chính sách bảo mật";
+		static final String TERMS_REQUIRED = "Bạn cần đồng ý với Điều khoản giao dịch chung";
 
 		boolean isHoneypotFilled() {
 			return website != null && !website.isBlank();
 		}
 	}
+
+	public static final String PRIVACY_REQUIRED = "Bạn cần đồng ý với Chính sách bảo mật";
 
 	public record LoginRequest(
 			@NotBlank(message = "Vui lòng nhập email") String email,
@@ -68,7 +72,12 @@ public final class AuthDtos {
 	public record MessageResponse(String message) {
 	}
 
-	public record GoogleLoginRequest(@NotBlank(message = "Thiếu thông tin đăng nhập Google") String credential) {
+	/**
+	 * @param acceptPrivacy the register page's privacy policy checkbox; required only when this Google account has no
+	 *        account here yet (signing in to an existing one does not ask again)
+	 */
+	public record GoogleLoginRequest(@NotBlank(message = "Thiếu thông tin đăng nhập Google") String credential,
+			Boolean acceptPrivacy) {
 	}
 
 	/** Which sign-in methods the frontend should offer. */

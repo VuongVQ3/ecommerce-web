@@ -101,7 +101,7 @@ class OrderTrackingE2ETest {
 
 	private static String orderJson(String key, String email, long productId, int qty) {
 		return """
-				{"idempotencyKey":"%s","customerName":"Nguyễn Khách","phone":"0912345678",%s
+				{"acceptPrivacy":true,"idempotencyKey":"%s","customerName":"Nguyễn Khách","phone":"0912345678",%s
 				 "provinceCode":1,"wardCode":4,"addressLine":"12 Phố Test","items":[{"productId":%d,"quantity":%d}]}"""
 			.formatted(key, email == null ? "" : "\"email\":\"" + email + "\",", productId, qty);
 	}

@@ -8,6 +8,7 @@ const valid = {
   confirmPassword: 'matkhau123',
   phone: '',
   website: '',
+  acceptPrivacy: true,
 }
 
 const firstError = (input: Partial<typeof valid>, field: keyof typeof valid) =>
@@ -18,6 +19,10 @@ describe('registerSchema', () => {
   it('accepts a valid form, with or without phone', () => {
     expect(registerSchema.safeParse(valid).success).toBe(true)
     expect(registerSchema.safeParse({ ...valid, phone: '0912345678' }).success).toBe(true)
+  })
+
+  it('requires the privacy policy box, with the backend message', () => {
+    expect(firstError({ acceptPrivacy: false }, 'acceptPrivacy')).toBe('Bạn cần đồng ý với Chính sách bảo mật')
   })
 
   it('requires letters and digits in the password, Vietnamese letters included', () => {

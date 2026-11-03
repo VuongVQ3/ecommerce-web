@@ -111,6 +111,22 @@ describe('GoogleSignInButton', () => {
     expect(screen.queryByText('Đang đăng nhập với Google...')).toBeNull()
   })
 
+  it('ignores Google while disabled (privacy policy box not ticked) and keeps its iframe out of reach', async () => {
+    const onCredential = vi.fn(() => Promise.resolve())
+    render(
+      <ToastProvider>
+        <GoogleSignInButton text="signup_with" onCredential={onCredential} disabled footnote="Đánh dấu ô ở trên" />
+      </ToastProvider>,
+    )
+    await waitFor(() => expect(config).not.toBeNull())
+
+    await act(async () => config!.callback({ credential: 'id-token' }))
+
+    expect(onCredential).not.toHaveBeenCalled()
+    expect(renderButton.mock.calls[0][0].hasAttribute('inert')).toBe(true)
+    expect(screen.getByText('Đánh dấu ô ở trên')).toBeTruthy()
+  })
+
   it('shows a refusal as a toast', async () => {
     show(() => Promise.reject(new Error('Đăng nhập Google không thành công. Vui lòng thử lại.')))
     await waitFor(() => expect(config).not.toBeNull())

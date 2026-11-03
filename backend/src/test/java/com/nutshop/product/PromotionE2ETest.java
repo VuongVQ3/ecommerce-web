@@ -179,7 +179,7 @@ class PromotionE2ETest {
 		promo(id, 132_000, Instant.now().minus(1, ChronoUnit.HOURS), Instant.now().plus(1, ChronoUnit.DAYS));
 		// A forged client price is ignored: lines carry ids and quantities only
 		String body = """
-				{"idempotencyKey":"km-%s","customerName":"Khách KM","phone":"0912345678","provinceCode":1,"wardCode":4,
+				{"acceptPrivacy":true,"idempotencyKey":"km-%s","customerName":"Khách KM","phone":"0912345678","provinceCode":1,"wardCode":4,
 				 "addressLine":"1 Phố KM","items":[{"productId":%d,"quantity":2,"price":1000,"unitPrice":1000}],"total":1}"""
 			.formatted(UUID.randomUUID(), id);
 		mvc.perform(json(post("/api/orders"), body))

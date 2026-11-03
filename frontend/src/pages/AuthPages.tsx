@@ -41,17 +41,38 @@ export function AuthCard({
 
 const legalLinkClass = 'font-semibold text-brand-700 underline-offset-2 hover:underline'
 
+/** "Điều khoản giao dịch chung", new tab (a form being filled in stays open). */
+export function TermsLink() {
+  return (
+    <a href="/dieu-khoan-giao-dich" target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
+      Điều khoản giao dịch chung<span className="sr-only"> (mở trong tab mới)</span>
+    </a>
+  )
+}
+
+/** "Chính sách bảo mật": the #bao-mat part of the terms page, new tab. */
+export function PrivacyLink() {
+  return (
+    <a href="/dieu-khoan-giao-dich#bao-mat" target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
+      Chính sách bảo mật<span className="sr-only"> (mở trong tab mới)</span>
+    </a>
+  )
+}
+
 /** "Điều khoản giao dịch chung và Chính sách bảo mật" (one page, the second link goes to its #bao-mat part), new tab. */
 export function LegalLinks() {
   return (
     <>
-      <a href="/dieu-khoan-giao-dich" target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
-        Điều khoản giao dịch chung<span className="sr-only"> (mở trong tab mới)</span>
-      </a>{' '}
-      và{' '}
-      <a href="/dieu-khoan-giao-dich#bao-mat" target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
-        Chính sách bảo mật<span className="sr-only"> (mở trong tab mới)</span>
-      </a>
+      <TermsLink /> và <PrivacyLink />
+    </>
+  )
+}
+
+/** Label of the required, unticked privacy consent checkbox (sign-up and checkout), kept apart from the terms. */
+export function PrivacyConsentLabel() {
+  return (
+    <>
+      Tôi đồng ý với <PrivacyLink />
     </>
   )
 }
@@ -89,7 +110,11 @@ export function LoginPage() {
         onCredential={loginWithGoogle}
         footnote={
           <>
-            Lần đầu tiếp tục với Google, bạn đồng ý với <LegalLinks />.
+            Chưa có tài khoản? Để đăng ký bằng Google, vào trang{' '}
+            <Link to={withNext(REGISTER_PATH, next)} className={legalLinkClass}>
+              Đăng ký
+            </Link>
+            .
           </>
         }
       />

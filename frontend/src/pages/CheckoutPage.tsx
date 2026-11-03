@@ -5,7 +5,7 @@ import { checkoutSchema } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
 import { useCart } from '../cart/CartContext'
 import { Spinner } from '../components/Feedback'
-import { FormError, RequiredLegend, SelectField, SubmitButton, TextField } from '../components/FormFields'
+import { Checkbox, FormError, RequiredLegend, SelectField, SubmitButton, TextField } from '../components/FormFields'
 import { PriceTag } from '../components/Price'
 import ProductImage from '../components/ProductImage'
 import { useProvinces } from '../lib/adminUnits'
@@ -14,6 +14,7 @@ import { formatPrice } from '../lib/format'
 import { normalizePhone } from '../lib/phone'
 import { saveRecentOrder, trackingPath } from '../lib/recentOrders'
 import { loginUrl } from '../lib/redirect'
+import { PrivacyConsentLabel, TermsLink } from './AuthPages'
 import type { TrackOrderState } from './TrackOrderPage'
 
 /** State handed to the cart page when the order bounced for lack of stock. */
@@ -141,6 +142,8 @@ function CheckoutForm({ view }: { view: CartView }) {
       note: '',
       // What was typed before signing in wins over the account's details
       ...readDraft(),
+      // Never ticked in advance, and never restored from the draft (it only keeps strings)
+      acceptPrivacy: false,
     },
     async (values) => {
       const order = await api.placeOrder({
@@ -154,6 +157,7 @@ function CheckoutForm({ view }: { view: CartView }) {
         addressLine: values.addressLine,
         note: values.note || undefined,
         idempotencyKey,
+        acceptPrivacy: true,
       })
       resetAfterOrder()
       writeDraft(null)
@@ -303,9 +307,15 @@ function CheckoutForm({ view }: { view: CartView }) {
           </button>
         </p>
       )}
-      <SubmitButton pending={pending} pendingLabel="Đang đặt hàng...">
-        Đặt hàng · {formatPrice(view.total)}
-      </SubmitButton>
+      <Checkbox label={<PrivacyConsentLabel />} requiredMark error={errors.acceptPrivacy?.message} {...form.register('acceptPrivacy')} />
+      <div>
+        <SubmitButton pending={pending} pendingLabel="Đang đặt hàng...">
+          Đặt hàng · {formatPrice(view.total)}
+        </SubmitButton>
+        <p className="mt-2 text-center text-sm text-stone-600">
+          Bằng việc bấm “Đặt hàng”, bạn đồng ý với <TermsLink />.
+        </p>
+      </div>
     </form>
   )
 }

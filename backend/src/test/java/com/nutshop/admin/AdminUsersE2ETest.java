@@ -127,7 +127,7 @@ class AdminUsersE2ETest {
 
 	private String order(long productId, int qty, String phone) throws Exception {
 		String body = mvc.perform(json(post("/api/orders"), """
-				{"idempotencyKey":"u-%s","customerName":"Khách Test","phone":"%s","provinceCode":1,"wardCode":4,
+				{"acceptPrivacy":true,"idempotencyKey":"u-%s","customerName":"Khách Test","phone":"%s","provinceCode":1,"wardCode":4,
 				 "addressLine":"1 Phố","items":[{"productId":%d,"quantity":%d}]}""".formatted(UUID.randomUUID(), phone,
 				productId, qty))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
 		Matcher m = Pattern.compile("\"code\":\"([A-Z0-9]+)\"").matcher(body);
@@ -353,7 +353,7 @@ class AdminUsersE2ETest {
 		as(admin, json(put("/api/admin/phone-flags/" + phone), "{\"level\":\"BLOCK_COD\",\"reason\":\"bom hàng 2 lần\"}"))
 			.andExpect(status().isOk());
 		mvc.perform(json(post("/api/orders"), """
-				{"idempotencyKey":"blk-%s","customerName":"Khách","phone":"+84 %s","provinceCode":1,"wardCode":4,
+				{"acceptPrivacy":true,"idempotencyKey":"blk-%s","customerName":"Khách","phone":"+84 %s","provinceCode":1,"wardCode":4,
 				 "addressLine":"1 Phố","items":[{"productId":%d,"quantity":1}]}""".formatted(UUID.randomUUID(), phone.substring(1), id)))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("COD_NOT_AVAILABLE"))
