@@ -83,6 +83,10 @@ export interface ProductDetail extends Pricing {
   shortDescription: string | null
   description: string
   origin: string | null
+  /** Label information; each null when not entered (the page then leaves it out) */
+  shelfLife: string | null
+  ingredients: string | null
+  storageInstructions: string | null
   weightGrams: number
   /** False when discontinued: the page stays visible but the product cannot be bought. */
   active: boolean

@@ -147,6 +147,10 @@ export interface ProductInput {
   shortDescription: string
   description: string
   origin: string
+  /** Optional label information; empty = not entered (not shown on the product page) */
+  shelfLife: string
+  ingredients: string
+  storageInstructions: string
   /** null = no price yet (only for a hidden product) */
   price: number | null
   weightGrams: number
@@ -162,11 +166,15 @@ export interface ProductInput {
   sortOrder: null
 }
 
-export interface AdminProduct extends Omit<ProductInput, 'shortDescription' | 'origin' | 'price' | 'sortOrder'> {
+export interface AdminProduct
+  extends Omit<ProductInput, 'shortDescription' | 'origin' | 'shelfLife' | 'ingredients' | 'storageInstructions' | 'price' | 'sortOrder'> {
   id: number
   /** null = none typed */
   shortDescription: string | null
   origin: string | null
+  shelfLife: string | null
+  ingredients: string | null
+  storageInstructions: string | null
   /** 0 = no price yet */
   price: number
   sortOrder: number

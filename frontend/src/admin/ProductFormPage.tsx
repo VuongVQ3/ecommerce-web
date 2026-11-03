@@ -395,6 +395,38 @@ function ProductEditor({ product, categories }: { product: AdminProduct | null; 
                   Chia thành nhiều mục: mỗi mục cách nhau một dòng trống, dòng đầu của mục là tiêu đề (ví dụ "Bảo quản:").
                 </p>
               </div>
+              <fieldset className="space-y-4">
+                <legend className="text-sm font-semibold text-stone-900">Thông tin trên nhãn (không bắt buộc)</legend>
+                <p className="text-sm text-muted">Mục nào có nội dung mới hiện trên trang sản phẩm.</p>
+                <TextField
+                  label="Hạn sử dụng"
+                  placeholder="Ví dụ: 12 tháng kể từ ngày sản xuất"
+                  error={errors.shelfLife?.message}
+                  {...register('shelfLife')}
+                />
+                {(
+                  [
+                    ['ingredients', 'Thành phần', 'Ví dụ: Hạt điều, muối', 500],
+                    ['storageInstructions', 'Bảo quản', 'Ví dụ: Nơi khô ráo, thoáng mát; đậy kín sau khi mở', 300],
+                  ] as const
+                ).map(([name, label, placeholder, max]) => (
+                  <div key={name}>
+                    <label htmlFor={name} className="text-sm font-medium text-stone-700">
+                      {label}
+                    </label>
+                    <textarea
+                      id={name}
+                      rows={2}
+                      maxLength={max}
+                      placeholder={placeholder}
+                      className={`${input} mt-1`}
+                      aria-invalid={errors[name] ? true : undefined}
+                      {...register(name)}
+                    />
+                    {errors[name] && <p className="mt-1 text-sm text-danger">{errors[name].message}</p>}
+                  </div>
+                ))}
+              </fieldset>
             </section>
             <section className={`${card} min-w-0 p-5 max-lg:order-4`}>
               <fieldset>

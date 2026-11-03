@@ -19,6 +19,9 @@ const detail = (over: Partial<ProductDetail> = {}): ProductDetail => ({
   shortDescription: null,
   description: 'Mắc ca nguyên vỏ, hạt to, chắc.',
   origin: 'Đắk Lắk',
+  shelfLife: null,
+  ingredients: null,
+  storageInstructions: null,
   price: 200_000,
   regularPrice: 200_000,
   discountPercent: null,
@@ -99,6 +102,21 @@ describe('ProductDetailPage', () => {
       'Hạnh nhân',
     ])
     expect(before(nutrition, related)).toBe(true)
+  })
+
+  it('shows the label information that is entered, and leaves the rest out', async () => {
+    renderPage(detail({ shelfLife: '12 tháng kể từ ngày sản xuất', storageInstructions: 'Nơi khô ráo, đậy kín sau khi mở' }), [])
+
+    expect(await screen.findByText('12 tháng kể từ ngày sản xuất')).toBeTruthy()
+    expect(screen.getByText('Hạn sử dụng')).toBeTruthy()
+    expect(screen.getByText('Nơi khô ráo, đậy kín sau khi mở')).toBeTruthy()
+    expect(screen.queryByText('Thành phần')).toBeNull()
+  })
+
+  it('shows no label box when nothing is entered', async () => {
+    renderPage(detail(), [])
+    await screen.findByRole('button', { name: /Thêm vào giỏ/ })
+    for (const label of ['Hạn sử dụng', 'Thành phần', 'Bảo quản']) expect(screen.queryByText(label)).toBeNull()
   })
 
   it('no nutrition figures and nothing else in the category: neither section is there', async () => {

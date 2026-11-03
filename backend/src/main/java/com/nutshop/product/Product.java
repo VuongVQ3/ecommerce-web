@@ -32,6 +32,18 @@ public class Product {
 
 	private String origin;
 
+	/** Hạn sử dụng as printed on the label, e.g. "12 tháng kể từ ngày sản xuất"; null = not entered. */
+	@Column(name = "shelf_life", length = 100)
+	private String shelfLife;
+
+	/** Thành phần; null = not entered. */
+	@Column(length = 500)
+	private String ingredients;
+
+	/** Hướng dẫn bảo quản; null = not entered. */
+	@Column(name = "storage_instructions", length = 300)
+	private String storageInstructions;
+
 	/** Price in VND. */
 	@Column(nullable = false)
 	private Long price;
@@ -90,13 +102,18 @@ public class Product {
 	 * Editable fields of a product (stock is managed separately through inventory movements).
 	 *
 	 * @param shortDescription null = none typed (derived from the description when shown)
+	 * @param label optional label information (shelf life, ingredients, storage)
 	 * @param price 0 = no price yet (the product cannot be shown until it has one)
 	 * @param sortOrder null = keep the current one
 	 */
-	public record Details(String name, String shortDescription, String description, String origin, long price,
-			int weightGrams,
+	public record Details(String name, String shortDescription, String description, String origin, LabelInfo label,
+			long price, int weightGrams,
 			BigDecimal calories, BigDecimal protein, BigDecimal fat, BigDecimal carbs, BigDecimal fiber,
 			int lowStockThreshold, Integer sortOrder) {
+	}
+
+	/** Optional label information; each field null when not entered (the product page then leaves it out). */
+	public record LabelInfo(String shelfLife, String ingredients, String storageInstructions) {
 	}
 
 	/** New products start with no stock; stock arrives through an inventory import. */
@@ -117,6 +134,9 @@ public class Product {
 		this.shortDescription = d.shortDescription();
 		this.description = d.description();
 		this.origin = d.origin();
+		this.shelfLife = d.label().shelfLife();
+		this.ingredients = d.label().ingredients();
+		this.storageInstructions = d.label().storageInstructions();
 		this.price = d.price();
 		this.weightGrams = d.weightGrams();
 		this.calories = d.calories();
@@ -204,6 +224,18 @@ public class Product {
 
 	public String getOrigin() {
 		return origin;
+	}
+
+	public String getShelfLife() {
+		return shelfLife;
+	}
+
+	public String getIngredients() {
+		return ingredients;
+	}
+
+	public String getStorageInstructions() {
+		return storageInstructions;
 	}
 
 	public Long getPrice() {

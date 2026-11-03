@@ -61,6 +61,34 @@ export function StockBadge({ product, className = 'mt-6' }: { product: ProductDe
   )
 }
 
+const LABEL_ROWS = [
+  { key: 'shelfLife', label: 'Hạn sử dụng' },
+  { key: 'ingredients', label: 'Thành phần' },
+  { key: 'storageInstructions', label: 'Bảo quản' },
+] as const
+
+/** Shelf life, ingredients and storage from the label: only the ones entered; nothing when none is. */
+export function LabelInfo({
+  product,
+  className = 'mt-6',
+}: {
+  product: Pick<ProductDetail, 'shelfLife' | 'ingredients' | 'storageInstructions'>
+  className?: string
+}) {
+  const rows = LABEL_ROWS.filter((r) => product[r.key])
+  if (rows.length === 0) return null
+  return (
+    <dl className={`${className} space-y-3 rounded-2xl border border-stone-200 bg-white p-5 text-sm`}>
+      {rows.map((r) => (
+        <div key={r.key}>
+          <dt className="font-semibold text-stone-900">{r.label}</dt>
+          <dd className="mt-0.5 whitespace-pre-line text-stone-700">{product[r.key]}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 const NUTRITION_ROWS = NUTRIENTS.map((n) => ({ key: n.key, label: nutrientLabel(n.key), unit: n.unit }))
 
 const SERVING_GRAMS = 30
