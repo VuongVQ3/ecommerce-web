@@ -242,6 +242,9 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
           <NavLink to="/san-pham" className={drawerLinkClass} onClick={onClose}>
             Sản phẩm
           </NavLink>
+          <NavLink to="/blog" className={drawerLinkClass} onClick={onClose}>
+            Blog
+          </NavLink>
           <NavLink to="/tra-cuu-don-hang" className={drawerLinkClass} onClick={onClose}>
             Tra cứu đơn hàng
           </NavLink>
@@ -312,6 +315,11 @@ function Footer() {
             <li>
               <Link to="/san-pham" className="hover:text-brand-700 hover:underline">
                 Tất cả sản phẩm
+              </Link>
+            </li>
+            <li>
+              <Link to="/blog" className="hover:text-brand-700 hover:underline">
+                Blog
               </Link>
             </li>
             <li>
@@ -449,6 +457,9 @@ export default function Layout() {
             </NavLink>
             <NavLink to="/san-pham" className={navClass}>
               Sản phẩm
+            </NavLink>
+            <NavLink to="/blog" className={navClass}>
+              Blog
             </NavLink>
           </nav>
           <SearchBox className="hidden min-w-0 lg:ml-auto lg:block lg:w-52 xl:w-64" />

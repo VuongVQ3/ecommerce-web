@@ -14,10 +14,11 @@ trên cùng (tên trang + nút menu mở ngăn kéo). Mã nguồn: `frontend/src
 | Tồn kho (xem, nhập hàng, kiểm kê, lịch sử) | ✅ | ✅ |
 | Xem danh mục | ✅ | ✅ |
 | Sản phẩm, giá, ảnh, ẩn/hiện; thêm/đổi tên danh mục; khuyến mại | ❌ (403) | ✅ |
+| Blog (soạn, đăng/gỡ, xoá bài, ảnh): xem [blog.md](blog.md) | ❌ (403) | ✅ |
 | Người dùng (đổi vai trò, khoá, mời nhân viên), nhật ký thao tác | ❌ (403) | ✅ |
 
 - Mọi đường dẫn `/api/admin/**` yêu cầu STAFF hoặc ADMIN ngay ở tầng filter, và từng controller còn gắn `@Roles`
-  (`AdminController`: STAFF+ADMIN, `AdminCatalogController`/`AdminUserController`: ADMIN). Khách thường → 403, chưa
+  (`AdminController`: STAFF+ADMIN, `AdminCatalogController`/`AdminUserController`/`AdminBlogController`: ADMIN). Khách thường → 403, chưa
   đăng nhập → 401.
 - **Vai trò và trạng thái khoá được kiểm tra lại ở mỗi request** (`UserStatusFilter`, đọc DB qua cache 60 giây, cache
   bị xoá ngay khi admin đổi vai trò/khoá). Vì vậy:
@@ -211,7 +212,7 @@ ngược lại là giới hạn mỗi sản phẩm trong giỏ (10); giỏ hàng
 
 Mọi thay đổi ghi vào `audit_logs (actor_id, action, entity_type, entity_id, before jsonb, after jsonb, created_at)`
 trong cùng transaction: thay đổi đơn hàng, `ORDER_NOTE_ADDED`, `ORDER_CONTACT_FAILED`, `STOCK_IMPORTED`,
-`STOCK_ADJUSTED`, `PRODUCT_*`, `PROMOTION_*`, `CATEGORY_*`, `PHONE_FLAG_CREATED/UPDATED/REMOVED`, `USER_PROMOTED`,
+`STOCK_ADJUSTED`, `PRODUCT_*`, `BLOG_POST_*`, `BLOG_IMAGE_*`, `PROMOTION_*`, `CATEGORY_*`, `PHONE_FLAG_CREATED/UPDATED/REMOVED`, `USER_PROMOTED`,
 `USER_INVITED`, `USER_ROLE_CHANGED`, `USER_LOCKED/UNLOCKED`, `USER_EMAIL_VERIFIED`.
 
 Trang Nhật ký lọc theo người thao tác, loại đối tượng và khoảng ngày; mỗi dòng mở được phần "trước / sau".
@@ -222,7 +223,8 @@ API: `GET /api/admin/audit-logs?actor=&entityType=&from=&to=&page=`, `GET /api/a
 | Biến | Bắt buộc | Ghi chú |
 |---|---|---|
 | `ADMIN_EMAIL` | không | Email tài khoản đã đăng ký cần nâng lên ADMIN khi khởi động |
-| `CLOUDINARY_URL` | không | Bật upload ảnh sản phẩm |
+| `CLOUDINARY_URL` | không | Bật upload ảnh sản phẩm và ảnh blog |
+| `BLOG_IMAGE_FOLDER` | không | Thư mục Cloudinary của ảnh blog, mặc định `hat-lanh/blog` (khi thử ở máy: `hat-lanh/blog-dev`) |
 
 ## Kiểm thử
 

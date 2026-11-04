@@ -1,5 +1,6 @@
 package com.nutshop.site;
 
+import com.nutshop.blog.BlogService;
 import com.nutshop.common.Slugs;
 import com.nutshop.product.CategoryRepository;
 import com.nutshop.product.CategorySlugHistory;
@@ -19,6 +20,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.Map;
+
 /**
  * The React app's routes, rendered with page-specific meta tags. Only these paths return the app with 200; anything
  * else that is not a static file gets the app's 404 page with status 404 (see NotFoundAdvice). Keep in sync with
@@ -26,6 +29,8 @@ import org.springframework.web.util.UriComponentsBuilder;
  */
 @Controller
 public class PageController {
+
+	static final int BLOG_INDEX_LINKS = 24;
 
 	private final HtmlPages pages;
 	private final PageMetaService meta;
@@ -35,10 +40,12 @@ public class PageController {
 	private final PricingService pricing;
 	private final ProductService productService;
 	private final CategorySlugHistory categorySlugs;
+	private final BlogService blog;
 
 	public PageController(HtmlPages pages, PageMetaService meta, ProductRepository products,
 			ProductImageRepository images, CategoryRepository categories, PricingService pricing,
-			ProductService productService, CategorySlugHistory categorySlugs) {
+			ProductService productService, CategorySlugHistory categorySlugs, BlogService blog) {
+		this.blog = blog;
 		this.productService = productService;
 		this.categorySlugs = categorySlugs;
 		this.pages = pages;
@@ -106,6 +113,37 @@ public class PageController {
 					.build()
 					.toUriString())
 				.<String>build())
+			.orElseGet(() -> pages.notFound(request.getRequestURI()));
+	}
+
+	/** Newest posts as plain links inside #root, so crawlers without JavaScript can follow them. */
+	@GetMapping("/blog")
+	@Transactional(readOnly = true)
+	public ResponseEntity<String> blog() {
+		return pages.render(meta.blogIndex(), HttpStatus.OK, BlogHtml.index(blog.latest(BLOG_INDEX_LINKS)), null);
+	}
+
+	/**
+	 * A published post: its text inside #root (readable without JavaScript) and the API's answer as initial data,
+	 * so the app shows it without a second request. Old slug → 301; drafts and unknown slugs → real 404.
+	 */
+	@GetMapping("/blog/{slug}")
+	@Transactional(readOnly = true)
+	public ResponseEntity<String> blogPost(@PathVariable String slug, HttpServletRequest request) {
+		var current = blog.publishedBySlug(slug);
+		if (current.isEmpty()) {
+			var moved = blog.publishedByOldSlug(slug);
+			if (moved.isPresent()) {
+				String target = UriComponentsBuilder.fromPath("/blog/" + moved.get().getSlug())
+					.query(request.getQueryString())
+					.build()
+					.toUriString();
+				return ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY).header(HttpHeaders.LOCATION, target).build();
+			}
+		}
+		return current.map(blog::detail)
+			.map(post -> pages.render(meta.blogPost(post), HttpStatus.OK, BlogHtml.post(post),
+					Map.of("type", "blogPost", "slug", post.slug(), "data", post)))
 			.orElseGet(() -> pages.notFound(request.getRequestURI()));
 	}
 

@@ -31,6 +31,12 @@ export function formatAdminDateTime(iso: string | Date): string {
   return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`
 }
 
+/** Vietnam date only: "14/10/2026" (blog posts). */
+export function formatDate(iso: string | Date): string {
+  const p = vnParts(iso)
+  return `${p.day}/${p.month}/${p.year}`
+}
+
 /** Compact form for narrow tables: "14/10 01:26". */
 export function formatShortDateTime(iso: string | Date): string {
   const p = vnParts(iso)

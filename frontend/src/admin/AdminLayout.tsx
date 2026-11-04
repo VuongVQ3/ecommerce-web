@@ -6,6 +6,7 @@ import {
   History,
   LayoutDashboard,
   Menu,
+  Newspaper,
   Package,
   Receipt,
   Users,
@@ -32,6 +33,7 @@ const NAV: { to: string; label: string; icon: LucideIcon; roles: Role[]; end?: b
   { to: '/admin/san-pham', label: 'Sản phẩm', icon: Package, roles: ['ADMIN'] },
   { to: '/admin/danh-muc', label: 'Danh mục', icon: FolderTree, roles: ['ADMIN'] },
   { to: '/admin/khuyen-mai', label: 'Khuyến mại', icon: BadgePercent, roles: ['ADMIN'] },
+  { to: '/admin/blog', label: 'Blog', icon: Newspaper, roles: ['ADMIN'] },
   { to: '/admin/nguoi-dung', label: 'Người dùng', icon: Users, roles: ['ADMIN'] },
   { to: '/admin/nhat-ky', label: 'Nhật ký', icon: History, roles: ['ADMIN'] },
 ]

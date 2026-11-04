@@ -100,6 +100,22 @@ public class ProductService {
 			.from(result.map(p -> ProductSummary.from(p, cartProps.maxQtyPerItem(), prices.get(p.getId()))));
 	}
 
+	/** The products on sale among {@code ids}, in the order given (related products of a blog post). */
+	public List<ProductSummary> onSaleSummaries(List<Long> ids) {
+		if (ids.isEmpty()) {
+			return List.of();
+		}
+		var byId = products.findByIdIn(ids)
+			.stream()
+			.filter(p -> p.isActive() && p.getPrice() != null && p.getPrice() > 0)
+			.collect(java.util.stream.Collectors.toMap(Product::getId, p -> p));
+		var prices = pricing.pricesOf(byId.values());
+		return ids.stream()
+			.filter(byId::containsKey)
+			.map(id -> ProductSummary.from(byId.get(id), cartProps.maxQtyPerItem(), prices.get(id)))
+			.toList();
+	}
+
 	/** Hidden products are not found on the storefront (orders and carts keep their own snapshot). */
 	public ProductDetail getBySlug(String slug) {
 		Optional<Product> current = products.findBySlug(slug);

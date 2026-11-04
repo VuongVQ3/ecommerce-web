@@ -36,6 +36,89 @@ body {
   @apply bg-cream font-sans text-stone-800 antialiased;
 }
 
+/*
+ * Blog post text (HTML from the server's Markdown renderer, BlogMarkdown.java): about 70 characters a line, headings,
+ * lists, quotes, tables, figures. Also used by the editor's preview so it looks like the live page.
+ */
+.prose-blog {
+  @apply max-w-[70ch] text-[1.0625rem] leading-[1.75] text-stone-800;
+  overflow-wrap: break-word;
+}
+.prose-blog > * + * { @apply mt-5; }
+.prose-blog h2 { @apply mt-10 text-2xl leading-snug font-bold text-stone-900; }
+.prose-blog h3 { @apply mt-8 text-xl leading-snug font-bold text-stone-900; }
+.prose-blog h4, .prose-blog h5, .prose-blog h6 { @apply mt-6 font-bold text-stone-900; }
+.prose-blog a { @apply font-medium text-brand-700 underline decoration-brand-200 underline-offset-2 hover:decoration-brand-700; }
+.prose-blog strong { @apply font-semibold text-stone-900; }
+.prose-blog ul { @apply list-disc space-y-1.5 pl-6; }
+.prose-blog ol { @apply list-decimal space-y-1.5 pl-6; }
+.prose-blog li > ul, .prose-blog li > ol { @apply mt-1.5; }
+.prose-blog li::marker { @apply text-brand-600; }
+.prose-blog blockquote { @apply border-l-4 border-brand-200 bg-brand-50/60 py-2 pr-4 pl-4 text-stone-700 italic; }
+.prose-blog hr { @apply my-10 border-stone-200; }
+.prose-blog code { @apply rounded bg-stone-100 px-1.5 py-0.5 text-[0.9em]; }
+.prose-blog pre { @apply overflow-x-auto rounded-xl bg-stone-100 p-4 text-sm; }
+.prose-blog pre code { @apply bg-transparent p-0; }
+.prose-blog img { @apply h-auto w-full rounded-2xl bg-nut-light; }
+.prose-blog figure { @apply my-8; }
+.prose-blog figcaption { @apply mt-2 text-center text-sm text-muted; }
+/* Wide tables scroll sideways instead of widening the page */
+.prose-blog table { @apply block w-full overflow-x-auto border-collapse text-sm; }
+.prose-blog th, .prose-blog td { @apply border border-stone-200 px-3 py-2 text-left align-top; }
+.prose-blog th { @apply bg-stone-50 font-semibold text-stone-900; }
+
+/*
+ * Server-rendered blog (backend site/BlogHtml.java) inside #root, shown before the app starts and to visitors and
+ * crawlers without JavaScript. Plain CSS on purpose: Tailwind only generates the classes it finds in these sources,
+ * and the Docker build of the frontend has no backend folder to scan. Kept close to BlogPostPage / BlogListPage.
+ */
+.ssr-blog {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 2.5rem 1rem;
+}
+.ssr-blog-list { max-width: 72rem; }
+.ssr-blog > nav:first-child { font-size: 0.875rem; color: var(--color-muted); }
+.ssr-blog a { color: var(--color-brand-700); text-underline-offset: 2px; }
+.ssr-blog h1 {
+  margin-top: 1rem;
+  font-size: 1.875rem;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #1c1917;
+}
+@media (min-width: 48rem) {
+  .ssr-blog h1 { font-size: 2.25rem; }
+}
+.ssr-blog-meta { margin-top: 0.75rem; font-size: 0.875rem; color: var(--color-muted); }
+.ssr-blog img { max-width: 100%; height: auto; }
+.ssr-blog-cover {
+  display: block;
+  width: 100%;
+  margin-top: 1.5rem;
+  aspect-ratio: 40 / 21;
+  object-fit: cover;
+  border-radius: 1rem;
+  background: var(--color-nut-light);
+}
+.ssr-blog .prose-blog { margin-top: 2rem; }
+.ssr-blog-note {
+  max-width: 70ch;
+  margin-top: 2.5rem;
+  padding: 1.25rem;
+  border: 1px solid #fde68a;
+  border-radius: 1rem;
+  background: #fffbeb;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.ssr-blog-more h2 { margin-top: 3rem; font-size: 1.25rem; font-weight: 700; color: #1c1917; }
+.ssr-blog-more ul,
+.ssr-blog-list ul { display: grid; gap: 1rem; margin-top: 1.25rem; }
+.ssr-blog-more a,
+.ssr-blog-list li > a { font-size: 1.125rem; font-weight: 600; }
+.ssr-blog-list li > p { margin-top: 0.25rem; color: #57534e; }
+
 /* ---------- Landing page motion (all disabled under prefers-reduced-motion, see the end) ---------- */
 
 @keyframes blob {

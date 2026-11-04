@@ -9,7 +9,7 @@ import java.net.URI;
 import java.util.Map;
 
 /**
- * Product images on Cloudinary through the official SDK (it signs the requests and reads Cloudinary's error
+ * Product and blog images on Cloudinary through the official SDK (it signs the requests and reads Cloudinary's error
  * messages, which the old hand-made client lost on a 401). Configured from
  * CLOUDINARY_URL = cloudinary://API_KEY:API_SECRET@CLOUD_NAME; the key and secret never leave the server and are
  * never logged.
@@ -17,8 +17,6 @@ import java.util.Map;
 public class CloudinaryImageStorage implements ImageStorage {
 
 	private static final Logger log = LoggerFactory.getLogger(CloudinaryImageStorage.class);
-
-	static final String FOLDER = "hat-lanh/products";
 
 	private final Cloudinary cloudinary;
 
@@ -72,12 +70,12 @@ public class CloudinaryImageStorage implements ImageStorage {
 	}
 
 	@Override
-	public StoredImage upload(byte[] bytes, ImageTypes.ImageType type) {
+	public StoredImage upload(byte[] bytes, ImageTypes.ImageType type, String folder) {
 		Map<?, ?> result;
 		try {
 			// return_error: an error comes back as {error: {http_code, message}} instead of a bare exception
 			result = cloudinary.uploader()
-				.upload(bytes, ObjectUtils.asMap("folder", FOLDER, "resource_type", "image", "return_error", true));
+				.upload(bytes, ObjectUtils.asMap("folder", folder, "resource_type", "image", "return_error", true));
 		}
 		catch (Exception ex) {
 			log.error("Cloudinary upload failed: {}: {}", ex.getClass().getSimpleName(), masked(ex.getMessage()));
