@@ -42,6 +42,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
 	@EntityGraph(attributePaths = "items")
 	Optional<Order> findByIdempotencyKey(String idempotencyKey);
 
+	/** The order with its lines in one query (the shop's Telegram alerts list them). */
+	@EntityGraph(attributePaths = "items")
+	Optional<Order> findWithItemsById(UUID id);
+
 	@EntityGraph(attributePaths = "items")
 	Optional<Order> findByCode(String code);
 

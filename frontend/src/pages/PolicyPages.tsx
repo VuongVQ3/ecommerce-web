@@ -453,7 +453,7 @@ export function TermsPage() {
             <li>Lưu trữ máy chủ và cơ sở dữ liệu: Render, Neon (máy chủ tại Singapore).</li>
             <li>Lưu trữ ảnh sản phẩm: Cloudinary.</li>
             <li>Gửi email: Resend. Chống bot ở form đăng ký: Cloudflare Turnstile. Đăng nhập Google: Google.</li>
-            {/* Not listed: Telegram order alerts carry only the order code, the total and the admin link
+            {/* Not listed: Telegram order alerts carry only the order code, the products and quantities, the total and the admin link
                 (notify/OrderTelegramAlerts). List it again if customer details are ever sent there. */}
             <li>
               Đơn vị vận chuyển (Giao Hàng Tiết Kiệm, Viettel Post, Giao Hàng Nhanh, Grab, XanhSM, Ahamove...) nhận tên, số điện thoại,

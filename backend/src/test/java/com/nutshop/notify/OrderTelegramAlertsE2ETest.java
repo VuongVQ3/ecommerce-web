@@ -81,14 +81,17 @@ class OrderTelegramAlertsE2ETest {
 	@Test
 	void newOrderThenCustomerCancelAlertTheShop() throws Exception {
 		StringBuilder items = new StringBuilder();
+		StringBuilder lines = new StringBuilder();
 		for (int i = 1; i <= 7; i++) {
 			// The name needs escaping in Telegram HTML
 			long id = product("Hạt <số " + i + "> & mix", 100_000);
 			items.append(i > 1 ? "," : "").append("{\"productId\":").append(id).append(",\"quantity\":").append(i).append('}');
+			lines.append("• Hạt &lt;số ").append(i).append("&gt; &amp; mix × ").append(i).append('\n');
 		}
 		String body = mvc.perform(json(post("/api/orders"), """
 				{"acceptPrivacy":true,"idempotencyKey":"tg-%s","customerName":"Nguyễn Khách","phone":"0912345678",
-				 "provinceCode":1,"wardCode":4,"addressLine":"12 Phố Test","items":[%s]}"""
+				 "email":"khach.tg@example.com","provinceCode":1,"wardCode":4,"addressLine":"12 Phố Test",
+				 "note":"Gọi trước khi giao","items":[%s]}"""
 			.formatted(UUID.randomUUID(), items))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
 		String code = field(body, "code");
 		String token = field(body, "accessToken");
@@ -99,18 +102,21 @@ class OrderTelegramAlertsE2ETest {
 		// 1..7 × 100.000₫, shipping free
 		long total = jdbc.queryForObject("SELECT total FROM orders WHERE code = ?", Long.class, code);
 		assertThat(total).isEqualTo(2_800_000);
-		// Only the code and the total: no name, phone, address or products (privacy policy B.5)
-		assertThat(placed).isEqualTo("🛒 <b>Đơn mới #" + code + "</b>\n💰 <b>" + OrderTelegramAlerts.price(total)
-				+ "</b>\n🔗 http://localhost:8080/admin/don-hang/" + code);
-		assertThat(placed).doesNotContain("Nguyễn", "0912345678", "Phố Test", "Hạt");
+		// Code, products (escaped, in the admin page's order), packs, total, link; nothing about the customer (B.5)
+		assertThat(placed).isEqualTo("🛒 <b>Đơn mới #" + code + "</b>\n" + lines + "📦 28 gói\n💰 <b>"
+				+ OrderTelegramAlerts.price(total) + "</b>\n🔗 http://localhost:8080/admin/don-hang/" + code);
+		assertThat(placed).doesNotContain("Nguyễn", "0912345678", "khach.tg@example.com", "Phố Test", "Gọi trước");
 		assertThat(OrderTelegramAlerts.price(2_800_000)).isEqualTo("2.800.000₫");
 
 		mvc.perform(json(post("/api/orders/track/" + code + "/cancel").param("t", token),
 				"{\"reasonCode\":\"OTHER\",\"reason\":\"Đặt <nhầm>\"}")).andExpect(status().isOk());
 		verify(telegram, timeout(5000).times(2)).send(sent.capture());
 		// The customer's own note stays out (it may hold personal details)
-		assertThat(sent.getValue()).isEqualTo("❌ <b>Khách huỷ đơn #" + code + "</b> – lý do: Lý do khác\n💰 "
-				+ OrderTelegramAlerts.price(total) + "\n🔗 http://localhost:8080/admin/don-hang/" + code);
+		String cancelled = sent.getValue();
+		assertThat(cancelled).isEqualTo("❌ <b>Khách huỷ đơn #" + code + "</b> – lý do: Lý do khác\n" + lines
+				+ "📦 28 gói\n💰 " + OrderTelegramAlerts.price(total) + "\n🔗 http://localhost:8080/admin/don-hang/" + code);
+		assertThat(cancelled).doesNotContain("nhầm", "Nguyễn", "0912345678", "khach.tg@example.com", "Phố Test",
+				"Gọi trước");
 	}
 
 	@Test
