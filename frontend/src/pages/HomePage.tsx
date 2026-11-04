@@ -11,6 +11,7 @@ import { api } from '../lib/api'
 import { categoryEmoji } from '../lib/categoryStyle'
 import { useInView } from '../lib/motion'
 import { MIN_PRODUCTS_WITH_NUTRITION, withNutrition } from '../lib/nutrition'
+import { SHIPPING_PROMISE } from '../lib/siteInfo'
 import { useAsync } from '../lib/useAsync'
 
 const HEADLINE = ['Hạt', 'dinh', 'dưỡng', '&', 'đặc', 'sản', 'chọn', 'lọc']
@@ -108,7 +109,7 @@ function Hero({ productCount }: { productCount?: number }) {
           </div>
           {productCount !== undefined && (
             <p className="word-in mt-6 text-sm text-muted" style={{ animationDelay: '1150ms' }}>
-              {productCount} sản phẩm · Miễn phí giao hàng cho đơn từ 500.000₫
+              {productCount} sản phẩm · {SHIPPING_PROMISE.short}
             </p>
           )}
         </div>
@@ -143,19 +144,25 @@ function Hero({ productCount }: { productCount?: number }) {
 }
 
 function Stats({ products, categories }: { products: number; categories: number }) {
-  const items = [
-    { value: products, suffix: '', label: 'sản phẩm' },
-    { value: categories, suffix: '', label: 'nhóm sản phẩm' },
-    { value: 500, suffix: 'K', label: 'đơn từ mức này được miễn phí ship' },
+  // A number counts up when it comes into view; a word (Freeship) is shown as it is
+  const items: { value: number | string; suffix?: string; label: string }[] = [
+    { value: products, label: 'sản phẩm' },
+    { value: categories, label: 'nhóm sản phẩm' },
+    SHIPPING_PROMISE.stat,
     { value: 7, suffix: ' ngày', label: 'đổi trả dễ dàng' },
   ]
+  const valueClass = 'block text-[clamp(1.5rem,7vw,1.875rem)] font-extrabold whitespace-nowrap text-brand-700 md:text-4xl'
   return (
     <section className="mx-auto max-w-6xl px-4">
       {/* Phones: room on the right for the floating buttons in the corner */}
       <div className="grid grid-cols-2 gap-4 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm max-sm:pr-14 md:grid-cols-4 md:p-8">
         {items.map((s, i) => (
           <Reveal key={s.label} delay={i * 100} className="text-center">
-            <CountUp value={s.value} suffix={s.suffix} className="block text-[clamp(1.5rem,7vw,1.875rem)] font-extrabold whitespace-nowrap text-brand-700 md:text-4xl" />
+            {typeof s.value === 'number' ? (
+              <CountUp value={s.value} suffix={s.suffix} className={valueClass} />
+            ) : (
+              <span className={valueClass}>{s.value}</span>
+            )}
             <p className="mt-1 line-clamp-2 text-sm text-muted">{s.label}</p>
           </Reveal>
         ))}
@@ -343,7 +350,7 @@ export default function HomePage() {
             </span>
             <h2 className="relative text-3xl font-extrabold md:text-4xl">Đặt hàng ngay hôm nay</h2>
             <p className="relative mx-auto mt-3 max-w-xl text-brand-50">
-              Miễn phí giao hàng cho đơn từ 500.000₫. Đóng gói 500 g, giao tận nơi.
+              {SHIPPING_PROMISE.cta}
             </p>
             <Link
               to="/san-pham"

@@ -72,6 +72,7 @@ const EMPTY_VIEW: CartView = {
   freeShippingThreshold: 0,
   total: 0,
   canCheckout: false,
+  freeShippingForAll: false,
 }
 
 interface CartContextValue {

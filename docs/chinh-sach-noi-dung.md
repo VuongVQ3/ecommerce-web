@@ -1,7 +1,7 @@
 # Nội dung chính sách Hạt Lành (nguồn để đưa lên web)
 
 Nguồn: Google Docs "HẠT LÀNH - CHÍNH SÁCH" + phần Chính sách bảo mật / Điều khoản sử dụng đang có trên web,
-đã cập nhật theo yêu cầu của chủ shop ngày 2026-11-02 (bản sửa gần nhất: 2026-11-03, xem "Lịch sử sửa đổi" cuối file):
+đã cập nhật theo yêu cầu của chủ shop ngày 2026-11-02 (bản sửa gần nhất: 2026-11-04, xem "Lịch sử sửa đổi" cuối file):
 - Hotline/Zalo: 0898 98 68 21 (thay cho số cũ trong Google Docs)
 - Email: hatlanhstore@gmail.com
 - Fanpage: https://www.facebook.com/profile.php?id=61596137600993
@@ -70,14 +70,14 @@ Hạt Lành (xuất kho từ TP.HCM) hiện cung cấp 2 phương thức giao h�
 
 ### 2. Chi phí vận chuyển (Phí Ship)
 - **Giao Hỏa tốc:** Phí vận chuyển tính theo cước phí thực tế của ứng dụng giao hàng tại thời điểm đặt. Nhân viên Hạt Lành sẽ gọi điện thông báo chính xác cước phí cho quý khách trước khi gửi.
-- **Giao Tiêu chuẩn toàn quốc:** Phí đồng giá 30.000 VNĐ cho mỗi đơn hàng chưa đạt mức miễn phí vận chuyển (xem mục 3), áp dụng như nhau cho mọi địa chỉ nhận hàng. Phí được tính và hiển thị tại bước Thanh toán trước khi quý khách bấm "Đặt hàng".
+- **Giao Tiêu chuẩn toàn quốc:** MIỄN PHÍ cho mọi đơn hàng, không phân biệt giá trị đơn, khối lượng hay địa chỉ nhận hàng. Bước Thanh toán hiển thị "Phí giao hàng: Miễn phí" trước khi quý khách bấm "Đặt hàng".
 
-> **TODO (chủ shop):** website tính phí đúng như trên (cấu hình `cart.shipping-fee` = 30.000 và `cart.free-shipping-threshold` = 500.000, tính trên tổng tiền hàng), KHÔNG xét khối lượng hay địa chỉ. Bản cũ ghi "cho mọi đơn hàng dưới 2kg": đơn từ 2kg trở lên hiện vẫn tính 30.000 VNĐ. Cần quyết định: giữ đồng giá cho mọi khối lượng (giữ nguyên câu trên), hay thu thêm phí cho đơn từ 2kg (phải sửa code, và ghi rõ mức phí ở đây).
+> Website: cấu hình `cart.shipping-fee` = 0 (từ 11/2026, xem `docs/cart.md`). Bật lại phí bằng biến môi trường `CART_SHIPPING_FEE` / `CART_FREE_SHIPPING_THRESHOLD`, và khi đó phải viết lại mục 2–3 này cùng trang `/chinh-sach-van-chuyen`.
 
 ### 3. Chính sách Miễn phí vận chuyển (Freeship)
-Để tri ân khách hàng, Hạt Lành áp dụng chính sách Freeship như sau:
-- Miễn phí vận chuyển tiêu chuẩn cho mọi đơn hàng có tổng giá trị thanh toán từ 500.000 VNĐ trở lên.
-- Hỗ trợ tối đa 30.000 VNĐ phí ship hỏa tốc cho đơn hàng nội thành từ 500.000 VNĐ.
+Hạt Lành miễn phí giao hàng tiêu chuẩn toàn quốc cho mọi đơn hàng, không cần đạt giá trị tối thiểu. Quý khách chỉ thanh toán đúng số tiền hiển thị ở bước Thanh toán, không trả thêm phí giao hàng khi nhận hàng.
+
+Giao hỏa tốc nội thành TP.HCM không nằm trong chương trình này: phí tính theo cước thực tế như mục 2, nhân viên Hạt Lành gọi báo phí trước khi gửi.
 
 ### 4. Tiêu chuẩn đóng gói an toàn thực phẩm
 Mọi đơn hàng tại Hạt Lành (từ hạt nguyên, nhân mắc ca, ngũ cốc đến bánh thuyền) trước khi giao cho đơn vị vận chuyển đều được:
@@ -205,7 +205,9 @@ Bạn có các quyền sau đối với dữ liệu cá nhân của mình:
 ---
 
 ## Lịch sử sửa đổi
-Mỗi lần sửa: đổi `PolicyVersion.CURRENT` (backend/src/main/java/com/nutshop/site/PolicyVersion.java). Đây là nguồn duy nhất: phiên bản lưu kèm sự đồng ý của khách, và ngày "Cập nhật lần cuối" hiển thị trên các trang chính sách (qua /api/site).
+Mỗi lần sửa: đổi ngày "Cập nhật lần cuối" của trang đó (`UPDATED` trong frontend/src/lib/policyDates.ts). Chỉ khi khách phải đồng ý lại (Chính sách bảo mật, phần B của Điều khoản) mới đổi thêm `PolicyVersion.CURRENT` (backend/src/main/java/com/nutshop/site/PolicyVersion.java): đó là phiên bản lưu kèm sự đồng ý, tài khoản đã đồng ý bản cũ sẽ được hỏi lại khi đặt hàng.
+
+- **2026-11-04 (vận chuyển):** Miễn phí giao hàng tiêu chuẩn toàn quốc cho mọi đơn: mục 2–3 viết lại, bỏ ngưỡng 500.000 VNĐ, phí 30.000 VNĐ và "hỗ trợ tối đa 30.000 VNĐ" phí hỏa tốc. Chỉ đổi ngày của trang này; `PolicyVersion.CURRENT` giữ 2026-11-03 (có lợi cho khách, không cần xin đồng ý lại).
 
 - **2026-11-03 (vận chuyển, đổi trả):** Vận chuyển mục 2 bỏ phương án "Hoặc", mô tả đúng cách website tính phí; đổi trả mục 4 tách thời hạn 72 giờ (vận chuyển, sai, thiếu) và lỗi chất lượng (đến hết hạn sử dụng).
 - **2026-11-03 (phần B):** Thêm quyền hạn chế xử lý, phản đối, khiếu nại và thời hạn phản hồi; thời hạn lưu trữ cụ thể (đề xuất, chờ chủ shop chốt); thông báo Telegram không còn chứa thông tin khách nên bỏ Telegram khỏi B.5.

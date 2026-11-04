@@ -97,12 +97,21 @@ describe('TrackOrderPage', () => {
     expect(screen.getByText('Hạt chia Úc')).toBeTruthy()
     expect(screen.getByText('12 Phố Test, Phường Ba Đình, Thành phố Hà Nội')).toBeTruthy()
     expect(screen.getByText(/09\*\*\*\*\*\*78/)).toBeTruthy()
+    // An order placed before free shipping keeps the fee it paid
+    expect(screen.getByText('Phí giao hàng').parentElement!.textContent).toBe('Phí giao hàng30.000₫')
     expect(screen.getByRole('list', { name: 'Tiến trình đơn hàng' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Sao chép link theo dõi' })).toBeTruthy()
     // Not cancellable once confirmed
     expect(screen.queryByRole('button', { name: 'Huỷ đơn hàng' })).toBeNull()
     // Remembered in this browser: code + token only
     expect(readRecentOrders()).toMatchObject([{ code: CODE, token: TOKEN }])
+  })
+
+  it('shows "Miễn phí" for an order without shipping fee', async () => {
+    vi.spyOn(api, 'trackOrder').mockResolvedValue({ ...tracked, shippingFee: 0, total: 258_000 })
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: CODE })
+    expect(screen.getByText('Phí giao hàng').parentElement!.textContent).toBe('Phí giao hàngMiễn phí')
   })
 
   it('shows the success banner only right after checkout', async () => {

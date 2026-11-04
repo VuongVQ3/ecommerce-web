@@ -24,6 +24,7 @@ const line = (id: number, name: string, extra: Partial<CartLine> = {}): CartLine
   ...extra,
 })
 
+/** A shipping fee below a threshold: the rule before 11/2026, still supported by the server settings */
 const view = (items: CartLine[]): CartView => ({
   items,
   totalQuantity: items.reduce((s, l) => s + l.quantity, 0),
@@ -34,6 +35,17 @@ const view = (items: CartLine[]): CartView => ({
   freeShippingThreshold: 500_000,
   total: 219_000,
   canCheckout: true,
+  freeShippingForAll: false,
+})
+
+/** Free standard shipping on every order (the current setting) */
+const freeView = (items: CartLine[]): CartView => ({
+  ...view(items),
+  shippingFee: 0,
+  amountToFreeShipping: 0,
+  freeShippingThreshold: 0,
+  total: 189_000,
+  freeShippingForAll: true,
 })
 
 const cart = vi.hoisted(() => ({ current: {} as Record<string, unknown> }))
@@ -116,6 +128,24 @@ describe('QuickCart', () => {
     expect(within(region).getByText('và 1 sản phẩm khác')).toBeTruthy()
     expect(within(region).getByText(/311\.000₫/)).toBeTruthy()
     expect(within(region).getByRole('link', { name: 'Thanh toán' }).getAttribute('href')).toBe('/thanh-toan')
+  })
+
+  it('with free shipping for every order, says so instead of a progress towards a threshold', () => {
+    cart.current = { ...cart.current, view: freeView((cart.current.view as CartView).items) }
+    const { container } = renderCart()
+    fireEvent.click(screen.getByRole('button', { name: 'Xem nhanh giỏ hàng' }))
+    const region = panel()
+    expect(within(region).getByText('Miễn phí giao hàng toàn quốc')).toBeTruthy()
+    expect(region.textContent).not.toMatch(/Mua thêm/)
+    expect(container.querySelector('.bg-brand-500[style*="width"]')).toBeNull()
+  })
+
+  it('with a threshold, keeps the "Mua thêm" line and its progress bar', () => {
+    const { container } = renderCart()
+    fireEvent.click(screen.getByRole('button', { name: 'Xem nhanh giỏ hàng' }))
+    expect(panel().textContent).toMatch(/Mua thêm 311\.000₫ để được miễn\s*phí giao hàng/)
+    expect(container.querySelector('.bg-brand-500[style*="width"]')).toBeTruthy()
+    expect(within(panel()).queryByText('Miễn phí giao hàng toàn quốc')).toBeNull()
   })
 
   it('opens and closes from the keyboard, Esc returns focus to the toggle', () => {

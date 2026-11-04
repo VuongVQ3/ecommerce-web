@@ -5,6 +5,7 @@ import { useToast } from '../components/Toast'
 import type { CartLine, CartView } from '../lib/api'
 import { PriceTag } from '../components/Price'
 import { formatPrice } from '../lib/format'
+import { SHIPPING_PROMISE } from '../lib/siteInfo'
 import { useCart } from './CartContext'
 import QuantityStepper from './QuantityStepper'
 
@@ -162,10 +163,17 @@ export function CartSummary({ view, onCheckout }: { view: CartView; onCheckout: 
         <span className="text-stone-600">Phí giao hàng</span>
         <span className="font-semibold tabular-nums">{view.shippingFee === 0 ? 'Miễn phí' : formatPrice(view.shippingFee)}</span>
       </div>
-      {view.amountToFreeShipping > 0 && (
-        <p className="rounded-xl bg-brand-50 px-3 py-2 text-brand-800">
-          Mua thêm <strong className="tabular-nums">{formatPrice(view.amountToFreeShipping)}</strong> để được miễn phí giao hàng
+      {view.freeShippingForAll ? (
+        <p className="text-xs text-stone-600">
+          <span aria-hidden>🚚 </span>
+          {SHIPPING_PROMISE.short}
         </p>
+      ) : (
+        view.amountToFreeShipping > 0 && (
+          <p className="rounded-xl bg-brand-50 px-3 py-2 text-brand-800">
+            Mua thêm <strong className="tabular-nums">{formatPrice(view.amountToFreeShipping)}</strong> để được miễn phí giao hàng
+          </p>
+        )
       )}
       <div className="flex justify-between border-t border-stone-100 pt-3 text-base">
         <span className="font-semibold">Tổng cộng</span>

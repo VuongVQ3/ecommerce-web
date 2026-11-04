@@ -199,6 +199,10 @@ ngược lại là giới hạn mỗi sản phẩm trong giỏ (10); giỏ hàng
 Đơn hôm nay (giờ VN), số đơn chờ xác nhận, doanh thu 7 ngày (chỉ đơn **COMPLETED**, tính theo ngày hoàn tất), biểu
 đồ theo ngày và tối đa 10 sản phẩm sắp hết.
 
+"Giá trị đơn" và "doanh thu" tính theo `orders.total` (tiền hàng + phí ship đã thu). Đơn đặt trước khi freeship
+(11/2026) có phí ship trong `total` (thường 30.000₫), đơn sau đó thì không: so doanh thu hai giai đoạn nên nhớ khoản
+chênh này. Chi tiết đơn cũ vẫn hiện "Phí giao hàng: 30.000₫", đơn mới hiện "Miễn phí".
+
 ## Giao diện trên điện thoại / tablet
 
 - < 768px: danh sách đơn, sản phẩm, tồn kho, người dùng hiển thị dạng **thẻ** (bấm cả thẻ để mở); thao tác của từng

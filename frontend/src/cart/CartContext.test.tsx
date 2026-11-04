@@ -44,6 +44,7 @@ function viewOf(items: CartLineInput[]): CartView {
     freeShippingThreshold: 500_000,
     total: subtotal,
     canCheckout: lines.length > 0,
+    freeShippingForAll: true,
   }
 }
 

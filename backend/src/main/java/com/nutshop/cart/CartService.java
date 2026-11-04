@@ -170,11 +170,12 @@ public class CartService {
 			.sum();
 		int totalQuantity = lines.stream().mapToInt(CartLine::requestedQuantity).sum();
 		long shippingFee = props.shippingFeeFor(subtotal);
-		long amountToFree = shippingFee == 0 ? 0 : props.freeShippingThreshold() - subtotal;
+		long amountToFree = props.amountToFreeShipping(subtotal);
 		boolean blocked = lines.stream()
 			.anyMatch(l -> l.status() == LineStatus.OUT_OF_STOCK || l.status() == LineStatus.UNAVAILABLE);
 		return new CartView(lines, totalQuantity, subtotal, discount, shippingFee, amountToFree,
-				props.freeShippingThreshold(), subtotal + shippingFee, !lines.isEmpty() && !blocked);
+				props.freeShippingThreshold(), subtotal + shippingFee, !lines.isEmpty() && !blocked,
+				props.freeShippingForAll());
 	}
 
 	/** {@code price} comes from PricingService: a promotion starting or ending counts as a price change. */

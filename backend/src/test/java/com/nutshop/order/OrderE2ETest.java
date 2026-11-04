@@ -47,7 +47,8 @@ class OrderE2ETest {
 	/** Thành phố Hà Nội → Phường Ba Đình (vn-admin-units.json). */
 	private static final int HANOI = 1;
 	private static final int BA_DINH = 4;
-	private static final long FEE = 30_000;
+	/** Free standard shipping on every order since 11/2026 (cart.shipping-fee=0) */
+	private static final long FEE = 0;
 
 	@Autowired
 	MockMvc mvc;
@@ -164,6 +165,10 @@ class OrderE2ETest {
 		assertThat(reserved(id)).isEqualTo(2);
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM orders o JOIN order_items i ON i.order_id = o.id "
 				+ "WHERE i.product_id = ? AND o.user_id IS NULL", Integer.class, id)).isEqualTo(1);
+		// Stored as such: no fee, the total is the goods
+		assertThat(jdbc.queryForObject("SELECT o.shipping_fee || ' ' || o.subtotal || ' ' || o.total FROM orders o "
+				+ "JOIN order_items i ON i.order_id = o.id WHERE i.product_id = ?", String.class, id))
+			.isEqualTo("0 240000 240000");
 		assertThat(jdbc.queryForList("SELECT type || ':' || quantity FROM inventory_movements WHERE product_id = ?",
 				String.class, id)).containsExactly("ORDER_RESERVE:2");
 	}
@@ -443,7 +448,8 @@ class OrderE2ETest {
 		assertThat(mail).isNotNull();
 		assertThat(mail.to()).isEqualTo("khach@example.com");
 		assertThat(mail.subject()).contains(code);
-		assertThat(mail.text()).contains("600.000₫").contains("Phường Ba Đình");
+		assertThat(mail.text()).contains("600.000₫").contains("Phường Ba Đình").contains("Phí giao hàng: Miễn phí");
+		assertThat(mail.html()).contains("Miễn phí").doesNotContain(">0₫<");
 	}
 
 	@Test

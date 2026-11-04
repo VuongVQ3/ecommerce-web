@@ -6,7 +6,10 @@ Backend: `com.nutshop.order`, `com.nutshop.inventory`, `com.nutshop.address`. Fr
 
 1. Khách (đã đăng nhập hoặc chưa) mở `/thanh-toan` từ giỏ hàng. Trang tạo **một `idempotencyKey`** cho mỗi lần vào trang.
 2. Khi gửi `POST /api/orders`, server chạy toàn bộ trong **một transaction**:
-   - **Lấy giá từ bảng `products`**, bỏ qua mọi giá client gửi lên. Phí ship tính bằng `CartProperties.shippingFeeFor()`, dùng chung với giỏ hàng.
+   - **Lấy giá từ bảng `products`**, bỏ qua mọi giá client gửi lên. Phí ship tính bằng `CartProperties.shippingFeeFor()`, dùng chung với giỏ hàng: từ 11/2026 là `0` cho mọi đơn
+     (freeship, xem `docs/cart.md` mục "Phí giao hàng", bật lại bằng `CART_SHIPPING_FEE` / `CART_FREE_SHIPPING_THRESHOLD`).
+     Đơn đặt trước đó giữ nguyên `shipping_fee` đã lưu (có đơn 30.000₫): trang đơn, email và admin hiện số tiền đó; đơn
+     không có phí hiện "Miễn phí".
    - Chuyển mã tỉnh/phường thành tên chuẩn qua `vn-admin-units.json`. Phường không thuộc tỉnh đã chọn thì trả `400 INVALID_ADDRESS`.
    - **Giữ hàng** cho từng sản phẩm theo thứ tự id: `UPDATE products SET reserved = reserved + q WHERE id = ? AND active AND on_hand - reserved >= q`. Chỉ cần một dòng không cập nhật được là **rollback toàn bộ** và trả `409 OUT_OF_STOCK` kèm `items: [{productId, name, requested, available}]`.
    - Ghi `order_items` (bản chụp tên, giá, khối lượng), `order_status_history` (null → PENDING) và `inventory_movements` (`ORDER_RESERVE`).

@@ -35,8 +35,9 @@ export interface SiteInfo {
   /** Absent from servers older than the footer icons */
   social?: SocialLinks
   /**
-   * Version of the policy pages, "2026-11-03" (PolicyVersion.CURRENT, the only place it is set): shown as their "last
-   * updated" date and recorded with every privacy consent. Absent from older servers.
+   * Version of the policies consents are recorded against, "2026-11-03" (PolicyVersion.CURRENT, the only place it is
+   * set): checkout asks an account that agreed to another version again. Not the pages' "Cập nhật lần cuối" date
+   * (UPDATED in lib/policyDates.ts). Absent from older servers.
    */
   policyVersion?: string
 }
@@ -69,6 +70,23 @@ export function useSiteInfo(): SiteInfo | null {
   }, [])
   return info
 }
+
+/**
+ * What the pages promise about shipping: free standard shipping on every order (owner's decision, 11/2026). Static
+ * text, not from the API; the server setting cart.shipping-fee decides what is charged, so change both together (and
+ * the Chính sách vận chuyển page).
+ */
+export const SHIPPING_PROMISE = {
+  /** Under the hero, in the quick cart and the cart page */
+  short: 'Miễn phí giao hàng toàn quốc',
+  /** The statistics tile of the home page */
+  stat: { value: 'Freeship', label: 'mọi đơn hàng toàn quốc' },
+  /** The call to action at the end of the home page */
+  cta: 'Miễn phí giao hàng toàn quốc cho mọi đơn. Đóng gói 500 g, giao tận nơi.',
+  /** Under the checkout total, followed by a link to the shipping policy */
+  checkout:
+    'Miễn phí giao hàng tiêu chuẩn toàn quốc. Giao hỏa tốc nội thành TP.HCM tính theo cước thực tế; nhân viên sẽ gọi báo phí trước khi gửi',
+} as const
 
 /** "0912 345 678" → "tel:0912345678"; keeps a leading +. */
 export const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`

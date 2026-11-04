@@ -56,7 +56,7 @@ class OrderEmails {
 				</table>
 				<p>Giao tới: %s, %s<br>%s</p>
 				%s""".formatted(esc(order.getCustomerName()), esc(order.getCode()), rowsHtml, savingsHtml,
-				money(order.getShippingFee()), money(order.getTotal()), esc(order.getCustomerName()),
+				shipping(order.getShippingFee()), money(order.getTotal()), esc(order.getCustomerName()),
 				esc(order.getPhone()), esc(address), button(order, link)));
 		String text = """
 				Xin chào %s,
@@ -71,7 +71,7 @@ class OrderEmails {
 				%s
 
 				%s""".formatted(order.getCustomerName(), order.getCode(), rowsText, savingsText,
-				money(order.getShippingFee()),
+				shipping(order.getShippingFee()),
 				money(order.getTotal()), order.getCustomerName(), order.getPhone(), address, linkText(order, link));
 		return new EmailMessage(order.getEmail(), "Xác nhận đơn hàng " + order.getCode() + " - Hạt Lành", html, text);
 	}
@@ -160,6 +160,11 @@ class OrderEmails {
 
 	private static String address(Order order) {
 		return "%s, %s, %s".formatted(order.getAddressLine(), order.getWard(), order.getProvince());
+	}
+
+	/** "Miễn phí" when there is none; an older order keeps showing what it paid */
+	private static String shipping(long fee) {
+		return fee == 0 ? "Miễn phí" : money(fee);
 	}
 
 	private static String money(long amount) {

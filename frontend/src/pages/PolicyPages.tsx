@@ -1,24 +1,39 @@
 import { useEffect, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router'
 import { SHOP } from '../lib/shopContact'
-import { formatPolicyVersion, useSiteInfo } from '../lib/siteInfo'
+import { UPDATED } from '../lib/policyDates'
+import { formatPolicyVersion } from '../lib/siteInfo'
 import { BRAND, usePageMeta } from '../lib/usePageMeta'
 
 /**
  * Policy pages, word for word from docs/chinh-sach-noi-dung.md (first agreed with the shop owner on 02/11/2026; its
- * "Lịch sử sửa đổi" lists later changes). Change the wording there first, then here, then bump PolicyVersion.CURRENT
- * (backend): the "Cập nhật lần cuối" date comes from it through /api/site.
+ * "Lịch sử sửa đổi" lists later changes). Change the wording there first, then here, then move that page's date in
+ * UPDATED (lib/policyDates.ts). Bump PolicyVersion.CURRENT (backend) as well only when customers must agree again
+ * (the privacy policy, part B of the terms): it is the version consents are recorded against, and an account that
+ * agreed to an older one is asked again at checkout.
  */
 
 const linkClass = 'font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800'
 
-function PolicyPage({ title, description, children, contactLink = true }: { title: string; description: string; children: ReactNode; contactLink?: boolean }) {
+function PolicyPage({
+  title,
+  description,
+  updatedAt,
+  children,
+  contactLink = true,
+}: {
+  title: string
+  description: string
+  /** ISO date, from UPDATED */
+  updatedAt: string
+  children: ReactNode
+  contactLink?: boolean
+}) {
   usePageMeta(`${title} | ${BRAND}`, description)
-  const updated = formatPolicyVersion(useSiteInfo()?.policyVersion)
+  const updated = formatPolicyVersion(updatedAt)
   return (
     <article className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-3xl font-bold text-stone-900">{title}</h1>
-      {/* Same version as the consents being recorded; the line keeps its height until the date arrives */}
       <p className="mt-2 min-h-5 text-sm text-muted">{updated && `Cập nhật lần cuối: ${updated}`}</p>
       <div className="mt-8 space-y-8 leading-relaxed text-stone-700 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-stone-900 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-stone-900 [&_li]:pl-1 [&_p]:mt-2 [&_strong]:font-semibold [&_strong]:text-stone-900 [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5">
         {children}
@@ -75,7 +90,7 @@ function To({ to, children }: { to: string; children: ReactNode }) {
 
 export function ReturnPolicyPage() {
   return (
-    <PolicyPage title="Chính sách đổi trả và Đồng kiểm" description={`Đồng kiểm khi nhận hàng, điều kiện, thời hạn và cách đổi trả sản phẩm tại ${BRAND}.`}>
+    <PolicyPage title="Chính sách đổi trả và Đồng kiểm" updatedAt={UPDATED.returns} description={`Đồng kiểm khi nhận hàng, điều kiện, thời hạn và cách đổi trả sản phẩm tại ${BRAND}.`}>
       <section>
         <h2>1. Chính sách Đồng kiểm</h2>
         <p>Nhằm đảm bảo quyền lợi, Hạt Lành khuyến khích khách hàng đồng kiểm cùng nhân viên giao hàng ngay tại thời điểm nhận.</p>
@@ -164,7 +179,7 @@ export function ReturnPolicyPage() {
 
 export function ShippingPolicyPage() {
   return (
-    <PolicyPage title="Chính sách vận chuyển và Giao nhận" description={`Phương thức, thời gian, phí giao hàng và chính sách freeship của ${BRAND}.`}>
+    <PolicyPage title="Chính sách vận chuyển và Giao nhận" updatedAt={UPDATED.shipping} description={`Phương thức, thời gian, phí giao hàng và chính sách freeship của ${BRAND}.`}>
       <section>
         <h2>1. Phương thức và Thời gian giao hàng</h2>
         <p>
@@ -197,22 +212,25 @@ export function ShippingPolicyPage() {
             <strong>Giao Hỏa tốc:</strong> Phí vận chuyển tính theo cước phí thực tế của ứng dụng giao hàng tại thời điểm đặt. Nhân
             viên Hạt Lành sẽ gọi điện thông báo chính xác cước phí cho quý khách trước khi gửi.
           </li>
-          {/* What CartProperties#shippingFeeFor charges (cart.shipping-fee below cart.free-shipping-threshold); change both
-              together. TODO(owner): orders of 2 kg or more, see docs/chinh-sach-noi-dung.md. */}
+          {/* What CartProperties#shippingFeeFor charges: nothing since 11/2026 (cart.shipping-fee=0). Switching a fee back on
+              (CART_SHIPPING_FEE / CART_FREE_SHIPPING_THRESHOLD) means rewriting this item and section 3, and SHIPPING_PROMISE
+              in lib/siteInfo.ts. */}
           <li>
-            <strong>Giao Tiêu chuẩn toàn quốc:</strong> Phí đồng giá 30.000 VNĐ cho mỗi đơn hàng chưa đạt mức miễn phí vận chuyển (xem
-            mục 3), áp dụng như nhau cho mọi địa chỉ nhận hàng. Phí được tính và hiển thị tại bước Thanh toán trước khi quý khách bấm
-            "Đặt hàng".
+            <strong>Giao Tiêu chuẩn toàn quốc:</strong> MIỄN PHÍ cho mọi đơn hàng, không phân biệt giá trị đơn, khối lượng hay địa chỉ
+            nhận hàng. Bước Thanh toán hiển thị "Phí giao hàng: Miễn phí" trước khi quý khách bấm "Đặt hàng".
           </li>
         </ul>
       </section>
       <section>
         <h2>3. Chính sách Miễn phí vận chuyển (Freeship)</h2>
-        <p>Để tri ân khách hàng, Hạt Lành áp dụng chính sách Freeship như sau:</p>
-        <ul>
-          <li>Miễn phí vận chuyển tiêu chuẩn cho mọi đơn hàng có tổng giá trị thanh toán từ 500.000 VNĐ trở lên.</li>
-          <li>Hỗ trợ tối đa 30.000 VNĐ phí ship hỏa tốc cho đơn hàng nội thành từ 500.000 VNĐ.</li>
-        </ul>
+        <p>
+          Hạt Lành miễn phí giao hàng tiêu chuẩn toàn quốc cho mọi đơn hàng, không cần đạt giá trị tối thiểu. Quý khách chỉ thanh
+          toán đúng số tiền hiển thị ở bước Thanh toán, không trả thêm phí giao hàng khi nhận hàng.
+        </p>
+        <p>
+          Giao hỏa tốc nội thành TP.HCM không nằm trong chương trình này: phí tính theo cước thực tế như mục 2, nhân viên Hạt Lành
+          gọi báo phí trước khi gửi.
+        </p>
       </section>
       <section>
         <h2>4. Tiêu chuẩn đóng gói an toàn thực phẩm</h2>
@@ -254,6 +272,7 @@ export function TermsPage() {
   }, [hash])
   return (
     <PolicyPage
+      updatedAt={UPDATED.terms}
       title="Điều khoản giao dịch chung và Chính sách bảo mật"
       description={`Điều khoản đặt hàng, thanh toán, huỷ đơn, khiếu nại và cách ${BRAND} thu thập, sử dụng, bảo vệ thông tin cá nhân.`}
     >
@@ -507,7 +526,7 @@ export function TermsPage() {
 
 export function ContactPage() {
   return (
-    <PolicyPage title="Liên hệ" contactLink={false} description={`Địa chỉ, hotline/Zalo, email, giờ làm việc và fanpage của ${BRAND}.`}>
+    <PolicyPage title="Liên hệ" updatedAt={UPDATED.contact} contactLink={false} description={`Địa chỉ, hotline/Zalo, email, giờ làm việc và fanpage của ${BRAND}.`}>
       <section>
         <ul>
           <li>Địa chỉ kho: {SHOP.address}.</li>
