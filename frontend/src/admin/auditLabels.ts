@@ -35,6 +35,13 @@ export const ACTION_LABEL: Record<string, string> = {
   PROMOTION_ENDED: 'Kết thúc khuyến mại',
   STOCK_IMPORTED: 'Nhập kho',
   STOCK_ADJUSTED: 'Kiểm kho',
+  BLOG_POST_CREATED: 'Viết bài blog',
+  BLOG_POST_UPDATED: 'Sửa bài blog',
+  BLOG_POST_PUBLISHED: 'Đăng bài blog',
+  BLOG_POST_UNPUBLISHED: 'Gỡ bài blog',
+  BLOG_POST_DELETED: 'Xoá bài blog',
+  BLOG_IMAGE_ADDED: 'Thêm ảnh bài blog',
+  BLOG_IMAGE_DELETED: 'Xoá ảnh bài blog',
   CATEGORY_CREATED: 'Thêm danh mục',
   CATEGORY_UPDATED: 'Sửa danh mục',
   USER_INVITED: 'Mời nhân viên',
@@ -53,11 +60,19 @@ export const ENTITY_LABEL: Record<string, string> = {
   ORDER: 'Đơn hàng',
   PRODUCT: 'Sản phẩm',
   CATEGORY: 'Danh mục',
+  BLOG_POST: 'Bài blog',
   USER: 'Người dùng',
   PHONE: 'Số điện thoại',
 }
 
 export const FIELD_LABEL: Record<string, string> = {
+  title: 'Tiêu đề',
+  excerpt: 'Tóm tắt',
+  postStatus: 'Trạng thái bài',
+  coverImageUrl: 'Ảnh bìa',
+  coverImageAlt: 'Mô tả ảnh bìa',
+  contentLength: 'Độ dài nội dung (ký tự)',
+  productIds: 'Sản phẩm liên quan',
   passwordSet: 'Có mật khẩu',
   phoneSet: 'Có số điện thoại',
   price: 'Giá bán',
@@ -228,6 +243,7 @@ export function entityLink(row: Pick<AuditRow, 'entityType' | 'entityId' | 'acti
   if (row.entityType === 'ORDER') return `/admin/don-hang/${id}`
   // A deleted product has no page left to open
   if (row.entityType === 'PRODUCT') return row.action === 'PRODUCT_DELETED' ? null : `/admin/san-pham/${id}`
+  if (row.entityType === 'BLOG_POST') return row.action === 'BLOG_POST_DELETED' ? null : `/admin/blog/${id}`
   if (row.entityType === 'USER') return `/admin/nguoi-dung/${id}`
   if (row.entityType === 'PHONE') return `/admin/don-hang?q=${id}`
   return null

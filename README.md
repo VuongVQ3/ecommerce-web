@@ -16,6 +16,7 @@ Website bán các loại hạt ăn kiêng: hạnh nhân, óc chó, macca, hạt 
 - Chi tiết sản phẩm kèm bảng dinh dưỡng trên 100g
 - Giỏ hàng: khách lưu localStorage, đã đăng nhập lưu database, tự gộp khi đăng nhập; giá luôn lấy từ server. Chi tiết: [docs/cart.md](docs/cart.md)
 - Đặt hàng COD, tra cứu đơn, huỷ đơn. Chi tiết: [docs/orders.md](docs/orders.md)
+- Blog `/blog`: chủ shop soạn bài Markdown có ảnh trong `/admin/blog`, bài có meta/JSON-LD và nội dung đọc được không cần JavaScript. Chi tiết: [docs/blog.md](docs/blog.md)
 - Trang quản trị `/admin`: đơn hàng, tồn kho, sản phẩm, ảnh (Cloudinary), danh mục, audit log. Chi tiết: [docs/admin.md](docs/admin.md)
 - 13 sản phẩm mẫu trong 3 danh mục
 
@@ -69,6 +70,7 @@ cd frontend && npm test && npm run build && npm run lint
 | GET | `/api/categories` | Danh sách danh mục |
 | GET | `/api/products?category=&q=&sort=&page=&size=` | Danh sách sản phẩm. `sort`: `price_asc`, `price_desc`, `calories_asc`, `protein_desc` |
 | GET | `/api/products/{slug}` | Chi tiết sản phẩm |
+| GET | `/api/blog?page=&size=`, `/api/blog/{slug}` | Bài blog đã đăng: xem [docs/blog.md](docs/blog.md) |
 | | `/api/auth/*` | Đăng ký, đăng nhập, refresh, đăng xuất, me, Google: xem [docs/auth.md](docs/auth.md) |
 | | `/api/admin/*` | Quản trị (STAFF/ADMIN): xem [docs/admin.md](docs/admin.md) |
 

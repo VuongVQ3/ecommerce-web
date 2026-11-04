@@ -60,6 +60,17 @@
 			<artifactId>cloudinary-http5</artifactId>
 			<version>2.5.0</version>
 		</dependency>
+		<!-- Blog posts: Markdown rendered to HTML on the server (raw HTML escaped) -->
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark</artifactId>
+			<version>0.24.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark-ext-gfm-tables</artifactId>
+			<version>0.24.0</version>
+		</dependency>
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-database-postgresql</artifactId>

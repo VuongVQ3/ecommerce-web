@@ -20,7 +20,7 @@ public class MediaConfig {
 		if (StringUtils.hasText(cloudinaryUrl)) {
 			return new CloudinaryImageStorage(cloudinaryUrl);
 		}
-		log.warn("CLOUDINARY_URL is not set: product image uploads are disabled");
+		log.warn("CLOUDINARY_URL is not set: image uploads are disabled");
 		return new ImageStorage() {
 			@Override
 			public boolean isEnabled() {
@@ -28,7 +28,7 @@ public class MediaConfig {
 			}
 
 			@Override
-			public StoredImage upload(byte[] bytes, ImageTypes.ImageType type) {
+			public StoredImage upload(byte[] bytes, ImageTypes.ImageType type, String folder) {
 				throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "IMAGE_UPLOAD_DISABLED",
 						"Chưa cấu hình nơi lưu ảnh (CLOUDINARY_URL). Liên hệ quản trị kỹ thuật.");
 			}

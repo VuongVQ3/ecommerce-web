@@ -268,6 +268,11 @@ class SiteE2ETest {
 	void everyFrontendRouteIsServed() throws Exception {
 		String slug = "route-" + UUID.randomUUID();
 		long id = productOnSale("Mắc ca thử", slug);
+		String postSlug = "bai-" + UUID.randomUUID();
+		jdbc.update("""
+				INSERT INTO blog_posts (title, slug, excerpt, content, cover_image_url, cover_image_alt, status, published_at)
+				VALUES ('Bài thử', ?, 'Tóm tắt.', 'Nội dung.', 'https://example.org/a.jpg', 'Ảnh', 'PUBLISHED', now())""",
+				postSlug);
 		String routes = Files.readString(Path.of("../frontend/src/main.tsx"));
 		Matcher m = Pattern.compile("path: '([^']+)'").matcher(routes);
 		List<String> paths = new ArrayList<>();
@@ -281,7 +286,8 @@ class SiteE2ETest {
 				path = (routes.indexOf("path: '" + path + "'") > routes.indexOf("path: '/tai-khoan'")
 						? "/tai-khoan/" : "/admin/") + path;
 			}
-			paths.add(path.replace(":slug", path.startsWith("/danh-muc") ? "hat-dinh-duong" : slug)
+			paths.add(path.replace(":slug", path.startsWith("/danh-muc") ? "hat-dinh-duong"
+					: path.startsWith("/blog") ? postSlug : slug)
 				.replace(":code", "HL2610130000")
 				.replace(":id", "1"));
 		}
@@ -294,6 +300,7 @@ class SiteE2ETest {
 		}
 		finally {
 			jdbc.update("DELETE FROM products WHERE id = ?", id);
+			jdbc.update("DELETE FROM blog_posts WHERE slug = ?", postSlug);
 		}
 	}
 }

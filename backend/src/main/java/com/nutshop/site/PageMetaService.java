@@ -1,5 +1,6 @@
 package com.nutshop.site;
 
+import com.nutshop.blog.BlogDtos.BlogPostDetail;
 import com.nutshop.product.Category;
 import com.nutshop.product.PricingService;
 import com.nutshop.product.Product;
@@ -128,6 +129,52 @@ public class PageMetaService {
 				crumb(p.getCategory().getName(), "/danh-muc/" + p.getCategory().getSlug()), crumb(p.getName(), path)));
 		return new PageMeta(title, ShortDescription.of(p), path, image, "product", false,
 				List.of(product, breadcrumb));
+	}
+
+	public PageMeta blogIndex() {
+		return PageMeta.page("Blog | " + BRAND, BLOG_DESCRIPTION, "/blog");
+	}
+
+	public static final String BLOG_DESCRIPTION = "Bài viết của " + BRAND + " về các loại hạt: cách chọn, bảo quản, chế"
+			+ " biến món ngon và ăn hạt mỗi ngày sao cho hợp lý.";
+
+	/** "Title | Hạt Lành", the excerpt, the cover cropped to 1200x630, schema.org BlogPosting + BreadcrumbList. */
+	public PageMeta blogPost(BlogPostDetail post) {
+		String path = "/blog/" + post.slug();
+		String image = post.coverImageUrl() == null ? defaultImage() : ogImage(post.coverImageUrl());
+		String description = truncate(post.excerpt());
+
+		Map<String, Object> organization = new LinkedHashMap<>();
+		organization.put("@type", "Organization");
+		organization.put("name", BRAND);
+		organization.put("url", site.absolute("/"));
+		Map<String, Object> publisher = new LinkedHashMap<>(organization);
+		Map<String, Object> logo = new LinkedHashMap<>();
+		logo.put("@type", "ImageObject");
+		logo.put("url", site.absolute("/apple-touch-icon.png"));
+		publisher.put("logo", logo);
+
+		Map<String, Object> article = new LinkedHashMap<>();
+		article.put("@context", "https://schema.org");
+		article.put("@type", "BlogPosting");
+		article.put("headline", post.title());
+		article.put("description", description);
+		article.put("image", List.of(image));
+		if (post.publishedAt() != null) {
+			article.put("datePublished", post.publishedAt().toString());
+		}
+		article.put("dateModified", post.updatedAt().toString());
+		article.put("author", organization);
+		article.put("publisher", publisher);
+		Map<String, Object> page = new LinkedHashMap<>();
+		page.put("@type", "WebPage");
+		page.put("@id", site.absolute(path));
+		article.put("mainEntityOfPage", page);
+
+		Map<String, Object> breadcrumb = breadcrumb(List.of(crumb("Trang chủ", "/"), crumb("Blog", "/blog"),
+				crumb(post.title(), path)));
+		return new PageMeta(post.title() + " | " + BRAND, description, path, image, "article", false,
+				List.of(article, breadcrumb));
 	}
 
 	public String defaultImage() {

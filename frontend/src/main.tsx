@@ -9,6 +9,8 @@ import Layout from './components/Layout'
 import PrivacyConsentPrompt from './components/PrivacyConsentPrompt'
 import RecentOrdersSync from './components/RecentOrdersSync'
 import { ToastProvider } from './components/Toast'
+import BlogListPage from './pages/BlogListPage'
+import BlogPostPage from './pages/BlogPostPage'
 import CartPage from './pages/CartPage'
 import './index.css'
 import { AccountInfoPage, AccountLayout } from './pages/AccountPages'
@@ -68,6 +70,9 @@ const router = createBrowserRouter([
                   { path: 'nguoi-dung', lazy: page(() => import('./admin/UsersPage')) },
                   { path: 'nguoi-dung/:id', lazy: page(() => import('./admin/UserDetailPage')) },
                   { path: 'nhat-ky', lazy: page(() => import('./admin/AuditLogPage')) },
+                  { path: 'blog', lazy: page(() => import('./admin/BlogPostsPage')) },
+                  { path: 'blog/moi', lazy: page(() => import('./admin/BlogFormPage')) },
+                  { path: 'blog/:id', lazy: page(() => import('./admin/BlogFormPage')) },
                 ],
               },
               { path: '*', element: <NotFoundPage /> },
@@ -85,6 +90,8 @@ const router = createBrowserRouter([
           { path: '/', element: <HomePage /> },
           { path: '/san-pham', element: <ProductsPage /> },
           { path: '/san-pham/:slug', element: <ProductDetailPage /> },
+          { path: '/blog', element: <BlogListPage /> },
+          { path: '/blog/:slug', element: <BlogPostPage /> },
           { path: '/dang-nhap', element: <LoginPage /> },
           { path: '/dang-ky', element: <RegisterPage /> },
           { path: '/quen-mat-khau', element: <ForgotPasswordPage /> },

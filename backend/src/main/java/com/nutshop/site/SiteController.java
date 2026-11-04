@@ -107,8 +107,8 @@ public class SiteController {
 		return ResponseEntity.ok().contentType(XML_UTF8).cacheControl(CacheControl.maxAge(SITEMAP_TTL).cachePublic()).body(cached);
 	}
 
-	/** Lets tests see product changes without waiting an hour. */
-	void clearSitemapCache() {
+	/** Publishing, unpublishing or deleting a blog post shows up at once; tests see product changes too. */
+	public void clearSitemapCache() {
 		sitemap = null;
 	}
 
@@ -130,6 +130,11 @@ public class SiteController {
 		jdbc.query("SELECT slug, updated_at FROM products WHERE active AND price > 0 ORDER BY id",
 				rs -> {
 					url(xml, "/san-pham/" + rs.getString("slug"), rs.getTimestamp("updated_at").toInstant());
+				});
+		url(xml, "/blog", null);
+		jdbc.query("SELECT slug, updated_at FROM blog_posts WHERE status = 'PUBLISHED' ORDER BY published_at DESC, id DESC",
+				rs -> {
+					url(xml, "/blog/" + rs.getString("slug"), rs.getTimestamp("updated_at").toInstant());
 				});
 		for (String path : PageMetaService.INDEXED_STATIC_PAGES) {
 			url(xml, path, null);
