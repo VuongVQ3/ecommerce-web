@@ -42,16 +42,18 @@ const view: CartView = {
   totalQuantity: 2,
   subtotal: 258_000,
   discountTotal: 0,
-  shippingFee: 30_000,
-  amountToFreeShipping: 242_000,
-  freeShippingThreshold: 500_000,
-  total: 288_000,
+  // Free standard shipping on every order (the current setting)
+  shippingFee: 0,
+  amountToFreeShipping: 0,
+  freeShippingThreshold: 0,
+  total: 258_000,
   canCheckout: true,
+  freeShippingForAll: true,
 }
 vi.mock('../cart/CartContext', () => ({ useCart: () => ({ view, loading: false, resetAfterOrder }) }))
 
 const GUEST_TOKEN = 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde'
-const order = { code: 'HL261013ABCD', total: 288_000, accessToken: GUEST_TOKEN } as Order
+const order = { code: 'HL261013ABCD', total: 258_000, accessToken: GUEST_TOKEN } as Order
 
 function Where() {
   const location = useLocation()
@@ -168,16 +170,21 @@ describe('CheckoutPage', () => {
     expect(screen.getByRole('link', { name: /Điều khoản giao dịch chung/ }).getAttribute('href')).toBe('/dieu-khoan-giao-dich')
   })
 
-  it('says under the total that express delivery in HCMC is charged separately, confirmed by phone', async () => {
+  it('says under the total that standard shipping is free and express delivery in HCMC is charged, confirmed by phone', async () => {
     renderCheckout()
-    expect(await screen.findByText(/Giao hỏa tốc trong nội thành TP.HCM tính phí riêng/)).toBeTruthy()
+    const note = await screen.findByText(/Miễn phí giao hàng tiêu chuẩn toàn quốc\. Giao hỏa tốc nội thành TP\.HCM tính theo cước thực tế/)
+    expect(note.textContent).toContain('nhân viên sẽ gọi báo phí trước khi gửi')
+    expect(note.textContent).not.toMatch(/30\.000|500\.000/)
+    const fee = screen.getByText('Phí giao hàng').parentElement!
+    expect(fee.textContent).toBe('Phí giao hàngMiễn phí')
+    expect(screen.getByRole('link', { name: /Chính sách vận chuyển/ }).getAttribute('target')).toBe('_blank')
     expect(screen.getByRole('link', { name: /Chính sách vận chuyển/ }).getAttribute('href')).toBe('/chinh-sach-van-chuyen')
   })
 
   it('below 1024px puts the order summary (fees, express note) above the privacy box and "Đặt hàng"', () => {
     // jsdom has no matchMedia: the narrow layout
     renderCheckout()
-    const express = screen.getByText(/Giao hỏa tốc trong nội thành TP.HCM tính phí riêng/)
+    const express = screen.getByText(/Giao hỏa tốc nội thành TP.HCM tính theo cước thực tế/)
     const total = screen.getByText('Tổng cộng')
     const button = screen.getByRole('button', { name: /Đặt hàng/ })
     const follows = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0

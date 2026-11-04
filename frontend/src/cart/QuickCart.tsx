@@ -6,6 +6,7 @@ import ProductImage from '../components/ProductImage'
 import { useToast } from '../components/Toast'
 import type { CartLine } from '../lib/api'
 import { formatPrice } from '../lib/format'
+import { SHIPPING_PROMISE } from '../lib/siteInfo'
 import { useCart } from './CartContext'
 import { onAdded } from './quickCartEvents'
 
@@ -243,19 +244,28 @@ export default function QuickCart() {
                     <span className="text-stone-600">Tạm tính</span>
                     <span className="font-semibold tabular-nums">{formatPrice(view.subtotal)}</span>
                   </div>
-                  <p className="mt-2 text-xs text-stone-700">
-                    {free ? (
-                      'Bạn được miễn phí giao hàng'
-                    ) : (
-                      <>
-                        Mua thêm <strong className="tabular-nums">{formatPrice(view.amountToFreeShipping)}</strong> để được miễn
-                        phí giao hàng
-                      </>
-                    )}
-                  </p>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-100" aria-hidden="true">
-                    <div className="h-full rounded-full bg-brand-500" style={{ width: `${free ? 100 : progress}%` }} />
-                  </div>
+                  {view.freeShippingForAll ? (
+                    <p className="mt-2 text-xs text-stone-700">
+                      <span aria-hidden>🚚 </span>
+                      {SHIPPING_PROMISE.short}
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mt-2 text-xs text-stone-700">
+                        {free ? (
+                          'Bạn được miễn phí giao hàng'
+                        ) : (
+                          <>
+                            Mua thêm <strong className="tabular-nums">{formatPrice(view.amountToFreeShipping)}</strong> để được
+                            miễn phí giao hàng
+                          </>
+                        )}
+                      </p>
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-100" aria-hidden="true">
+                        <div className="h-full rounded-full bg-brand-500" style={{ width: `${free ? 100 : progress}%` }} />
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
               <div className="mt-4 grid grid-cols-2 gap-2">

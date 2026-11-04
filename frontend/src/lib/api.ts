@@ -186,6 +186,8 @@ export interface CartView {
   freeShippingThreshold: number
   total: number
   canCheckout: boolean
+  /** No shipping fee on any order (server setting cart.shipping-fee=0): no progress towards a threshold to show */
+  freeShippingForAll: boolean
 }
 
 export interface CartWarning {

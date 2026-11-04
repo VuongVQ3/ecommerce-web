@@ -215,16 +215,19 @@ class CartE2ETest {
 		getCart().andExpect(jsonPath("$.items[0].status").value("UNAVAILABLE"));
 	}
 
+	/** Free standard shipping on every order (11/2026): no fee, nothing to reach. The threshold rule: CartPropertiesTest. */
 	@Test
-	void shippingIsFreeFromTheThreshold() throws Exception {
+	void shippingIsFreeOnEveryCart() throws Exception {
 		long id = product(120_000, 50);
 
-		add(id, 2).andExpect(jsonPath("$.cart.subtotal").value(240_000))
-			.andExpect(jsonPath("$.cart.shippingFee").value(30_000))
-			.andExpect(jsonPath("$.cart.amountToFreeShipping").value(260_000))
-			.andExpect(jsonPath("$.cart.total").value(270_000))
+		add(id, 1).andExpect(jsonPath("$.cart.subtotal").value(120_000))
+			.andExpect(jsonPath("$.cart.shippingFee").value(0))
+			.andExpect(jsonPath("$.cart.amountToFreeShipping").value(0))
+			.andExpect(jsonPath("$.cart.freeShippingThreshold").value(0))
+			.andExpect(jsonPath("$.cart.freeShippingForAll").value(true))
+			.andExpect(jsonPath("$.cart.total").value(120_000))
 			.andExpect(jsonPath("$.cart.canCheckout").value(true));
-		add(id, 3).andExpect(jsonPath("$.cart.subtotal").value(600_000))
+		add(id, 4).andExpect(jsonPath("$.cart.subtotal").value(600_000))
 			.andExpect(jsonPath("$.cart.shippingFee").value(0))
 			.andExpect(jsonPath("$.cart.amountToFreeShipping").value(0))
 			.andExpect(jsonPath("$.cart.total").value(600_000));

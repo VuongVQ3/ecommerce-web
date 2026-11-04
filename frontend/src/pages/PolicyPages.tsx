@@ -197,22 +197,25 @@ export function ShippingPolicyPage() {
             <strong>Giao Hỏa tốc:</strong> Phí vận chuyển tính theo cước phí thực tế của ứng dụng giao hàng tại thời điểm đặt. Nhân
             viên Hạt Lành sẽ gọi điện thông báo chính xác cước phí cho quý khách trước khi gửi.
           </li>
-          {/* What CartProperties#shippingFeeFor charges (cart.shipping-fee below cart.free-shipping-threshold); change both
-              together. TODO(owner): orders of 2 kg or more, see docs/chinh-sach-noi-dung.md. */}
+          {/* What CartProperties#shippingFeeFor charges: nothing since 11/2026 (cart.shipping-fee=0). Switching a fee back on
+              (CART_SHIPPING_FEE / CART_FREE_SHIPPING_THRESHOLD) means rewriting this item and section 3, and SHIPPING_PROMISE
+              in lib/siteInfo.ts. */}
           <li>
-            <strong>Giao Tiêu chuẩn toàn quốc:</strong> Phí đồng giá 30.000 VNĐ cho mỗi đơn hàng chưa đạt mức miễn phí vận chuyển (xem
-            mục 3), áp dụng như nhau cho mọi địa chỉ nhận hàng. Phí được tính và hiển thị tại bước Thanh toán trước khi quý khách bấm
-            "Đặt hàng".
+            <strong>Giao Tiêu chuẩn toàn quốc:</strong> MIỄN PHÍ cho mọi đơn hàng, không phân biệt giá trị đơn, khối lượng hay địa chỉ
+            nhận hàng. Bước Thanh toán hiển thị "Phí giao hàng: Miễn phí" trước khi quý khách bấm "Đặt hàng".
           </li>
         </ul>
       </section>
       <section>
         <h2>3. Chính sách Miễn phí vận chuyển (Freeship)</h2>
-        <p>Để tri ân khách hàng, Hạt Lành áp dụng chính sách Freeship như sau:</p>
-        <ul>
-          <li>Miễn phí vận chuyển tiêu chuẩn cho mọi đơn hàng có tổng giá trị thanh toán từ 500.000 VNĐ trở lên.</li>
-          <li>Hỗ trợ tối đa 30.000 VNĐ phí ship hỏa tốc cho đơn hàng nội thành từ 500.000 VNĐ.</li>
-        </ul>
+        <p>
+          Hạt Lành miễn phí giao hàng tiêu chuẩn toàn quốc cho mọi đơn hàng, không cần đạt giá trị tối thiểu. Quý khách chỉ thanh
+          toán đúng số tiền hiển thị ở bước Thanh toán, không trả thêm phí giao hàng khi nhận hàng.
+        </p>
+        <p>
+          Giao hỏa tốc nội thành TP.HCM không nằm trong chương trình này: phí tính theo cước thực tế như mục 2, nhân viên Hạt Lành
+          gọi báo phí trước khi gửi.
+        </p>
       </section>
       <section>
         <h2>4. Tiêu chuẩn đóng gói an toàn thực phẩm</h2>

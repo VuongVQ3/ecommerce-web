@@ -10,7 +10,7 @@ import { PriceTag } from '../components/Price'
 import ProductImage from '../components/ProductImage'
 import { useProvinces } from '../lib/adminUnits'
 import { useMediaQuery } from '../lib/media'
-import { useSiteInfo } from '../lib/siteInfo'
+import { SHIPPING_PROMISE, useSiteInfo } from '../lib/siteInfo'
 import { api, type CartView, type Shortage } from '../lib/api'
 import { formatPrice } from '../lib/format'
 import { normalizePhone } from '../lib/phone'
@@ -124,8 +124,10 @@ function Summary({ view, inline = false }: { view: CartView; inline?: boolean })
         </div>
       </dl>
       <p className="mt-3 text-xs text-stone-600">
-        Phí trên là giao tiêu chuẩn. Giao hỏa tốc trong nội thành TP.HCM tính phí riêng theo cước thực tế; nhân viên sẽ gọi xác nhận
-        phí trước khi gửi hàng (
+        {view.freeShippingForAll
+          ? SHIPPING_PROMISE.checkout
+          : 'Phí trên là giao tiêu chuẩn. Giao hỏa tốc trong nội thành TP.HCM tính phí riêng theo cước thực tế; nhân viên sẽ gọi xác nhận phí trước khi gửi hàng'}{' '}
+        (
         <Link to="/chinh-sach-van-chuyen" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">
           Chính sách vận chuyển<span className="sr-only"> (mở trong tab mới)</span>
         </Link>

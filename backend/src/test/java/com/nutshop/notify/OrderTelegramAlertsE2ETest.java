@@ -96,8 +96,9 @@ class OrderTelegramAlertsE2ETest {
 		ArgumentCaptor<String> sent = ArgumentCaptor.forClass(String.class);
 		verify(telegram, timeout(5000)).send(sent.capture());
 		String placed = sent.getValue();
-		// 1..7 × 100.000₫ + shipping (free above the threshold)
+		// 1..7 × 100.000₫, shipping free
 		long total = jdbc.queryForObject("SELECT total FROM orders WHERE code = ?", Long.class, code);
+		assertThat(total).isEqualTo(2_800_000);
 		// Only the code and the total: no name, phone, address or products (privacy policy B.5)
 		assertThat(placed).isEqualTo("🛒 <b>Đơn mới #" + code + "</b>\n💰 <b>" + OrderTelegramAlerts.price(total)
 				+ "</b>\n🔗 http://localhost:8080/admin/don-hang/" + code);

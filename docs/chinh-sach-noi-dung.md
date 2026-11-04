@@ -70,14 +70,14 @@ Hạt Lành (xuất kho từ TP.HCM) hiện cung cấp 2 phương thức giao h�
 
 ### 2. Chi phí vận chuyển (Phí Ship)
 - **Giao Hỏa tốc:** Phí vận chuyển tính theo cước phí thực tế của ứng dụng giao hàng tại thời điểm đặt. Nhân viên Hạt Lành sẽ gọi điện thông báo chính xác cước phí cho quý khách trước khi gửi.
-- **Giao Tiêu chuẩn toàn quốc:** Phí đồng giá 30.000 VNĐ cho mỗi đơn hàng chưa đạt mức miễn phí vận chuyển (xem mục 3), áp dụng như nhau cho mọi địa chỉ nhận hàng. Phí được tính và hiển thị tại bước Thanh toán trước khi quý khách bấm "Đặt hàng".
+- **Giao Tiêu chuẩn toàn quốc:** MIỄN PHÍ cho mọi đơn hàng, không phân biệt giá trị đơn, khối lượng hay địa chỉ nhận hàng. Bước Thanh toán hiển thị "Phí giao hàng: Miễn phí" trước khi quý khách bấm "Đặt hàng".
 
-> **TODO (chủ shop):** website tính phí đúng như trên (cấu hình `cart.shipping-fee` = 30.000 và `cart.free-shipping-threshold` = 500.000, tính trên tổng tiền hàng), KHÔNG xét khối lượng hay địa chỉ. Bản cũ ghi "cho mọi đơn hàng dưới 2kg": đơn từ 2kg trở lên hiện vẫn tính 30.000 VNĐ. Cần quyết định: giữ đồng giá cho mọi khối lượng (giữ nguyên câu trên), hay thu thêm phí cho đơn từ 2kg (phải sửa code, và ghi rõ mức phí ở đây).
+> Website: cấu hình `cart.shipping-fee` = 0 (từ 11/2026, xem `docs/cart.md`). Bật lại phí bằng biến môi trường `CART_SHIPPING_FEE` / `CART_FREE_SHIPPING_THRESHOLD`, và khi đó phải viết lại mục 2–3 này cùng trang `/chinh-sach-van-chuyen`.
 
 ### 3. Chính sách Miễn phí vận chuyển (Freeship)
-Để tri ân khách hàng, Hạt Lành áp dụng chính sách Freeship như sau:
-- Miễn phí vận chuyển tiêu chuẩn cho mọi đơn hàng có tổng giá trị thanh toán từ 500.000 VNĐ trở lên.
-- Hỗ trợ tối đa 30.000 VNĐ phí ship hỏa tốc cho đơn hàng nội thành từ 500.000 VNĐ.
+Hạt Lành miễn phí giao hàng tiêu chuẩn toàn quốc cho mọi đơn hàng, không cần đạt giá trị tối thiểu. Quý khách chỉ thanh toán đúng số tiền hiển thị ở bước Thanh toán, không trả thêm phí giao hàng khi nhận hàng.
+
+Giao hỏa tốc nội thành TP.HCM không nằm trong chương trình này: phí tính theo cước thực tế như mục 2, nhân viên Hạt Lành gọi báo phí trước khi gửi.
 
 ### 4. Tiêu chuẩn đóng gói an toàn thực phẩm
 Mọi đơn hàng tại Hạt Lành (từ hạt nguyên, nhân mắc ca, ngũ cốc đến bánh thuyền) trước khi giao cho đơn vị vận chuyển đều được:

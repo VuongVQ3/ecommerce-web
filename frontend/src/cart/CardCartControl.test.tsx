@@ -17,7 +17,7 @@ function viewOf(items: CartLineInput[]): CartView {
   }))
   return {
     items: lines, totalQuantity: lines.reduce((s, l) => s + l.quantity, 0), subtotal: 0, discountTotal: 0, shippingFee: 0,
-    amountToFreeShipping: 0, freeShippingThreshold: 0, total: 0, canCheckout: true,
+    amountToFreeShipping: 0, freeShippingThreshold: 0, total: 0, canCheckout: true, freeShippingForAll: true,
   }
 }
 

@@ -39,8 +39,8 @@ Mọi endpoint cần đăng nhập, trừ `POST /validate`. Các request `POST/P
     "lineTotal": 498000,      // 0 nếu không mua được
     "status": "PRICE_CHANGED"
   }],
-  "totalQuantity": 2, "subtotal": 498000, "shippingFee": 30000, "amountToFreeShipping": 2000,
-  "freeShippingThreshold": 500000, "total": 528000, "canCheckout": true
+  "totalQuantity": 2, "subtotal": 498000, "shippingFee": 0, "amountToFreeShipping": 0,
+  "freeShippingThreshold": 0, "total": 498000, "canCheckout": true, "freeShippingForAll": true
 }
 ```
 
@@ -56,9 +56,23 @@ Mọi endpoint cần đăng nhập, trừ `POST /validate`. Các request `POST/P
 
 ### Phí giao hàng
 
-- Giỏ trống hoặc `subtotal ≥ cart.free-shipping-threshold`: `shippingFee = 0` và `amountToFreeShipping = 0`.
-- Ngược lại: `shippingFee = cart.shipping-fee` và `amountToFreeShipping = threshold - subtotal`.
+**Từ 11/2026: miễn phí giao hàng tiêu chuẩn toàn quốc cho mọi đơn** (quyết định của chủ shop; chi phí ship đã tính vào
+giá bán). Cấu hình `cart.shipping-fee=0`, `cart.free-shipping-threshold=0`: mọi giỏ có `shippingFee = 0`,
+`amountToFreeShipping = 0`, `freeShippingForAll = true`. Giỏ nhanh và trang giỏ hàng hiện "🚚 Miễn phí giao hàng toàn
+quốc" thay cho thanh tiến độ "Mua thêm …". Giao hỏa tốc nội thành TP.HCM không qua website: nhân viên gọi báo cước thực
+tế.
+
+Quy tắc chung (`CartProperties.shippingFeeFor`, dùng cho cả giỏ và đơn hàng), vẫn giữ để bật lại phí không cần sửa code:
+- Giỏ trống, hoặc `cart.shipping-fee = 0`: `shippingFee = 0`.
+- `cart.free-shipping-threshold > 0` và `subtotal ≥ threshold`: `shippingFee = 0`.
+- Ngược lại: `shippingFee = cart.shipping-fee` (threshold `0` cùng phí > 0 = đơn nào cũng tính phí).
+- `amountToFreeShipping = threshold - subtotal` khi còn phải trả phí và có threshold; ngược lại `0`.
 - `total = subtotal + shippingFee`.
+
+**Bật lại phí** (ví dụ quy tắc cũ): đặt biến môi trường trên Render `CART_SHIPPING_FEE=30000` và
+`CART_FREE_SHIPPING_THRESHOLD=500000` rồi deploy lại. Giỏ tự hiện lại thanh tiến độ (`freeShippingForAll = false`);
+các câu chữ tĩnh thì phải sửa tay: `SHIPPING_PROMISE` trong `frontend/src/lib/siteInfo.ts` (trang chủ, ghi chú ở trang
+thanh toán) và trang Chính sách vận chuyển (`PolicyPages.tsx`, `docs/chinh-sach-noi-dung.md`).
 
 ### Lỗi
 
@@ -85,8 +99,8 @@ Lỗi trả về theo chuẩn RFC 9457, có `code` và `message` (tiếng Việt
 | Khoá | Mặc định | |
 |---|---|---|
 | `cart.max-qty-per-item` | `10` | 1–99 |
-| `cart.free-shipping-threshold` | `500000` | đồng |
-| `cart.shipping-fee` | `30000` | đồng |
+| `cart.free-shipping-threshold` | `0` | đồng; `0` = không có ngưỡng. Env `CART_FREE_SHIPPING_THRESHOLD` |
+| `cart.shipping-fee` | `0` | đồng; `0` = miễn phí mọi đơn. Env `CART_SHIPPING_FEE` |
 | `app.rate-limit.cart-validate.max-requests` / `.window` | `60` / `PT1M` | Giới hạn theo IP cho `POST /validate` |
 
 ## Database
@@ -103,9 +117,9 @@ Lỗi trả về theo chuẩn RFC 9457, có `code` và `message` (tiếng Việt
 | `cart/AddToCartButton.tsx` | Badge tăng ngay (cập nhật lạc quan), có hoàn tác nếu server báo lỗi; chống bấm trùng; "Hết hàng" thì nút bị khoá, ngừng kinh doanh thì ẩn nút; toast "Đã thêm …" kèm nút "Xem giỏ hàng" hoặc "Chỉ còn N sản phẩm" |
 | `cart/QuantityStepper.tsx` | Nút −/+ và ô nhập số, giới hạn theo `maxPurchasable`, có `aria-label` theo tên sản phẩm |
 | `cart/CartDrawer.tsx` | Thiết bị cảm ứng: bấm icon giỏ hàng mở drawer. Dialog: giữ focus bên trong, Esc hoặc bấm nền để đóng, trả focus về nút giỏ hàng |
-| `cart/QuickCart.tsx` | Máy tính có chuột (`(hover: hover) and (pointer: fine)`): icon là link tới `/gio-hang`; rê chuột vào icon 150ms thì hiện bảng xem nhanh, rời cả icon lẫn bảng 300ms thì đóng (bảng nằm trong cùng vùng hover, có khoảng đệm phía trên nên di chuột từ icon xuống bảng không bị đóng). Nút mũi tên cạnh icon (`aria-expanded`, `aria-controls`) mở bằng Enter/Space; Esc đóng và trả focus về nút; focus ra ngoài thì đóng. Nội dung: 4 dòng mới thêm gần nhất (ảnh, tên 2 dòng, "số lượng × giá" kèm giá gốc gạch ngang, nút xoá cập nhật lạc quan có "Hoàn tác"), "và n sản phẩm khác", cảnh báo hết hàng/đổi giá, tạm tính, thanh tiến trình miễn phí giao hàng, "Xem giỏ hàng" và "Thanh toán"; giỏ trống thì có nút "Xem sản phẩm"; đang tải thì hiện khung giữ chỗ. Dữ liệu lấy từ `useCart`, **không gọi API khi rê chuột**. Hiệu ứng mờ dần + dịch 4px, tắt khi bật giảm chuyển động |
+| `cart/QuickCart.tsx` | Máy tính có chuột (`(hover: hover) and (pointer: fine)`): icon là link tới `/gio-hang`; rê chuột vào icon 150ms thì hiện bảng xem nhanh, rời cả icon lẫn bảng 300ms thì đóng (bảng nằm trong cùng vùng hover, có khoảng đệm phía trên nên di chuột từ icon xuống bảng không bị đóng). Nút mũi tên cạnh icon (`aria-expanded`, `aria-controls`) mở bằng Enter/Space; Esc đóng và trả focus về nút; focus ra ngoài thì đóng. Nội dung: 4 dòng mới thêm gần nhất (ảnh, tên 2 dòng, "số lượng × giá" kèm giá gốc gạch ngang, nút xoá cập nhật lạc quan có "Hoàn tác"), "và n sản phẩm khác", cảnh báo hết hàng/đổi giá, tạm tính, dòng "🚚 Miễn phí giao hàng toàn quốc" (khi `freeShippingForAll`; có ngưỡng thì thanh tiến trình miễn phí giao hàng), "Xem giỏ hàng" và "Thanh toán"; giỏ trống thì có nút "Xem sản phẩm"; đang tải thì hiện khung giữ chỗ. Dữ liệu lấy từ `useCart`, **không gọi API khi rê chuột**. Hiệu ứng mờ dần + dịch 4px, tắt khi bật giảm chuyển động |
 | `cart/quickCartEvents.ts` | Sau "Thêm vào giỏ" trên máy có chuột: bảng xem nhanh tự mở 3 giây (không đóng nếu chuột đang nằm trên bảng) **thay cho toast**. Cảnh báo "Chỉ còn N sản phẩm" và thiết bị cảm ứng vẫn dùng toast |
-| `cart/CartContents.tsx` | Các dòng (cảnh báo theo status, giá cũ gạch ngang, giá gốc gạch ngang khi đang khuyến mại, nút Xoá kèm "Hoàn tác") và phần tóm tắt ("Giá gốc" và "Đã giảm" khi có khuyến mại, tạm tính, phí ship, "Mua thêm X₫…", tổng, nút Thanh toán bị khoá kèm lý do) |
+| `cart/CartContents.tsx` | Các dòng (cảnh báo theo status, giá cũ gạch ngang, giá gốc gạch ngang khi đang khuyến mại, nút Xoá kèm "Hoàn tác") và phần tóm tắt ("Giá gốc" và "Đã giảm" khi có khuyến mại, tạm tính, phí ship, "🚚 Miễn phí giao hàng toàn quốc" (có ngưỡng thì "Mua thêm X₫…"), tổng, nút Thanh toán bị khoá kèm lý do) |
 | `pages/CartPage.tsx` | `/gio-hang` |
 
 **Sau khi đăng nhập:** `CartProvider` gọi `/merge` với giỏ trong localStorage. Thành công thì xoá localStorage; thất bại thì giữ nguyên và thử lại ở lần tải trang sau.
@@ -115,7 +129,7 @@ Lỗi trả về theo chuẩn RFC 9457, có `code` và `message` (tiếng Việt
 ## Kiểm thử
 
 - **Khuyến mại:** `PromotionE2ETest` kiểm tra giỏ hiện giá KM, `discountTotal`, `/validate` cho khách, và `PRICE_CHANGED` khi KM kết thúc. `QuickCart.test.tsx`: mở bằng hover (giả lập chuột), đóng khi rời chuột, mở/đóng bằng bàn phím, Esc trả focus, tự mở 3 giây sau khi thêm, không thay toast trên cảm ứng, khung giữ chỗ và giỏ trống. `Layout.test.tsx`: cảm ứng vẫn dùng drawer.
-- **Backend:** `CartE2ETest` (Testcontainers) gồm giới hạn theo tồn kho và theo mức tối đa, các mã lỗi, 8 request song song, `PRICE_CHANGED`, giá do client gửi bị bỏ qua, `QTY_REDUCED` / `OUT_OF_STOCK` / `UNAVAILABLE`, phí ship, PATCH/DELETE, merge (cộng dồn, giới hạn, bỏ qua sản phẩm lỗi, idempotent), `/validate` (public, gộp dòng trùng, tối đa 50 dòng), endpoint cần đăng nhập, danh sách ẩn sản phẩm ngừng bán.
+- **Backend:** `CartE2ETest` (Testcontainers) gồm giới hạn theo tồn kho và theo mức tối đa, các mã lỗi, 8 request song song, `PRICE_CHANGED`, giá do client gửi bị bỏ qua, `QTY_REDUCED` / `OUT_OF_STOCK` / `UNAVAILABLE`, phí ship (freeship mọi giỏ; quy tắc ngưỡng ở `CartPropertiesTest`), PATCH/DELETE, merge (cộng dồn, giới hạn, bỏ qua sản phẩm lỗi, idempotent), `/validate` (public, gộp dòng trùng, tối đa 50 dòng), endpoint cần đăng nhập, danh sách ẩn sản phẩm ngừng bán.
 - **Frontend:** `cart/CartContext.test.tsx` (Vitest + React Testing Library) gồm chế độ khách (localStorage không có giá, giới hạn số lượng, đồng bộ giữa các tab), chế độ đã đăng nhập (dùng server, hoàn tác badge khi lỗi), và khách thêm 2 sản phẩm rồi đăng nhập thì gộp đủ và xoá localStorage; gộp thất bại thì giữ nguyên.
 
 ## Chưa làm

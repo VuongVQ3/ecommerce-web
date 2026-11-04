@@ -94,11 +94,14 @@ describe('policy pages', () => {
     expect(text).toContain('chỉ áp dụng cho các đơn hàng đặt từ ngày có hiệu lực đó trở đi')
   })
 
-  it('states one shipping rule, the one the checkout applies (no "Hoặc" alternative)', () => {
+  it('states one shipping rule, the one the checkout applies: standard delivery free on every order', () => {
     const { container } = renderAt('/chinh-sach-van-chuyen')
     const text = container.textContent ?? ''
     expect(text).not.toContain('Hoặc:')
-    expect(text).toContain('Phí đồng giá 30.000 VNĐ cho mỗi đơn hàng chưa đạt mức miễn phí vận chuyển')
+    expect(text).toContain('Giao Tiêu chuẩn toàn quốc: MIỄN PHÍ cho mọi đơn hàng, không phân biệt giá trị đơn, khối lượng hay địa chỉ')
+    expect(text).toContain('Phí vận chuyển tính theo cước phí thực tế của ứng dụng giao hàng')
+    // No threshold and no capped express support any more
+    expect(text).not.toMatch(/500\.000|30\.000|Hỗ trợ tối đa/)
   })
 
   it('keeps the 72-hour limit for transport damage, wrong or missing items, and quality defects until the expiry date', () => {
