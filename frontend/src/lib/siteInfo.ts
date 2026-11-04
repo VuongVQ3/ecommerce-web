@@ -35,8 +35,9 @@ export interface SiteInfo {
   /** Absent from servers older than the footer icons */
   social?: SocialLinks
   /**
-   * Version of the policy pages, "2026-11-03" (PolicyVersion.CURRENT, the only place it is set): shown as their "last
-   * updated" date and recorded with every privacy consent. Absent from older servers.
+   * Version of the policies consents are recorded against, "2026-11-03" (PolicyVersion.CURRENT, the only place it is
+   * set): checkout asks an account that agreed to another version again. Not the pages' "Cập nhật lần cuối" date
+   * (UPDATED in lib/policyDates.ts). Absent from older servers.
    */
   policyVersion?: string
 }

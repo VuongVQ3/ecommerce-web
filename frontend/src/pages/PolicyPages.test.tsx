@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { createMemoryRouter, Navigate, RouterProvider, useLocation } from 'react-router'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { formatPolicyVersion } from '../lib/siteInfo'
+import { UPDATED } from '../lib/policyDates'
 import { ContactPage, ReturnPolicyPage, ShippingPolicyPage, TermsPage } from './PolicyPages'
 
 // The server's PolicyVersion.CURRENT, as /api/site hands it out
@@ -43,11 +44,24 @@ describe('policy pages', () => {
   it.each(PAGES)('%s shows the final text, no draft marker or internal note', (path) => {
     const { container } = renderAt(path)
     const text = container.textContent ?? ''
-    expect(text).toContain('Cập nhật lần cuối: 03/11/2026')
+    expect(text).toMatch(/Cập nhật lần cuối: \d{2}\/11\/2026/)
     for (const hidden of ['Bản nháp', 'CẦN ĐIỀN', 'AGENT', 'Tên chủ sở hữu', '[link:']) expect(text).not.toContain(hidden)
   })
 
-  it('dates the pages from the server policy version only', () => {
+  it('dates each page by its own last change, not by the consent version', () => {
+    // The consent version (mocked /api/site) stays 2026-11-03; free shipping moved only the shipping page
+    const dated = (path: string) => renderAt(path).container.textContent?.match(/Cập nhật lần cuối: (\d{2}\/\d{2}\/\d{4})/)?.[1]
+    expect(dated('/chinh-sach-van-chuyen')).toBe('04/11/2026')
+    cleanup()
+    expect(dated('/chinh-sach-doi-tra')).toBe('03/11/2026')
+    cleanup()
+    expect(dated('/dieu-khoan-giao-dich')).toBe('03/11/2026')
+    cleanup()
+    expect(dated('/lien-he')).toBe('03/11/2026')
+    expect(UPDATED.shipping).toBe('2026-11-04')
+  })
+
+  it('formats ISO dates only', () => {
     expect(formatPolicyVersion('2026-11-03')).toBe('03/11/2026')
     expect(formatPolicyVersion(undefined)).toBeNull()
     expect(formatPolicyVersion('03/11/2026')).toBeNull()

@@ -1,7 +1,7 @@
 # Nội dung chính sách Hạt Lành (nguồn để đưa lên web)
 
 Nguồn: Google Docs "HẠT LÀNH - CHÍNH SÁCH" + phần Chính sách bảo mật / Điều khoản sử dụng đang có trên web,
-đã cập nhật theo yêu cầu của chủ shop ngày 2026-11-02 (bản sửa gần nhất: 2026-11-03, xem "Lịch sử sửa đổi" cuối file):
+đã cập nhật theo yêu cầu của chủ shop ngày 2026-11-02 (bản sửa gần nhất: 2026-11-04, xem "Lịch sử sửa đổi" cuối file):
 - Hotline/Zalo: 0898 98 68 21 (thay cho số cũ trong Google Docs)
 - Email: hatlanhstore@gmail.com
 - Fanpage: https://www.facebook.com/profile.php?id=61596137600993
@@ -205,7 +205,9 @@ Bạn có các quyền sau đối với dữ liệu cá nhân của mình:
 ---
 
 ## Lịch sử sửa đổi
-Mỗi lần sửa: đổi `PolicyVersion.CURRENT` (backend/src/main/java/com/nutshop/site/PolicyVersion.java). Đây là nguồn duy nhất: phiên bản lưu kèm sự đồng ý của khách, và ngày "Cập nhật lần cuối" hiển thị trên các trang chính sách (qua /api/site).
+Mỗi lần sửa: đổi ngày "Cập nhật lần cuối" của trang đó (`UPDATED` trong frontend/src/lib/policyDates.ts). Chỉ khi khách phải đồng ý lại (Chính sách bảo mật, phần B của Điều khoản) mới đổi thêm `PolicyVersion.CURRENT` (backend/src/main/java/com/nutshop/site/PolicyVersion.java): đó là phiên bản lưu kèm sự đồng ý, tài khoản đã đồng ý bản cũ sẽ được hỏi lại khi đặt hàng.
+
+- **2026-11-04 (vận chuyển):** Miễn phí giao hàng tiêu chuẩn toàn quốc cho mọi đơn: mục 2–3 viết lại, bỏ ngưỡng 500.000 VNĐ, phí 30.000 VNĐ và "hỗ trợ tối đa 30.000 VNĐ" phí hỏa tốc. Chỉ đổi ngày của trang này; `PolicyVersion.CURRENT` giữ 2026-11-03 (có lợi cho khách, không cần xin đồng ý lại).
 
 - **2026-11-03 (vận chuyển, đổi trả):** Vận chuyển mục 2 bỏ phương án "Hoặc", mô tả đúng cách website tính phí; đổi trả mục 4 tách thời hạn 72 giờ (vận chuyển, sai, thiếu) và lỗi chất lượng (đến hết hạn sử dụng).
 - **2026-11-03 (phần B):** Thêm quyền hạn chế xử lý, phản đối, khiếu nại và thời hạn phản hồi; thời hạn lưu trữ cụ thể (đề xuất, chờ chủ shop chốt); thông báo Telegram không còn chứa thông tin khách nên bỏ Telegram khỏi B.5.

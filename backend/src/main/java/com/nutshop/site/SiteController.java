@@ -58,7 +58,7 @@ public class SiteController {
 	/**
 	 * @param contact links for the floating contact button (null fields = not configured)
 	 * @param social footer icons (null fields = not configured)
-	 * @param policyVersion {@link PolicyVersion#CURRENT}: the policy pages show it as their "last updated" date
+	 * @param policyVersion {@link PolicyVersion#CURRENT}: checkout compares it with the account's consent
 	 */
 	public record SiteInfo(String siteUrl, Map<String, String> business, SiteProperties.Contact contact,
 			SiteProperties.SocialLinks social, String policyVersion) {

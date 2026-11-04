@@ -1,9 +1,10 @@
 package com.nutshop.site;
 
 /**
- * Version of the policy pages (terms of sale + privacy policy) a consent is recorded against: the date of their last
- * change, ISO format. The one place to bump whenever the wording in docs/chinh-sach-noi-dung.md changes: /api/site
- * hands it to the frontend, which shows it as the pages' "Cập nhật lần cuối" date.
+ * Version of the policies (terms of sale + privacy policy) a consent is recorded against, ISO date. Bump it only when
+ * customers must agree again: an account that agreed to an older version is asked again at checkout. /api/site hands
+ * it to the frontend for that check. The pages' "Cập nhật lần cuối" dates are separate (UPDATED in
+ * frontend/src/lib/policyDates.ts): a change that asks nothing new of customers moves only a page's date.
  */
 public final class PolicyVersion {
 

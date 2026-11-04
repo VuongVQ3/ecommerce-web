@@ -6,6 +6,7 @@ import { readRecentOrders } from '../lib/recentOrders'
 import { ToastProvider } from '../components/Toast'
 import { api, ApiError, type CartView, type Order, type User } from '../lib/api'
 import CheckoutPage from './CheckoutPage'
+import { UPDATED } from '../lib/policyDates'
 
 const auth = vi.hoisted(() => ({ current: { user: null as User | null, loading: false } }))
 // refresh(): what /me answers now (by default, the same as the context)
@@ -209,6 +210,17 @@ describe('CheckoutPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Đặt hàng/ }))
     await waitFor(() => expect(place).toHaveBeenCalledOnce())
     expect(place.mock.calls[0][0].acceptPrivacy).toBeUndefined()
+  })
+
+  it('does not ask again because a policy page got a newer date: only the consent version counts', () => {
+    // The shipping page now says 04/11/2026 (free shipping); the consent version is still the one this account agreed to
+    expect(UPDATED.shipping > CURRENT_POLICY).toBe(true)
+    auth.current = {
+      user: { ...ADMIN, role: 'CUSTOMER', privacyConsentRequired: false, policyVersion: CURRENT_POLICY },
+      loading: false,
+    }
+    renderCheckout()
+    expect(screen.queryByRole('checkbox', { name: /Tôi đồng ý với Chính sách bảo mật/ })).toBeNull()
   })
 
   it('asks an account that consented to an older policy version, like a guest', () => {
