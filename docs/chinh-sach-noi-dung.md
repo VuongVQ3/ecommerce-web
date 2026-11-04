@@ -161,7 +161,7 @@ Phiên đăng nhập dùng cookie bảo mật (httpOnly), trang web không đọ
 - Lưu trữ máy chủ và cơ sở dữ liệu: Render, Neon (máy chủ tại Singapore).
 - Lưu trữ ảnh sản phẩm: Cloudinary.
 - Gửi email: Resend. Chống bot ở form đăng ký: Cloudflare Turnstile. Đăng nhập Google: Google.
-- (Ghi chú nội bộ, KHÔNG đưa lên web: thông báo đơn hàng qua Telegram chỉ gồm mã đơn, tổng tiền và đường dẫn trang quản trị, không có tên, số điện thoại, địa chỉ của khách (notify/OrderTelegramAlerts), nên Telegram không được liệt kê ở đây. Nếu sau này gửi thêm thông tin khách qua Telegram, phải thêm lại dòng "Thông báo đơn hàng nội bộ: Telegram".)
+- (Ghi chú nội bộ, KHÔNG đưa lên web: thông báo đơn hàng qua Telegram chỉ gồm mã đơn, tên và số lượng sản phẩm, tổng tiền và đường dẫn trang quản trị, không có tên, số điện thoại, địa chỉ của khách (notify/OrderTelegramAlerts), nên Telegram không được liệt kê ở đây. Nếu sau này gửi thêm thông tin khách qua Telegram, phải thêm lại dòng "Thông báo đơn hàng nội bộ: Telegram".)
 - Đơn vị vận chuyển (Giao Hàng Tiết Kiệm, Viettel Post, Giao Hàng Nhanh, Grab, XanhSM, Ahamove...) nhận tên, số điện thoại, địa chỉ để giao hàng.
 
 #### 6. Thời gian lưu trữ
