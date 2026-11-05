@@ -42,26 +42,33 @@ export function useInView<T extends Element>(rootMargin = '0px 0px -10% 0px') {
   return [ref, visible] as const
 }
 
-/** Animates 0 → target with an ease-out curve once `start` is true (final value before that). */
-export function useCountUp(target: number, start: boolean, durationMs = 1400): number {
+/**
+ * Count-up clock: progress 0 → 1, linear, over `durationMs`, from the frame `start` turns true; the last frame is
+ * exactly 1. One clock shared by several numbers (each shows Math.round(target × progress)) makes them start together
+ * and stop almost together: linear, a number reaches its target in the last 0.5/target of the run (100: the last
+ * 7 ms; an ease-out would stop it hundreds of ms before a 3000).
+ * 1 before the start and with reduced motion: the final numbers are shown from the start (no JavaScript, crawlers),
+ * and the count-up only plays once, when it scrolls into view and motion is allowed.
+ */
+export function useCountUpProgress(start: boolean, durationMs = 1400): number {
   const reduced = usePrefersReducedMotion()
-  // The final number is shown from the start (no JavaScript, crawlers, reduced motion); the count-up only plays
-  // once, when the number scrolls into view and motion is allowed
-  const [value, setValue] = useState(target)
+  // Only read once started (before that the hook returns 1), so the first frame of the count shows 0
+  const [progress, setProgress] = useState(0)
   useEffect(() => {
     if (!start || reduced) return
     let frame = 0
-    const began = performance.now()
+    let began: number | null = null
     const tick = (now: number) => {
+      began ??= now
       const t = Math.min(1, (now - began) / durationMs)
-      setValue(Math.round(target * (1 - (1 - t) ** 3)))
+      setProgress(t)
       if (t < 1) frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
     return () => {
       cancelAnimationFrame(frame)
-      setValue(target)
+      setProgress(1)
     }
-  }, [target, start, durationMs, reduced])
-  return reduced || !start ? target : value
+  }, [start, durationMs, reduced])
+  return reduced || !start ? 1 : progress
 }

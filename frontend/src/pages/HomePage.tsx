@@ -1,5 +1,6 @@
 import { type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
+import { Package, RotateCcw, ScanSearch, Truck, type LucideIcon } from 'lucide-react'
 import { sharedRequest } from '../lib/sharedRequest'
 import { ErrorMessage, Spinner } from '../components/Feedback'
 import { CountUp, Marquee, ParallaxArea, Reveal, ScrollProgress, TiltCard } from '../components/landing/Motion'
@@ -9,7 +10,7 @@ import ProductCard from '../components/ProductCard'
 import QuickViewHost from '../components/QuickView'
 import { api } from '../lib/api'
 import { categoryEmoji } from '../lib/categoryStyle'
-import { useInView } from '../lib/motion'
+import { useCountUpProgress, useInView } from '../lib/motion'
 import { MIN_PRODUCTS_WITH_NUTRITION, withNutrition } from '../lib/nutrition'
 import { SHIPPING_PROMISE } from '../lib/siteInfo'
 import { useAsync } from '../lib/useAsync'
@@ -42,11 +43,11 @@ function floaterPosition({ span, angle }: { span: number; angle: number }): CSSP
   return { left: `calc(50% + ${x} * ${radius})`, top: `calc(50% + ${y} * ${radius})` }
 }
 
-const BENEFITS = [
-  { icon: '🔎', title: 'Chọn lọc kỹ', text: 'Hạt đều, chắc, không sâu mọt.' },
-  { icon: '📦', title: 'Đóng gói 500 g', text: 'Gói kín, giữ hạt giòn thơm khi đến tay bạn.' },
-  { icon: '🚚', title: 'Giao hàng toàn quốc', text: 'Giao tận nơi, thanh toán khi nhận hàng.' },
-  { icon: '↩️', title: 'Đổi trả trong 7 ngày', text: 'Không ưng ý? Liên hệ để được đổi trả nhanh chóng.' },
+const BENEFITS: { icon: LucideIcon; title: string; text: string }[] = [
+  { icon: ScanSearch, title: 'Chọn lọc kỹ', text: 'Hạt đều, chắc, không sâu mọt.' },
+  { icon: Package, title: 'Đóng gói 500 g', text: 'Gói kín, giữ hạt giòn thơm khi đến tay bạn.' },
+  { icon: Truck, title: 'Giao hàng toàn quốc', text: 'Giao tận nơi, thanh toán khi nhận hàng.' },
+  { icon: RotateCcw, title: 'Đổi trả trong 7 ngày', text: 'Không ưng ý? Liên hệ để được đổi trả nhanh chóng.' },
 ]
 
 const STEPS = [
@@ -143,27 +144,54 @@ function Hero({ productCount }: { productCount?: number }) {
   )
 }
 
-function Stats({ products, categories }: { products: number; categories: number }) {
-  // A number counts up when it comes into view; a word (Freeship) is shown as it is
-  const items: { value: number | string; suffix?: string; label: string }[] = [
-    { value: products, label: 'sản phẩm' },
-    { value: categories, label: 'nhóm sản phẩm' },
-    SHIPPING_PROMISE.stat,
+/** `short`: the label under 640px, where each one gets a single line; `grouping` false: no thousands separator */
+type Stat = { value: number | string; suffix?: string; grouping?: boolean; label: string; short?: string }
+
+// TODO: placeholder cho UI, thay bằng số liệu thật trước khi lên production
+// Dev only: the condition is false in a production build, so the bundle does not even contain the number
+const VISITS_PLACEHOLDER: Stat | null = import.meta.env.DEV ? { value: 3000, suffix: '+', grouping: false, label: 'lượt truy cập mỗi ngày', short: 'truy cập mỗi ngày' }
+  : null
+
+/** Production: in place of the visits placeholder */
+const ORIGIN_STAT: Stat = { value: 'Đắk Lắk', label: 'nguồn hạt rõ ràng' }
+
+function Stats() {
+  // The numbers count up together when the band comes into view (one clock: they land on the same frame); a word
+  // (Freeship) is shown as it is
+  const [band, visible] = useInView<HTMLDivElement>()
+  const progress = useCountUpProgress(visible)
+  const items: Stat[] = [
+    { value: 100, suffix: '%', label: 'hạt tuyển chọn' },
+    VISITS_PLACEHOLDER ?? ORIGIN_STAT,
     { value: 7, suffix: ' ngày', label: 'đổi trả dễ dàng' },
+    { ...SHIPPING_PROMISE.stat, short: 'toàn quốc' },
   ]
   const valueClass = 'block text-[clamp(1.5rem,7vw,1.875rem)] font-extrabold whitespace-nowrap text-brand-700 md:text-4xl'
   return (
     <section className="mx-auto max-w-6xl px-4">
       {/* Phones: room on the right for the floating buttons in the corner */}
-      <div className="grid grid-cols-2 gap-4 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm max-sm:pr-14 md:grid-cols-4 md:p-8">
+      {/* 2×2 rows of equal height, each tile centred; under 640px every label is one line (short form) */}
+      <div
+        ref={band}
+        className="grid auto-rows-fr grid-cols-2 gap-4 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm max-sm:gap-x-2 max-sm:pr-12 max-sm:pl-3 md:grid-cols-4 md:p-8"
+      >
         {items.map((s, i) => (
-          <Reveal key={s.label} delay={i * 100} className="text-center">
+          <Reveal key={s.label} delay={i * 100} className="flex flex-col items-center justify-center text-center">
             {typeof s.value === 'number' ? (
-              <CountUp value={s.value} suffix={s.suffix} className={valueClass} />
+              <CountUp value={s.value} progress={progress} suffix={s.suffix} grouping={s.grouping} className={valueClass} />
             ) : (
               <span className={valueClass}>{s.value}</span>
             )}
-            <p className="mt-1 line-clamp-2 text-sm text-muted">{s.label}</p>
+            <p className="mt-1 text-sm text-muted max-sm:whitespace-nowrap sm:line-clamp-2">
+              {s.short ? (
+                <>
+                  <span className="sm:hidden">{s.short}</span>
+                  <span className="max-sm:hidden">{s.label}</span>
+                </>
+              ) : (
+                s.label
+              )}
+            </p>
           </Reveal>
         ))}
       </div>
@@ -234,21 +262,27 @@ export default function HomePage() {
 
       {catalog.data && categories.data && catalog.data.totalItems > 0 && (
         <div className="mt-14">
-          <Stats products={catalog.data.totalItems} categories={categories.data.length} />
+          <Stats />
         </div>
       )}
 
       <section className="mx-auto max-w-6xl px-4 pt-20">
         <SectionTitle eyebrow="Vì sao chọn Hạt Lành" title="Chọn lọc kỹ, giao tận nơi" />
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Phones: compact cards, icon on the left of the title and text */}
+        <div className="mt-8 grid gap-4 max-sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {BENEFITS.map((b, i) => (
             <Reveal key={b.title} delay={i * 110} from="scale">
-              <TiltCard className="h-full rounded-2xl border border-stone-200 bg-white p-6">
-                <p className="text-3xl" aria-hidden>
-                  {b.icon}
-                </p>
-                <h3 className="mt-3 font-bold text-stone-900">{b.title}</h3>
-                <p className="mt-1 text-sm text-stone-600">{b.text}</p>
+              <TiltCard className="h-full rounded-2xl border border-stone-200 bg-white p-6 max-sm:flex max-sm:items-start max-sm:gap-4 max-sm:p-4">
+                <span
+                  className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 max-sm:size-11"
+                  aria-hidden
+                >
+                  <b.icon className="size-6" strokeWidth={1.75} />
+                </span>
+                <div>
+                  <h3 className="mt-3 font-bold text-stone-900 max-sm:mt-0">{b.title}</h3>
+                  <p className="mt-1 text-sm text-stone-600">{b.text}</p>
+                </div>
               </TiltCard>
             </Reveal>
           ))}
