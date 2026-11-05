@@ -4,6 +4,7 @@ import com.nutshop.audit.AuditLog;
 import com.nutshop.common.ApiException;
 import com.nutshop.product.ProductPromotion.Status;
 import com.nutshop.product.PromotionService.PromotionRow;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.invocation.Invocation;
@@ -23,6 +24,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,8 +60,17 @@ class PromotionServiceTest {
 		return LocalDate.parse(date).atStartOfDay(PricingService.VIETNAM).toInstant();
 	}
 
+	/** Render runs in UTC; this machine runs in UTC+7, which would hide a day computed in the JVM's zone. */
+	private static final TimeZone MACHINE_ZONE = TimeZone.getDefault();
+
+	@AfterEach
+	void restoreZone() {
+		TimeZone.setDefault(MACHINE_ZONE);
+	}
+
 	@BeforeEach
 	void setUp() {
+		TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
 		ProductPromotionRepository promotions = mock(ProductPromotionRepository.class);
 		given(promotions.findById(any())).willAnswer(i -> store.stream().filter(p -> p.getId().equals(i.getArgument(0))).findFirst());
 		given(promotions.saveAndFlush(any())).willAnswer(i -> {
@@ -186,6 +197,36 @@ class PromotionServiceTest {
 		Instant afternoon = vn("2026-11-08").plus(15, ChronoUnit.HOURS);
 		PromotionRow row = service.create(PRODUCT_ID, 219_000, afternoon, vn("2026-11-11"), ADMIN);
 		assertThat(row.startsAt()).isEqualTo(vn("2026-11-08")).hasToString("2026-11-07T17:00:00Z");
+	}
+
+	// ---- time zone: "today" is the Vietnam day, whatever the server's zone -----------------------------------------
+
+	@Test
+	void at0130InVietnamTodayIsAlreadyTheNextDayWhileUtcIsStillTheDayBefore() {
+		// 2026-11-05T18:30Z = 06/11 01:30 in Vietnam (still 05/11 in UTC, the server's zone)
+		Instant now = Instant.parse("2026-11-05T18:30:00Z");
+		clock.set(now);
+		// The form sends 06/11 as its midnight in Vietnam: 2026-11-05T17:00Z
+		PromotionRow row = service.create(PRODUCT_ID, 219_000, vn("2026-11-06"), vn("2026-11-11"), ADMIN);
+		assertThat(row.startsAt()).isEqualTo(now);
+		assertThat(row.status()).isEqualTo(Status.RUNNING);
+		assertThat(PromotionService.startOf(vn("2026-11-06"), now)).isEqualTo(now);
+		// 05/11 is yesterday in Vietnam
+		assertThatThrownBy(() -> service.create(PRODUCT_ID, 219_000, vn("2026-11-05"), vn("2026-11-12"), ADMIN))
+			.satisfies(ex -> assertThat(code(ex)).isEqualTo("INVALID_PERIOD"))
+			.hasMessageContaining("quá khứ");
+		// 07/11 is a later day: its midnight in Vietnam
+		assertThat(PromotionService.startOf(vn("2026-11-07"), now)).isEqualTo(vn("2026-11-07"));
+	}
+
+	@Test
+	void theYearAndItsDaysFollowVietnamAtNewYear() {
+		// 2026-12-31T18:00Z = 01/01/2027 01:00 in Vietnam
+		clock.set(Instant.parse("2026-12-31T18:00:00Z"));
+		PromotionRow row = service.create(PRODUCT_ID, 219_000, vn("2027-01-01"), vn("2027-01-04"), ADMIN);
+		assertThat(row.productDaysThisYear()).isEqualTo(3);
+		assertThat(service.usage(null).year()).isEqualTo(2027);
+		assertThat(service.daysUsed(PRODUCT_ID, 2026, null)).isZero();
 	}
 
 	@Test
