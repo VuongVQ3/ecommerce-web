@@ -1,5 +1,6 @@
 import { Ellipsis, Info, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useBlocker } from 'react-router'
 import { RequiredMark } from '../components/FormFields'
 import { btn, filterBtn, filterInput, input, table } from './styles'
@@ -329,6 +330,9 @@ export function Dialog({
   )
 }
 
+/** min-w-44 */
+const MENU_WIDTH = 176
+
 /**
  * "⋯" menu for row actions. Arrow keys / Home / End move, Esc closes and returns focus to the button. The list is
  * positioned against the window, so a table frame never cuts it off; it opens upwards near the bottom of the screen
@@ -336,6 +340,8 @@ export function Dialog({
  */
 export function ActionMenu({ label, items }: { label: string; items: { label: string; onSelect: () => void; danger?: boolean }[] }) {
   const [position, setPosition] = useState<CSSProperties | null>(null)
+  // Where the menu is rendered: the open <dialog> around the button (a modal's top layer), else <body>
+  const [host, setHost] = useState<HTMLElement | null>(null)
   const open = position !== null
   const button = useRef<HTMLButtonElement>(null)
   const menu = useRef<HTMLDivElement>(null)
@@ -344,9 +350,12 @@ export function ActionMenu({ label, items }: { label: string; items: { label: st
   const toggle = () => {
     if (open || !button.current) return setPosition(null)
     const r = button.current.getBoundingClientRect()
-    const right = Math.max(8, window.innerWidth - r.right)
+    // Lined up with the button's right edge, or its left edge when there is no room on the left (button at the left
+    // of a phone screen)
+    const side = r.right >= MENU_WIDTH + 8 ? { right: Math.max(8, window.innerWidth - r.right) } : { left: Math.max(8, r.left) }
     const below = window.innerHeight - r.bottom
-    setPosition(below < 48 * items.length + 16 && r.top > below ? { right, bottom: window.innerHeight - r.top + 4 } : { right, top: r.bottom + 4 })
+    setHost(button.current.closest('dialog') ?? document.body)
+    setPosition(below < 48 * items.length + 16 && r.top > below ? { ...side, bottom: window.innerHeight - r.top + 4 } : { ...side, top: r.bottom + 4 })
   }
 
   useEffect(() => {
@@ -396,35 +405,40 @@ export function ActionMenu({ label, items }: { label: string; items: { label: st
       >
         <Ellipsis aria-hidden className="size-5" />
       </button>
-      {open && (
-        <div
-          ref={menu}
-          id={menuId}
-          role="menu"
-          aria-label={label}
-          onKeyDown={onKeyDown}
-          style={position}
-          className="fixed z-50 min-w-44 rounded-xl border border-stone-200 bg-white p-1 shadow-lg"
-        >
-          {items.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              role="menuitem"
-              tabIndex={-1}
-              onClick={() => {
-                setPosition(null)
-                item.onSelect()
-              }}
-              className={`block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium focus:outline-none ${
-                item.danger ? 'text-danger hover:bg-red-50 focus:bg-red-50' : 'text-stone-800 hover:bg-stone-100 focus:bg-stone-100'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {open &&
+        host &&
+        // Out of the page's boxes: a parent with a transform or backdrop-filter (sticky blurred headers) would
+        // otherwise become the box the fixed menu is placed in
+        createPortal(
+          <div
+            ref={menu}
+            id={menuId}
+            role="menu"
+            aria-label={label}
+            onKeyDown={onKeyDown}
+            style={position}
+            className="fixed z-50 min-w-44 rounded-xl border border-stone-200 bg-white p-1 shadow-lg"
+          >
+            {items.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                onClick={() => {
+                  setPosition(null)
+                  item.onSelect()
+                }}
+                className={`block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium focus:outline-none ${
+                  item.danger ? 'text-danger hover:bg-red-50 focus:bg-red-50' : 'text-stone-800 hover:bg-stone-100 focus:bg-stone-100'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>,
+          host,
+        )}
     </div>
   )
 }
