@@ -12,6 +12,7 @@ import {
   type Ref,
 } from 'react'
 import { searchIndex, searchOptions, type ComboboxGroup, type ComboboxOption, type SearchMatch } from '../lib/addressSearch'
+import { HIDE_FLOATING } from '../lib/overlay'
 import { foldTerm } from '../lib/textFold'
 import { describedByIds, inputClass } from './fieldParts'
 import { FieldShell } from './FormFields'
@@ -308,6 +309,8 @@ export function ComboboxField({
           role="listbox"
           aria-label={label}
           hidden={!open}
+          // While open, the floating buttons (contact, back to top) leave the corner: on phones they would cover it
+          {...(open ? { [HIDE_FLOATING]: '' } : {})}
           style={{ maxHeight: place.max }}
           // A press in the list must not take the focus out of the box (that would close it)
           onMouseDown={(e) => e.preventDefault()}

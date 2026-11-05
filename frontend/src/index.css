@@ -261,6 +261,9 @@ body {
  * so no element has two transforms fighting. First round 2 s after load. Paused under the pointer/focus.
  */
 .fc { --fc-cycle: 3s; --fc-step: 0.3s; --fc-wait: 2s; }
+/* Stepping aside for an open combobox list (data-hidden): fades out, then takes no clicks */
+.fc { transition: opacity 150ms ease-out, visibility 0s linear 0s; }
+.fc[data-hidden] { opacity: 0; visibility: hidden; transition: opacity 150ms ease-out, visibility 0s linear 150ms; }
 
 /* 3 s cycle: 0–17% ≈ 0.5 s of movement, then still */
 @keyframes fc-hop {
