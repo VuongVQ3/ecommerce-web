@@ -5,7 +5,10 @@ export const salePriceFor = (price: number, percentOff: number) => Math.floor((p
 
 export const discountPercent = (regular: number, sale: number) => Math.round(((regular - sale) * 100) / regular)
 
-/** "2026-11-01" (a Vietnam calendar day) → the instant it starts, as ISO */
+/**
+ * "2026-11-01" (a Vietnam calendar day) → the instant it starts, as ISO. Sent as a promotion's first day: the server
+ * turns today into "right now" (PromotionService.startOf), so one can follow a promotion ended early today.
+ */
 export const vnDayStart = (day: string) => new Date(`${day}T00:00:00+07:00`).toISOString()
 
 /** Inclusive last day "2026-11-30" → exclusive end instant (start of the next day in Vietnam) */

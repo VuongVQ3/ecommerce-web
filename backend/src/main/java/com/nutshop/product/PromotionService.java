@@ -18,10 +18,12 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -31,12 +33,17 @@ import java.util.stream.Collectors;
  * <ul>
  * <li>be strictly cheaper than the product's CURRENT regular price, in whole thousands of đồng, and at most
  * {@code promotion.max-discount-percent} off (the percentage is always derived from real prices, never typed);</li>
- * <li>have a start and an end (end after start, end in the future, start not before today);</li>
- * <li>not overlap another active promotion of the same product (also enforced by the database);</li>
+ * <li>have a start and an end (end after start, end in the future, start not before today). The admin picks days:
+ * {@link #startOf} turns the first day into the real start (today = right now, a later day = its midnight in Vietnam),
+ * for every way in (create, bulk, update);</li>
+ * <li>not overlap another active promotion of the same product, both periods being half-open [startsAt, endsAt):
+ * one ending at 16:25 and the next starting at 16:25 do not overlap (also enforced by the database);</li>
  * <li>keep the product's promotion days per calendar year (Vietnam time) within {@code promotion.max-days-per-year}:
- * every calendar day a promotion touches counts, and a promotion spanning New Year counts in both years.</li>
+ * every calendar day a promotion touches counts once (a day shared by a promotion ended early and the next one is
+ * one day), up to the real end of a promotion ended early, and a promotion spanning New Year counts in both years.</li>
  * </ul>
- * Upcoming promotions can be edited or cancelled; running ones can only be ended early; ended ones are history.
+ * Upcoming promotions can be edited or cancelled; running ones can have their price and last day changed (not their
+ * start) or be ended early; ended ones are history.
  */
 @Service
 public class PromotionService {
@@ -133,9 +140,11 @@ public class PromotionService {
 	public PromotionRow create(long productId, long salePrice, Instant startsAt, Instant endsAt, UUID actorId) {
 		// Row lock: two admins creating promotions for the same product are checked one after the other
 		Product product = products.lockById(productId).orElseThrow(PromotionService::productNotFound);
-		validate(product, salePrice, startsAt, endsAt, null);
+		Instant now = storedNow();
+		Instant start = startOf(startsAt, now);
+		validate(product, salePrice, start, endsAt, null, now);
 		ProductPromotion promotion = promotions.saveAndFlush(
-				new ProductPromotion(productId, salePrice, startsAt, endsAt, actorId, pricing.now()));
+				new ProductPromotion(productId, salePrice, start, endsAt, actorId, now));
 		audit.entry("PROMOTION_CREATED", "PRODUCT", productId, product.getName())
 			.by(actorId)
 			.changes(null, AuditView.of(promotion))
@@ -143,18 +152,30 @@ public class PromotionService {
 		return row(promotion, product);
 	}
 
-	/** Only before it starts: a running promotion's price must not change under shoppers' carts. */
+	/**
+	 * Upcoming: price and both days. Running: price and last day, the start stays (it already happened); the new
+	 * price applies at once to the shop and to carts (prices are always read live, PricingService). Ended or
+	 * cancelled: refused.
+	 */
 	@Transactional
 	public PromotionRow update(UUID id, long salePrice, Instant startsAt, Instant endsAt, UUID actorId) {
 		ProductPromotion promotion = promotions.findById(id).orElseThrow(PromotionService::notFound);
 		Product product = products.lockById(promotion.getProductId()).orElseThrow(PromotionService::productNotFound);
-		if (promotion.status(pricing.now()) != Status.UPCOMING) {
-			throw new ApiException(HttpStatus.CONFLICT, "PROMOTION_NOT_EDITABLE",
-					"Chỉ sửa được khuyến mại chưa bắt đầu. Khuyến mại đang chạy chỉ có thể kết thúc sớm.");
-		}
-		validate(product, salePrice, startsAt, endsAt, id);
+		Instant now = storedNow();
+		Instant start = switch (promotion.status(now)) {
+			case UPCOMING -> startOf(startsAt, now);
+			case RUNNING -> {
+				if (startsAt != null && !micros(startsAt).equals(micros(promotion.getStartsAt()))) {
+					throw bad("PROMOTION_START_LOCKED", "Khuyến mại đã bắt đầu nên không đổi được ngày bắt đầu");
+				}
+				yield promotion.getStartsAt();
+			}
+			default -> throw new ApiException(HttpStatus.CONFLICT, "PROMOTION_NOT_EDITABLE",
+					"Khuyến mại đã kết thúc hoặc đã huỷ nên không sửa được");
+		};
+		validate(product, salePrice, start, endsAt, id, now);
 		AuditView before = AuditView.of(promotion);
-		promotion.reschedule(salePrice, startsAt, endsAt, pricing.now());
+		promotion.reschedule(salePrice, start, endsAt, now);
 		promotions.flush();
 		audit.entry("PROMOTION_UPDATED", "PRODUCT", product.getId(), product.getName())
 			.by(actorId)
@@ -168,7 +189,7 @@ public class PromotionService {
 	public PromotionRow end(UUID id, UUID actorId) {
 		ProductPromotion promotion = promotions.findById(id).orElseThrow(PromotionService::notFound);
 		Product product = products.lockById(promotion.getProductId()).orElseThrow(PromotionService::productNotFound);
-		Instant now = pricing.now();
+		Instant now = storedNow();
 		AuditView before = AuditView.of(promotion);
 		String action = switch (promotion.status(now)) {
 			case RUNNING -> {
@@ -242,9 +263,44 @@ public class PromotionService {
 
 	// ---- rules --------------------------------------------------------------------------------------------------
 
-	private void validate(Product product, long salePrice, Instant startsAt, Instant endsAt, UUID excludeId) {
-		Instant now = pricing.now();
-		if (startsAt == null || endsAt == null) {
+	/**
+	 * The real start of a promotion whose first day is the (Vietnam) day of {@code requested}: today → {@code now},
+	 * so it starts at once and can follow one ended early a moment ago; a later day → its midnight in Vietnam; an
+	 * earlier day → refused. The one place that decides it, for create, bulk and update.
+	 */
+	static Instant startOf(Instant requested, Instant now) {
+		if (requested == null) {
+			throw bad("INVALID_PERIOD", "Vui lòng chọn ngày bắt đầu và ngày kết thúc");
+		}
+		LocalDate day = LocalDate.ofInstant(requested, PricingService.VIETNAM);
+		LocalDate today = LocalDate.ofInstant(now, PricingService.VIETNAM);
+		if (day.isBefore(today)) {
+			throw bad("INVALID_PERIOD", "Ngày bắt đầu không được ở trong quá khứ");
+		}
+		return day.equals(today) ? now : day.atStartOfDay(PricingService.VIETNAM).toInstant();
+	}
+
+	/**
+	 * Now, at the precision the database keeps (microseconds): a start or end set to "now" reads back exactly as it
+	 * was returned, so a client can send a running promotion's start back unchanged, and a promotion started right
+	 * after one ended early never lands a fraction before that end.
+	 */
+	private Instant storedNow() {
+		return micros(pricing.now());
+	}
+
+	private static Instant micros(Instant instant) {
+		return instant.truncatedTo(ChronoUnit.MICROS);
+	}
+
+	/** Two half-open periods [start, end) overlap; touching ends (a.end == b.start) do not. */
+	static boolean overlaps(Instant aStart, Instant aEnd, Instant bStart, Instant bEnd) {
+		return aStart.isBefore(bEnd) && bStart.isBefore(aEnd);
+	}
+
+	/** {@code startsAt} is already the real start ({@link #startOf}, or the kept start of a running promotion). */
+	private void validate(Product product, long salePrice, Instant startsAt, Instant endsAt, UUID excludeId, Instant now) {
+		if (endsAt == null) {
 			throw bad("INVALID_PERIOD", "Vui lòng chọn ngày bắt đầu và ngày kết thúc");
 		}
 		if (!endsAt.isAfter(startsAt)) {
@@ -252,10 +308,6 @@ public class PromotionService {
 		}
 		if (!endsAt.isAfter(now)) {
 			throw bad("INVALID_PERIOD", "Khuyến mại phải kết thúc sau thời điểm hiện tại");
-		}
-		Instant startOfToday = LocalDate.ofInstant(now, PricingService.VIETNAM).atStartOfDay(PricingService.VIETNAM).toInstant();
-		if (startsAt.isBefore(startOfToday)) {
-			throw bad("INVALID_PERIOD", "Ngày bắt đầu không được ở trong quá khứ");
 		}
 
 		long regular = product.getPrice();
@@ -275,6 +327,7 @@ public class PromotionService {
 		promotions.findActiveBetween(product.getId(), startsAt, endsAt)
 			.stream()
 			.filter(p -> !p.getId().equals(excludeId))
+			.filter(p -> overlaps(startsAt, endsAt, p.getStartsAt(), p.getEndsAt()))
 			.findFirst()
 			.ifPresent(p -> {
 				throw new ApiException(HttpStatus.CONFLICT, "PROMOTION_OVERLAP", "Trùng thời gian với khuyến mại "
@@ -284,8 +337,11 @@ public class PromotionService {
 		LocalDate first = LocalDate.ofInstant(startsAt, PricingService.VIETNAM);
 		LocalDate last = lastDay(endsAt);
 		for (int year = first.getYear(); year <= last.getYear(); year++) {
-			int used = daysUsed(product.getId(), year, excludeId);
-			int adding = daysIn(startsAt, endsAt, year);
+			Set<LocalDate> days = promotionDays(product.getId(), year, excludeId);
+			int used = days.size();
+			days.addAll(daysOf(startsAt, endsAt, year));
+			// Only the days not already counted (today, when following a promotion ended early today)
+			int adding = days.size() - used;
 			if (used + adding > limits.maxDaysPerYear()) {
 				throw bad("TOO_MANY_DAYS", "Sản phẩm \"" + product.getName() + "\" đã có " + used + " ngày khuyến mại trong năm "
 						+ year + "; thêm " + adding + " ngày sẽ vượt giới hạn " + limits.maxDaysPerYear()
@@ -294,24 +350,36 @@ public class PromotionService {
 		}
 	}
 
-	/** Promotion days of a product in a calendar year (Vietnam time), cancelled ones excluded. */
+	/**
+	 * Promotion days of a product in a calendar year (Vietnam time), cancelled ones excluded. A promotion ended early
+	 * counts up to the day it really ended (its endsAt is moved then); a day two promotions share counts once.
+	 */
 	int daysUsed(Long productId, int year, UUID excludeId) {
+		return promotionDays(productId, year, excludeId).size();
+	}
+
+	private Set<LocalDate> promotionDays(Long productId, int year, UUID excludeId) {
 		Instant from = LocalDate.of(year, 1, 1).atStartOfDay(PricingService.VIETNAM).toInstant();
 		Instant to = LocalDate.of(year + 1, 1, 1).atStartOfDay(PricingService.VIETNAM).toInstant();
-		return promotions.findActiveBetween(productId, from, to)
+		Set<LocalDate> days = new HashSet<>();
+		promotions.findActiveBetween(productId, from, to)
 			.stream()
 			.filter(p -> !p.getId().equals(excludeId))
-			.mapToInt(p -> daysIn(p.getStartsAt(), p.getEndsAt(), year))
-			.sum();
+			.forEach(p -> days.addAll(daysOf(p.getStartsAt(), p.getEndsAt(), year)));
+		return days;
 	}
 
 	/** Calendar days (Vietnam time) of [start, end) that fall in {@code year}; a partly covered day counts. */
 	static int daysIn(Instant start, Instant end, int year) {
+		return daysOf(start, end, year).size();
+	}
+
+	private static List<LocalDate> daysOf(Instant start, Instant end, int year) {
 		LocalDate first = LocalDate.ofInstant(start, PricingService.VIETNAM);
 		LocalDate last = lastDay(end);
 		LocalDate from = first.getYear() < year ? LocalDate.of(year, 1, 1) : first;
 		LocalDate to = last.getYear() > year ? LocalDate.of(year, 12, 31) : last;
-		return to.isBefore(from) ? 0 : (int) ChronoUnit.DAYS.between(from, to) + 1;
+		return to.isBefore(from) ? List.of() : from.datesUntil(to.plusDays(1)).toList();
 	}
 
 	/** The end is exclusive: a promotion ending at midnight does not touch the next day. */

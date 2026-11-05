@@ -328,16 +328,20 @@ class PromotionE2ETest {
 		promo(id, 132_000, Instant.now().minus(1, ChronoUnit.HOURS), Instant.now().plus(3, ChronoUnit.DAYS));
 		String promoId = jdbc.queryForObject("SELECT id::text FROM product_promotions WHERE product_id = ?", String.class, id);
 
-		// Running: only ending early is allowed
+		// Running: its start cannot move
 		mvc.perform(json(put("/api/admin/promotions/" + promoId), """
 				{"productId":%d,"salePrice":120000,"startsAt":"%s","endsAt":"%s"}""".formatted(id, vn("2027-03-01"), vn("2027-03-05")))
-			.cookie(admin)).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("PROMOTION_NOT_EDITABLE"));
+			.cookie(admin)).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("PROMOTION_START_LOCKED"));
 		mvc.perform(json(post("/api/admin/promotions/" + promoId + "/end"), "").cookie(admin))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value("ENDED"));
 		assertThat(pricing.priceOf(productRepository.findById(id).orElseThrow()).price()).isEqualTo(189_000);
 		mvc.perform(json(post("/api/admin/promotions/" + promoId + "/end"), "").cookie(admin))
 			.andExpect(status().isConflict());
+		// Ended: not editable any more
+		mvc.perform(json(put("/api/admin/promotions/" + promoId), """
+				{"productId":%d,"salePrice":120000,"startsAt":"%s","endsAt":"%s"}""".formatted(id, vn("2027-03-01"), vn("2027-03-05")))
+			.cookie(admin)).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("PROMOTION_NOT_EDITABLE"));
 
 		// Upcoming: editable, and "end" cancels it
 		String upcoming = create(admin, id, 150_000, vn("2027-03-01"), vn("2027-03-05")).andReturn().getResponse().getContentAsString();
@@ -349,6 +353,45 @@ class PromotionE2ETest {
 			.andExpect(jsonPath("$.status").value("CANCELLED"));
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_logs WHERE action IN ('PROMOTION_ENDED','PROMOTION_CANCELLED','PROMOTION_UPDATED') AND entity_id = ?",
 				Integer.class, String.valueOf(id))).isEqualTo(3);
+	}
+
+	@Test
+	void endedEarlyThenStartedAgainTodayThenRepricedWhileRunning() throws Exception {
+		Cookie admin = as("ADMIN");
+		long id = product(269_000);
+		promo(id, 229_000, Instant.now().minus(2, ChronoUnit.DAYS), Instant.now().plus(20, ChronoUnit.DAYS));
+		String oldId = jdbc.queryForObject("SELECT id::text FROM product_promotions WHERE product_id = ?", String.class, id);
+		mvc.perform(json(post("/api/admin/promotions/" + oldId + "/end"), "").cookie(admin)).andExpect(status().isOk());
+
+		// The form sends today as its midnight in Vietnam: the promotion starts now, after the one just ended
+		Instant today = LocalDate.now(PricingService.VIETNAM).atStartOfDay(PricingService.VIETNAM).toInstant();
+		Instant oldEnd = jdbc.queryForObject("SELECT ends_at FROM product_promotions WHERE id = ?::uuid", Timestamp.class, oldId).toInstant();
+		String created = create(admin, id, 219_000, today, today.plus(5, ChronoUnit.DAYS))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.status").value("RUNNING"))
+			.andReturn().getResponse().getContentAsString();
+		Instant start = Instant.parse(field(created, "startsAt"));
+		assertThat(start).isAfterOrEqualTo(oldEnd).isAfter(today);
+		mvc.perform(json(post("/api/cart/validate"), "{\"items\":[{\"productId\":" + id + ",\"quantity\":1}]}"))
+			.andExpect(jsonPath("$.items[0].price").value(219_000));
+
+		// Repriced while running: the shop and carts use the new price at once, the change is audited
+		String newId = field(created, "id");
+		mvc.perform(json(put("/api/admin/promotions/" + newId), """
+				{"productId":%d,"salePrice":199000,"startsAt":"%s","endsAt":"%s"}""".formatted(id, start, today.plus(7, ChronoUnit.DAYS)))
+			.cookie(admin))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.salePrice").value(199_000))
+			.andExpect(jsonPath("$.status").value("RUNNING"));
+		mvc.perform(json(post("/api/cart/validate"), "{\"items\":[{\"productId\":" + id + ",\"quantity\":1}]}"))
+			.andExpect(jsonPath("$.items[0].price").value(199_000));
+		String slug = jdbc.queryForObject("SELECT slug FROM products WHERE id = ?", String.class, id);
+		mvc.perform(get("/api/products/" + slug)).andExpect(jsonPath("$.price").value(199_000));
+		Map<String, Object> log = jdbc.queryForMap("""
+				SELECT before::text AS before, after::text AS after FROM audit_logs
+				WHERE action = 'PROMOTION_UPDATED' AND entity_id = ?""", String.valueOf(id));
+		assertThat(log.get("before").toString()).contains("\"salePrice\": 219000").contains("endsAt");
+		assertThat(log.get("after").toString()).contains("\"salePrice\": 199000").contains("endsAt");
 	}
 
 	@Test
