@@ -257,6 +257,7 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
         <div className="grid grid-cols-2 gap-3 sm:col-span-2">
           <DateField label="Từ ngày" requiredMark min={today} value={first} onChange={setFirst} />
           <DateField label="Đến hết ngày" requiredMark min={first || today} value={last} onChange={setLast} />
+          {first === today && <p className="col-span-2 text-sm text-stone-600">Từ hôm nay: khuyến mại bắt đầu ngay khi lưu.</p>}
         </div>
       </fieldset>
 
@@ -312,13 +313,20 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
 
 // ---- edit / end ---------------------------------------------------------------------------------------------
 
+/**
+ * Upcoming: price and both days. Running: price and last day; its start already happened, so it is shown, not
+ * editable, and sent back unchanged (the server refuses another one).
+ */
 function EditDialog({ row, onClose, onDone }: { row: PromotionRow; onClose: () => void; onDone: () => void }) {
+  const running = row.status === 'RUNNING'
+  const today = vnToday()
   const [price, setPrice] = useState<number | null>(row.salePrice)
   const [first, setFirst] = useState(vnDay(row.startsAt))
   const [last, setLast] = useState(vnDay(row.endsAt, true))
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const sale = price ?? 0
+  const lastMin = running || first < today ? today : first
 
   const submit = async () => {
     setPending(true)
@@ -327,7 +335,7 @@ function EditDialog({ row, onClose, onDone }: { row: PromotionRow; onClose: () =
       await promotionApi.update(row.id, {
         productId: row.productId,
         salePrice: sale,
-        startsAt: vnDayStart(first),
+        startsAt: running ? row.startsAt : vnDayStart(first),
         endsAt: vnDayEndExclusive(last),
       })
       onDone()
@@ -343,11 +351,28 @@ function EditDialog({ row, onClose, onDone }: { row: PromotionRow; onClose: () =
         Giá gốc hiện tại: <strong className="tabular-nums">{formatPrice(row.regularPrice)}</strong>
         {sale > 0 && sale < row.regularPrice && <> · giảm {discountPercent(row.regularPrice, sale)}%</>}
       </p>
-      <Field label="Giá khuyến mại (₫)" requiredMark>{(p) => <MoneyInput {...p} value={price} onChange={setPrice} />}</Field>
-      <div className="grid grid-cols-2 gap-3">
-        <DateField label="Từ ngày" requiredMark value={first} onChange={setFirst} />
-        <DateField label="Đến hết ngày" requiredMark min={first || undefined} value={last} onChange={setLast} />
+      <Field label="Giá khuyến mại (₫)" requiredMark hint="Bội số của 1.000₫, thấp hơn giá gốc">
+        {(p) => <MoneyInput {...p} value={price} onChange={setPrice} />}
+      </Field>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {running ? (
+          <div>
+            <p className="text-sm font-medium text-stone-800">Từ ngày</p>
+            <p className="mt-1.5 text-sm tabular-nums text-stone-900">
+              {dmy(first)}
+            </p>
+            <p className="mt-1 text-xs text-muted">Đã bắt đầu, không đổi được</p>
+          </div>
+        ) : (
+          <DateField label="Từ ngày" requiredMark min={today} value={first} onChange={setFirst} />
+        )}
+        <DateField label="Đến hết ngày" requiredMark min={lastMin} value={last} onChange={setLast} />
       </div>
+      {running ? (
+        <p className="text-sm text-stone-600">Giá mới áp dụng ngay trên cửa hàng; giỏ hàng đang có sản phẩm này sẽ báo đổi giá.</p>
+      ) : (
+        first === today && <p className="text-sm text-stone-600">Từ hôm nay: khuyến mại bắt đầu ngay khi lưu.</p>
+      )}
       <p className="text-xs text-muted">{REMINDER}</p>
     </Dialog>
   )
@@ -500,7 +525,7 @@ export default function PromotionsPage() {
                   </td>
                   <td className={`${table.td} text-right`}>
                     <div className="flex justify-end gap-2">
-                      {r.status === 'UPCOMING' && (
+                      {(r.status === 'RUNNING' || r.status === 'UPCOMING') && (
                         <button type="button" className={btn.secondary} onClick={() => setEditing(r)}>
                           Sửa
                         </button>

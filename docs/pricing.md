@@ -36,12 +36,18 @@ Khi khuyến mại bắt đầu hoặc kết thúc trong lúc sản phẩm đang
 | Có đủ ngày bắt đầu và kết thúc; kết thúc sau bắt đầu; kết thúc sau hiện tại; bắt đầu không trước hôm nay | `400 INVALID_PERIOD` |
 | Giá KM > 0, là bội số 1.000₫, thấp hơn giá gốc hiện tại | `400 INVALID_SALE_PRICE` |
 | Giảm tối đa `promotion.max-discount-percent` (mặc định **50%**); thông báo nêu giá KM thấp nhất được phép | `400 DISCOUNT_TOO_LARGE` |
-| Không trùng thời gian với khuyến mại khác của cùng sản phẩm (cả trong DB: ràng buộc `EXCLUDE USING gist`) | `409 PROMOTION_OVERLAP` |
+| Không trùng thời gian với khuyến mại khác của cùng sản phẩm, so theo thời điểm, khoảng nửa mở `[starts_at, ends_at)`: trùng khi `start mới < ends_at khác` và `starts_at khác < end mới`; chạm mốc nhau thì không trùng (cả trong DB: ràng buộc `EXCLUDE USING gist`) | `409 PROMOTION_OVERLAP` |
 | Tổng ngày khuyến mại của sản phẩm trong một năm dương lịch ≤ `promotion.max-days-per-year` (mặc định **120**) | `400 TOO_MANY_DAYS` |
 
+**Ngày bắt đầu (`PromotionService.startOf`, dùng chung cho tạo, tạo hàng loạt và sửa):** admin chọn "Từ ngày", frontend
+gửi 00:00 giờ Việt Nam của ngày đó. Nếu là **hôm nay** thì `starts_at` = thời điểm lưu, nên kết thúc sớm lúc 16:25 rồi
+tạo lại ngay trong ngày được, không phải đợi sang hôm sau. Ngày sau đó thì `starts_at` = 00:00 giờ Việt Nam của ngày đó.
+Ngày đã qua thì báo `INVALID_PERIOD`.
+
 **Cách đếm ngày:** mỗi ngày lịch (giờ Việt Nam) mà khuyến mại chạm tới đều tính là một ngày, kể cả khi chỉ phủ một
-phần ngày. Khuyến mại vắt qua năm mới thì tính riêng phần thuộc từng năm. Khuyến mại đã huỷ trước khi bắt đầu không
-tính; khuyến mại bị kết thúc sớm chỉ tính tới ngày kết thúc thực tế.
+phần ngày. Một ngày có hai khuyến mại (kết thúc sớm rồi tạo lại trong ngày) chỉ tính một lần. Khuyến mại vắt qua năm
+mới thì tính riêng phần thuộc từng năm. Khuyến mại đã huỷ trước khi bắt đầu không tính; khuyến mại bị kết thúc sớm chỉ
+tính tới ngày kết thúc thực tế (`ends_at` được dời về lúc bấm kết thúc).
 
 Hai giới hạn nằm trong `application.properties` (`promotion.max-discount-percent`, `promotion.max-days-per-year`).
 **Hãy kiểm tra quy định khuyến mại hiện hành và thông báo với Sở Công Thương trước khi chạy chương trình**; nếu quy
@@ -55,10 +61,11 @@ thì bị chặn (`409 PROMOTION_PRICE_CONFLICT`), phải kết thúc khuyến m
 | Trạng thái | Điều kiện | Được làm |
 |---|---|---|
 | Sắp tới (`UPCOMING`) | chưa tới `starts_at` | Sửa giá và thời gian (qua đủ các kiểm tra trên), huỷ (`active = false`) |
-| Đang chạy (`RUNNING`) | `starts_at ≤ bây giờ < ends_at` | Chỉ **kết thúc sớm** (`ends_at = bây giờ`), để giá không đổi dưới chân người đang có hàng trong giỏ |
-| Đã kết thúc / Đã huỷ | | Chỉ xem |
+| Đang chạy (`RUNNING`) | `starts_at ≤ bây giờ < ends_at` | **Sửa** giá KM và ngày kết thúc, qua đủ các kiểm tra trên (ngày kết thúc mới phải sau hiện tại); không đổi được `starts_at` (`400 PROMOTION_START_LOCKED`). Giá mới áp dụng ngay cho cửa hàng và giỏ hàng (giỏ báo `PRICE_CHANGED`). Hoặc **kết thúc sớm** (`ends_at = bây giờ`) |
+| Đã kết thúc / Đã huỷ | | Chỉ xem; sửa thì báo `409 PROMOTION_NOT_EDITABLE` |
 
-Mọi thay đổi ghi `audit_logs`: `PROMOTION_CREATED`, `PROMOTION_UPDATED`, `PROMOTION_ENDED`, `PROMOTION_CANCELLED`.
+Mọi thay đổi ghi `audit_logs`: `PROMOTION_CREATED`, `PROMOTION_UPDATED` (chỉ lưu trường đổi: giá KM cũ → mới, kết
+thúc cũ → mới), `PROMOTION_ENDED`, `PROMOTION_CANCELLED`.
 
 ## API quản trị (chỉ ADMIN)
 
@@ -67,12 +74,12 @@ Mọi thay đổi ghi `audit_logs`: `PROMOTION_CREATED`, `PROMOTION_UPDATED`, `P
 | GET | `/api/admin/promotions?status=` | Danh sách (đang chạy, sắp tới, đã kết thúc, đã huỷ) kèm số ngày KM của sản phẩm trong năm |
 | GET | `/api/admin/promotions/usage?year=` | Mọi sản phẩm: giá gốc, số ngày KM đã dùng trong năm, giá KM đang chạy; kèm hai giới hạn |
 | POST | `/api/admin/promotions` | `{productId, salePrice, startsAt, endsAt}` |
-| PUT | `/api/admin/promotions/{id}` | Sửa khuyến mại sắp tới |
+| PUT | `/api/admin/promotions/{id}` | Sửa khuyến mại sắp tới (giá, hai ngày) hoặc đang chạy (giá, ngày kết thúc; `startsAt` gửi lại đúng giá trị cũ) |
 | POST | `/api/admin/promotions/{id}/end` | Đang chạy: kết thúc ngay. Sắp tới: huỷ |
 | POST | `/api/admin/promotions/bulk` | `{productIds, percentOff, startsAt, endsAt}`: mỗi sản phẩm kiểm tra và lưu riêng, trả kết quả thành công/lỗi theo từng sản phẩm |
 
 Trang `/admin/khuyen-mai`: ba tab, form tạo cho một hoặc nhiều sản phẩm (nhập % hoặc giá), bảng xem trước giá mới và
-số ngày KM sau khi tạo, cảnh báo khi số ngày trong năm đạt từ 80% giới hạn, nút kết thúc sớm/huỷ có hộp xác nhận, và
+số ngày KM sau khi tạo, cảnh báo khi số ngày trong năm đạt từ 80% giới hạn, nút "Sửa" (sắp tới và đang chạy; đang chạy thì "Từ ngày" chỉ hiển thị), nút kết thúc sớm/huỷ có hộp xác nhận, và
 dòng nhắc kiểm tra quy định.
 
 ## Hiển thị
@@ -94,7 +101,13 @@ dòng nhắc kiểm tra quy định.
 
 - `PricingRulesTest`: làm tròn bội số 1.000₫ (189.000 → 132.000), % giảm, giá KM không thấp hơn thì bỏ qua, đếm ngày
   theo giờ Việt Nam (qua nửa đêm, qua năm mới).
+- `PromotionServiceTest` (đồng hồ giả, kho trong bộ nhớ): kết thúc sớm rồi tạo/sửa/tạo hàng loạt từ hôm nay → bắt đầu
+  ngay, sau lúc kết thúc; hai khuyến mại chạm mốc không trùng, trùng thật bị chặn; sửa khuyến mại đang chạy (đổi giá,
+  giảm > 50%, kết thúc trong quá khứ, đổi ngày bắt đầu, vượt 120 ngày, đã kết thúc/huỷ); số ngày tính theo `ends_at`
+  thật và ngày chung chỉ tính một lần.
 - `PromotionE2ETest`: áp dụng đúng tại biên `starts_at` / `ends_at`; API trả giá hiện hành và sắp xếp theo nó; đơn hàng
   lưu giá KM và giá gốc, bỏ qua giá giả của client; giỏ hàng báo `PRICE_CHANGED` khi KM kết thúc; từ chối giảm > 50%,
-  trùng thời gian, vượt 120 ngày/năm; tạo hàng loạt 30%; chặn hạ giá gốc ≤ giá KM; sửa/kết thúc/huỷ; chỉ ADMIN.
-- Frontend: `ProductCard.test.tsx` (có/không khuyến mại), `promotionMath.test.ts`.
+  trùng thời gian, vượt 120 ngày/năm; tạo hàng loạt 30%; chặn hạ giá gốc ≤ giá KM; sửa/kết thúc/huỷ; kết thúc sớm rồi tạo lại trong ngày, sửa giá khi đang chạy (giỏ hàng và
+  trang sản phẩm dùng giá mới, nhật ký có giá cũ → mới); chỉ ADMIN.
+- Frontend: `ProductCard.test.tsx` (có/không khuyến mại), `promotionMath.test.ts`, `PromotionsPage.test.tsx` (nút "Sửa"
+  ở khuyến mại đang chạy, "Từ ngày" chỉ hiển thị và gửi lại nguyên giá trị).
