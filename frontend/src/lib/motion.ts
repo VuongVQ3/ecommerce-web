@@ -42,11 +42,11 @@ export function useInView<T extends Element>(rootMargin = '0px 0px -10% 0px') {
   return [ref, visible] as const
 }
 
-const easeOutCubic = (t: number) => 1 - (1 - t) ** 3
-
 /**
- * Count-up clock: eased progress 0 → 1 (easeOutCubic) over `durationMs`, from the frame `start` turns true. One clock
- * shared by several numbers (each shows Math.round(target × progress)) makes them start and land on the same frame.
+ * Count-up clock: progress 0 → 1, linear, over `durationMs`, from the frame `start` turns true; the last frame is
+ * exactly 1. One clock shared by several numbers (each shows Math.round(target × progress)) makes them start together
+ * and stop almost together: linear, a number reaches its target in the last 0.5/target of the run (100: the last
+ * 7 ms; an ease-out would stop it hundreds of ms before a 3000).
  * 1 before the start and with reduced motion: the final numbers are shown from the start (no JavaScript, crawlers),
  * and the count-up only plays once, when it scrolls into view and motion is allowed.
  */
@@ -61,7 +61,7 @@ export function useCountUpProgress(start: boolean, durationMs = 1400): number {
     const tick = (now: number) => {
       began ??= now
       const t = Math.min(1, (now - began) / durationMs)
-      setProgress(easeOutCubic(t))
+      setProgress(t)
       if (t < 1) frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
