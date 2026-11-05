@@ -17,6 +17,7 @@ export const ACTION_LABEL: Record<string, string> = {
   ORDER_CONTACT_FAILED: 'Chưa liên hệ được khách',
   ORDER_NOTE_ADDED: 'Thêm ghi chú đơn',
   ORDER_CLAIMED: 'Gắn đơn vào tài khoản',
+  ORDER_DELETED: 'Xoá đơn hàng',
   PHONE_FLAG_CREATED: 'Đánh dấu số điện thoại',
   PHONE_FLAG_UPDATED: 'Sửa đánh dấu số điện thoại',
   PHONE_FLAG_REMOVED: 'Gỡ đánh dấu số điện thoại',
@@ -83,6 +84,14 @@ export const FIELD_LABEL: Record<string, string> = {
   level: 'Mức đánh dấu',
   reason: 'Lý do',
   status: 'Trạng thái đơn',
+  // A deleted order: what was sold, never who bought it
+  code: 'Mã đơn',
+  createdAt: 'Ngày đặt',
+  subtotal: 'Tạm tính',
+  shippingFee: 'Phí giao hàng',
+  total: 'Tổng tiền',
+  items: 'Sản phẩm',
+  restock: 'Hoàn kho',
   carrier: 'Đơn vị vận chuyển',
   trackingNumber: 'Mã vận đơn',
   name: 'Tên',
@@ -121,7 +130,7 @@ export const FIELD_LABEL: Record<string, string> = {
 
 export const fieldLabel = (field: string) => (field === '' ? 'Nội dung' : (FIELD_LABEL[field] ?? field))
 
-const MONEY_FIELDS = new Set(['price', 'salePrice', 'unitCost', 'total'])
+const MONEY_FIELDS = new Set(['price', 'salePrice', 'unitCost', 'total', 'subtotal', 'shippingFee'])
 const NUTRITION_UNIT: Record<string, string> = { calories: 'kcal', protein: 'g', fat: 'g', carbs: 'g', fiber: 'g' }
 const FLAG_LEVEL_LABEL: Record<string, string> = { BLOCK_COD: 'Chặn COD', WATCH: 'Theo dõi' }
 const METHOD_LABEL: Record<string, string> = {
@@ -166,6 +175,10 @@ export function formatAuditValue(field: string, value: unknown, ctx: ValueContex
     return value
   }
   if (typeof value === 'number') return value.toLocaleString('vi-VN')
+  // The lines of a deleted order: "Mắc ca × 2, Hạt điều × 1"
+  if (field === 'items' && Array.isArray(value)) {
+    return value.map((l: { product?: string; quantity?: number }) => `${l.product ?? '?'} × ${l.quantity ?? '?'}`).join(', ')
+  }
   return JSON.stringify(value)
 }
 
@@ -240,7 +253,8 @@ export function actorText(row: Pick<AuditRow, 'actorType' | 'actorName' | 'actor
 /** Back-office page of the entity, when there is one. */
 export function entityLink(row: Pick<AuditRow, 'entityType' | 'entityId' | 'action'>): string | null {
   const id = encodeURIComponent(row.entityId)
-  if (row.entityType === 'ORDER') return `/admin/don-hang/${id}`
+  // A deleted order has no page left to open
+  if (row.entityType === 'ORDER') return row.action === 'ORDER_DELETED' ? null : `/admin/don-hang/${id}`
   // A deleted product has no page left to open
   if (row.entityType === 'PRODUCT') return row.action === 'PRODUCT_DELETED' ? null : `/admin/san-pham/${id}`
   if (row.entityType === 'BLOG_POST') return row.action === 'BLOG_POST_DELETED' ? null : `/admin/blog/${id}`

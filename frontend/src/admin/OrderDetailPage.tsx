@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { ErrorMessage } from '../components/Feedback'
 import OrderDetails, { StatusBadge } from '../components/OrderDetails'
@@ -10,11 +10,13 @@ import { formatAdminDateTime } from '../lib/format'
 import { CANCEL_REASON_LABEL, CANCELLED_BY_LABEL, type CancelReasonCode } from '../lib/orderStatus'
 import { useAsync } from '../lib/useAsync'
 import NotFoundPage from '../pages/NotFoundPage'
+import { DeleteOrdersDialog } from './DeleteOrdersDialog'
+import { isClosed } from './orderDeletion'
 import { Skeleton } from './Skeleton'
 import { FLAG_LABEL } from './labels'
 import { FlagDialog } from './phoneFlags'
 import { btn, card, input } from './styles'
-import { Dialog, Field } from './ui'
+import { ActionMenu, Dialog, Field } from './ui'
 
 const CARRIERS = ['Giao Hàng Nhanh', 'Giao Hàng Tiết Kiệm', 'Viettel Post', 'J&T Express', 'VNPost', 'Shopee Express']
 
@@ -477,7 +479,7 @@ function Notes({ detail, onChange }: { detail: AdminOrderDetail; onChange: (d: A
 }
 
 type Open =
-  | { kind: 'confirm' | 'ship' | 'cancel' }
+  | { kind: 'confirm' | 'ship' | 'cancel' | 'delete' }
   | { kind: 'flag'; current: PhoneFlagView | null; intro?: string; defaultReason?: string }
 
 export default function OrderDetailPage() {
@@ -485,6 +487,7 @@ export default function OrderDetailPage() {
   const toast = useToast()
   const { user } = useAuth()
   const role = user?.role ?? 'STAFF'
+  const navigate = useNavigate()
   const { data, error, reload } = useAsync((signal) => adminApi.order(code, signal), [code])
   // Latest server response after an action (newer than `data` until the next reload)
   const [updated, setUpdated] = useState<AdminOrderDetail | null>(null)
@@ -521,8 +524,10 @@ export default function OrderDetailPage() {
   }
 
   const can = (a: OrderAction) => detail.allowedActions.includes(a)
-  const hasActions = detail.allowedActions.length > 0
   const { order } = detail
+  // ADMIN only, once the order is closed (an open one is cancelled first)
+  const canDelete = role === 'ADMIN' && isClosed(order.status)
+  const hasActions = detail.allowedActions.length > 0 || canDelete
   const buttons = (
     <>
       {can('CONFIRM') && (
@@ -544,6 +549,9 @@ export default function OrderDetailPage() {
         <button type="button" className={`${btn.secondary} flex-1 sm:flex-none`} onClick={() => setOpen({ kind: 'cancel' })}>
           {detail.order.status === 'SHIPPING' ? 'Khách không nhận' : 'Huỷ đơn'}
         </button>
+      )}
+      {canDelete && (
+        <ActionMenu label="Thao tác khác" items={[{ label: 'Xoá đơn', danger: true, onSelect: () => setOpen({ kind: 'delete' }) }]} />
       )}
     </>
   )
@@ -624,6 +632,16 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
+      {open?.kind === 'delete' && (
+        <DeleteOrdersDialog
+          orders={[{ code: order.code, status: order.status }]}
+          onClose={() => setOpen(null)}
+          onDone={() => {
+            toast({ message: `Đã xoá đơn ${order.code}`, tone: 'success' })
+            navigate('/admin/don-hang', { replace: true })
+          }}
+        />
+      )}
       {open?.kind === 'confirm' && (
         <ConfirmDialog
           code={code}

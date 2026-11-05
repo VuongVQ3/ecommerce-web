@@ -3,9 +3,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { useState } from 'react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { ToastProvider } from '../components/Toast'
 import { adminApi } from '../lib/adminApi'
 import { NewOrdersContext } from './newOrders'
 import OrdersPage from './OrdersPage'
+
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ user: { role: 'STAFF' } }) }))
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = () => {}
@@ -36,7 +39,11 @@ function renderAt(url: string) {
     return { page: { items: [], page: 0, size: 20, totalItems: 0, totalPages: 0 }, pendingCount: 0 }
   })
   const router = createMemoryRouter([{ path: '/admin/don-hang', element: <Harness /> }], { initialEntries: [url] })
-  render(<RouterProvider router={router} />)
+  render(
+    <ToastProvider>
+      <RouterProvider router={router} />
+    </ToastProvider>,
+  )
   return list
 }
 

@@ -14,6 +14,9 @@ export function newOrderToast(summary: OrderSummary, previous: OrderSummary): { 
   return { message: `Có đơn mới ${summary.latestOrderCode}`, label: 'Mở đơn', to: `/admin/don-hang/${summary.latestOrderCode}` }
 }
 
+const isOlder = (next: OrderSummary, previous: OrderSummary) =>
+  !!previous.latestCreatedAt && !!next.latestCreatedAt && Date.parse(next.latestCreatedAt) < Date.parse(previous.latestCreatedAt)
+
 /**
  * Polls GET /api/admin/orders/summary every 20 s, only while the tab is visible, and once more as soon as it is shown
  * again. `onNewOrder` runs when the newest order changes (never on the first answer), with the previous answer to
@@ -38,7 +41,10 @@ export function useNewOrderPolling(onNewOrder: (summary: OrderSummary, previous:
       const next = await adminApi.orderSummary(controller.signal)
       setSummary(next)
       const previous = last.current
-      if (previous && next.latestOrderId && next.latestOrderId !== previous.latestOrderId) notify.current(next, previous)
+      // Another order that is not older: deleting the newest order makes an older one the latest, which is not new
+      if (previous && next.latestOrderId && next.latestOrderId !== previous.latestOrderId && !isOlder(next, previous)) {
+        notify.current(next, previous)
+      }
       last.current = next
     } catch {
       // Network error, server asleep, session gone: try again at the next tick

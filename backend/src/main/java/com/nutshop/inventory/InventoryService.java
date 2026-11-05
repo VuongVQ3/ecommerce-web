@@ -68,6 +68,14 @@ public class InventoryService {
 		movements.save(new InventoryMovement(productId, quantity, Type.RETURN, orderId, actorId, note));
 	}
 
+	/** on_hand +/- quantity with a reason, outside a stocktake (e.g. a deleted test order's goods put back). */
+	public void adjust(long productId, int quantity, String note, UUID actorId) {
+		if (quantity == 0 || stock.changeOnHand(productId, quantity) == 0) {
+			throw new IllegalStateException("Cannot adjust product " + productId + " by " + quantity);
+		}
+		movements.save(new InventoryMovement(productId, quantity, Type.ADJUST, null, actorId, note));
+	}
+
 	/** Goods received from a supplier. */
 	public InventoryMovement importStock(long productId, int quantity, Long unitCost, String supplier, String note,
 			UUID actorId) {

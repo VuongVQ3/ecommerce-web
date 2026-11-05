@@ -60,6 +60,25 @@ describe('useNewOrderPolling', () => {
     expect(result.current.summary?.pendingCount).toBe(3)
   })
 
+  it('the newest order deleted: the older one now latest is not new, the next real order is', async () => {
+    vi.spyOn(adminApi, 'orderSummary')
+      .mockResolvedValueOnce({ ...summary('HL2'), latestCreatedAt: '2026-11-05T09:00:00Z' })
+      .mockResolvedValueOnce({ ...summary('HL1'), latestCreatedAt: '2026-11-05T08:00:00Z' })
+      .mockResolvedValueOnce({ pendingCount: 0, latestOrderId: null, latestOrderCode: null, latestCreatedAt: null })
+      .mockResolvedValueOnce({ ...summary('HL3'), latestCreatedAt: '2026-11-05T10:00:00Z' })
+    const onNew = vi.fn()
+    renderHook(() => useNewOrderPolling(onNew))
+    await tick()
+    await tick(POLL_MS)
+    expect(onNew).not.toHaveBeenCalled()
+    // Every order deleted: nothing to announce either
+    await tick(POLL_MS)
+    expect(onNew).not.toHaveBeenCalled()
+    await tick(POLL_MS)
+    expect(onNew).toHaveBeenCalledTimes(1)
+    expect(onNew.mock.calls[0][0].latestOrderCode).toBe('HL3')
+  })
+
   it('does not ask while the tab is hidden, and asks as soon as it is shown again', async () => {
     const poll = vi.spyOn(adminApi, 'orderSummary').mockResolvedValue(summary('HL1'))
     renderHook(() => useNewOrderPolling(vi.fn()))

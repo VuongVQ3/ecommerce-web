@@ -11,10 +11,12 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /** Request bodies of the back office. */
 public final class AdminDtos {
@@ -28,6 +30,24 @@ public final class AdminDtos {
 
 	public record CancelRequest(@NotNull(message = "Vui lòng chọn lý do huỷ đơn") CancelReason reasonCode,
 			@NotBlank(message = "Vui lòng nhập lý do huỷ đơn") @Size(max = 500, message = "Lý do tối đa 500 ký tự") String reason) {
+	}
+
+	/** @param restock a COMPLETED order's goods go back on the shelf (test orders only); absent = false */
+	public record DeleteOrderRequest(Boolean restock) {
+
+		public boolean restocks() {
+			return Boolean.TRUE.equals(restock);
+		}
+	}
+
+	public record BulkDeleteOrdersRequest(
+			@NotEmpty(message = "Chưa chọn đơn nào")
+			@Size(max = 100, message = "Xoá tối đa 100 đơn một lần") List<@NotBlank String> codes,
+			Boolean restock) {
+
+		public boolean restocks() {
+			return Boolean.TRUE.equals(restock);
+		}
 	}
 
 	public record ConfirmRequest(@NotNull(message = "Vui lòng chọn kết quả liên hệ") ContactResult contact,

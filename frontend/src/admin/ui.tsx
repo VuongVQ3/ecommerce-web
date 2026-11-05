@@ -245,6 +245,7 @@ export function Dialog({
   width,
   variant = 'dialog',
   cancelLabel,
+  submitDisabled = false,
   children,
 }: {
   title: string
@@ -261,6 +262,8 @@ export function Dialog({
   variant?: 'dialog' | 'sheet'
   /** Labels of the two buttons when not the defaults */
   cancelLabel?: string
+  /** The submit button stays off until the form is complete (e.g. a typed confirmation word) */
+  submitDisabled?: boolean
   children: ReactNode
 }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -278,7 +281,7 @@ export function Dialog({
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (!pending) onSubmit?.()
+    if (!pending && !submitDisabled) onSubmit?.()
   }
 
   return (
@@ -314,7 +317,7 @@ export function Dialog({
             <button
               type="submit"
               className={tone === 'danger' ? btn.danger : btn.primary}
-              disabled={pending}
+              disabled={pending || submitDisabled}
               aria-busy={pending}
             >
               {pending ? 'Đang xử lý...' : submitLabel}
