@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, ty
 import { useLocation } from 'react-router'
 import { FACEBOOK_PATH, MESSENGER_PATH, ZALO_PATH } from '../lib/brandIcons'
 import { FINE_POINTER, useMediaQuery } from '../lib/media'
+import { useFloatingHidden } from '../lib/overlay'
 import { SHOP } from '../lib/shopContact'
 import { useSiteInfo, type SiteInfo } from '../lib/siteInfo'
 import BackToTop from './BackToTop'
@@ -132,6 +133,8 @@ export default function FloatingContact() {
   // Compact mode: open on the page where it was opened only (following a link closes it)
   const [openOn, setOpenOn] = useState<string | null>(null)
   const open = !wide && openOn === pathname
+  // An open combobox list needs the corner: the whole stack hides (no clicks, no focus, not read) until it closes
+  const hidden = useFloatingHidden()
 
   const items = itemsOf(site)
   const visible = !pathname.startsWith('/admin')
@@ -171,6 +174,9 @@ export default function FloatingContact() {
       aria-label="Liên hệ và mạng xã hội"
       data-compact={wide ? undefined : ''}
       data-open={open ? '' : undefined}
+      data-hidden={hidden ? '' : undefined}
+      aria-hidden={hidden || undefined}
+      inert={hidden}
       className="fc pointer-events-none fixed right-[calc(1rem+env(safe-area-inset-right))] bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 flex flex-col items-end gap-3"
     >
       {hasItems && (

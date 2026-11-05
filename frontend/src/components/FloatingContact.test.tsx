@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SiteInfo } from '../lib/siteInfo'
+import { ComboboxField } from './ComboboxField'
 import FloatingContact from './FloatingContact'
 
 const site = vi.hoisted(() => ({ info: null as SiteInfo | null }))
@@ -103,5 +104,50 @@ describe('FloatingContact', () => {
     renderAt('/admin/don-hang')
     expect(screen.queryAllByRole('link')).toHaveLength(0)
     expect(document.querySelector('button[aria-label="Lên đầu trang"]')).toBeNull()
+  })
+})
+
+describe('FloatingContact and an open combobox list', () => {
+  it('steps aside while a ComboboxField list is open, and comes back when it closes', async () => {
+    site.info = FULL
+    screenSize.wide = false
+    const router = createMemoryRouter(
+      [
+        {
+          path: '*',
+          element: (
+            <>
+              <ComboboxField
+                label="Phường/Xã"
+                placeholder="Chọn phường/xã"
+                options={[{ value: '1', label: 'Phường An Đông' }]}
+                value=""
+                onChange={() => {}}
+              />
+              <FloatingContact />
+            </>
+          ),
+        },
+      ],
+      { initialEntries: ['/thanh-toan'] },
+    )
+    render(<RouterProvider router={router} />)
+    const nav = screen.getByRole('navigation', { name: 'Liên hệ và mạng xã hội' })
+    const box = screen.getByRole('combobox', { name: 'Phường/Xã' })
+    expect(nav.hasAttribute('data-hidden')).toBe(false)
+    expect(screen.getByRole('button', { name: 'Liên hệ Hạt Lành' })).toBeTruthy()
+
+    fireEvent.focus(box)
+    await waitFor(() => expect(nav.hasAttribute('data-hidden')).toBe(true))
+    // Not read, not focusable, not clickable (inert; visibility: hidden in CSS)
+    expect(nav.getAttribute('aria-hidden')).toBe('true')
+    expect(nav.hasAttribute('inert')).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Liên hệ Hạt Lành' })).toBeNull()
+
+    fireEvent.keyDown(box, { key: 'Escape' })
+    await waitFor(() => expect(nav.hasAttribute('data-hidden')).toBe(false))
+    expect(nav.hasAttribute('aria-hidden')).toBe(false)
+    expect(nav.hasAttribute('inert')).toBe(false)
+    expect(screen.getByRole('button', { name: 'Liên hệ Hạt Lành' })).toBeTruthy()
   })
 })

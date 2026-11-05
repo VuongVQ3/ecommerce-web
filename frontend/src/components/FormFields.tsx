@@ -1,4 +1,5 @@
 import { useId, useState, type ComponentProps, type ReactNode } from 'react'
+import { describedByIds, inputClass } from './fieldParts'
 
 interface FieldProps extends Omit<ComponentProps<'input'>, 'id'> {
   /** Defaults to a generated id; pass one when another element must reference this input. */
@@ -42,16 +43,11 @@ export function RequiredLegend() {
   )
 }
 
-const inputClass = (error?: string) =>
-  `w-full rounded-xl border bg-white px-4 py-3 text-base outline-none placeholder:text-muted focus:ring-2 sm:py-2.5 ${
-    error ? 'border-danger focus:ring-red-100' : 'border-stone-200 focus:border-brand-500 focus:ring-brand-100'
-  }`
-
 /**
  * Label, input slot and the text under it. The input is described by whatever is visible below it (error or hint,
  * plus `describedBy`), so screen readers read the same thing sighted users see.
  */
-function FieldShell({
+export function FieldShell({
   id,
   label,
   error,
@@ -89,11 +85,6 @@ function FieldShell({
       {below}
     </div>
   )
-}
-
-function describedByIds(id: string, error?: string, hint?: ReactNode, extra?: string) {
-  const ids = [error ? `${id}-error` : hint ? `${id}-hint` : null, extra].filter(Boolean)
-  return ids.length ? ids.join(' ') : undefined
 }
 
 /** Text input with label and an error message right below it. Spread `register('field')` into it. */

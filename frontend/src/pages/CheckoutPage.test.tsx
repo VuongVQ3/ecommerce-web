@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readRecentOrders } from '../lib/recentOrders'
@@ -77,18 +77,27 @@ function renderCheckout() {
 }
 
 const input = (label: string) => screen.getByLabelText(label, { selector: 'input' })
-const select = (label: string) => screen.getByLabelText(label, { selector: 'select' }) as HTMLSelectElement
+const combo = (label: string) => screen.getByRole('combobox', { name: label }) as HTMLInputElement
 const change = (el: HTMLElement, value: string) => {
   fireEvent.change(el, { target: { value } })
   fireEvent.blur(el)
 }
 
+/** Focus the box, type, Enter: picks the best match. */
+function pick(label: string, text: string) {
+  const box = combo(label)
+  act(() => box.focus())
+  fireEvent.change(box, { target: { value: text } })
+  fireEvent.keyDown(box, { key: 'Enter' })
+}
+
 async function fillValidForm(tickPrivacy = true) {
   change(input('Họ và tên'), 'Nguyễn Văn Khách')
   change(input('Số điện thoại'), '+84 912 345 678')
-  await waitFor(() => expect(select('Tỉnh/Thành phố').disabled).toBe(false))
-  change(select('Tỉnh/Thành phố'), '1')
-  change(select('Phường/Xã'), '4')
+  await waitFor(() => expect(combo('Tỉnh/Thành phố').disabled).toBe(false))
+  pick('Tỉnh/Thành phố', 'ha noi')
+  pick('Phường/Xã', 'ba dinh')
+  act(() => combo('Phường/Xã').blur())
   change(input('Địa chỉ chi tiết'), '12 Phố Test')
   if (tickPrivacy) fireEvent.click(privacyBox())
 }
@@ -114,18 +123,62 @@ afterEach(() => {
 describe('CheckoutPage', () => {
   it('ward options depend on the province and reset when it changes', async () => {
     renderCheckout()
-    await waitFor(() => expect(select('Tỉnh/Thành phố').disabled).toBe(false))
-    expect(select('Tỉnh/Thành phố').options).toHaveLength(35) // placeholder + 34
-    expect(select('Phường/Xã').disabled).toBe(true)
+    await waitFor(() => expect(combo('Tỉnh/Thành phố').disabled).toBe(false))
+    expect(combo('Phường/Xã').disabled).toBe(true)
+    expect(combo('Phường/Xã').placeholder).toBe('Chọn tỉnh/thành phố trước')
+    // Before typing: the popular three, then all the others
+    act(() => combo('Tỉnh/Thành phố').focus())
+    expect(screen.getAllByRole('option')).toHaveLength(34)
+    expect(
+      screen.getAllByRole('option').slice(0, 4).map((o) => o.textContent),
+    ).toEqual(['Thành phố Hồ Chí Minh', 'Thành phố Hà Nội', 'Thành phố Đà Nẵng', 'Tỉnh An Giang'])
 
-    change(select('Tỉnh/Thành phố'), '1')
-    expect(within(select('Phường/Xã')).getByRole('option', { name: 'Phường Ba Đình' })).toBeTruthy()
-    change(select('Phường/Xã'), '4')
-    expect(select('Phường/Xã').value).toBe('4')
+    pick('Tỉnh/Thành phố', 'ha noi')
+    expect(combo('Tỉnh/Thành phố').value).toBe('Thành phố Hà Nội')
+    expect(await screen.findByRole('option', { name: 'Phường Ba Đình' })).toBeTruthy()
+    pick('Phường/Xã', 'ba dinh')
+    expect(combo('Phường/Xã').value).toBe('Phường Ba Đình')
 
-    change(select('Tỉnh/Thành phố'), '79')
-    expect(select('Phường/Xã').value).toBe('')
-    expect(within(select('Phường/Xã')).queryByRole('option', { name: 'Phường Ba Đình' })).toBeNull()
+    pick('Tỉnh/Thành phố', 'hcm')
+    expect(combo('Tỉnh/Thành phố').value).toBe('Thành phố Hồ Chí Minh')
+    expect(combo('Phường/Xã').value).toBe('')
+    expect(screen.queryByRole('option', { name: 'Phường Ba Đình' })).toBeNull()
+  })
+
+  it('"hcm" then Enter picks Hồ Chí Minh and moves on to its wards, A→Z without the prefix', async () => {
+    renderCheckout()
+    await waitFor(() => expect(combo('Tỉnh/Thành phố').disabled).toBe(false))
+    pick('Tỉnh/Thành phố', 'hcm')
+    expect(combo('Tỉnh/Thành phố').value).toBe('Thành phố Hồ Chí Minh')
+    await waitFor(() => expect(document.activeElement).toBe(combo('Phường/Xã')))
+    // Its list is open: one A→Z list, Phường and Xã mixed, Côn Đảo among the C names
+    const wards = screen.getAllByRole('option').map((o) => o.textContent)
+    expect(wards[0]).toBe('Phường An Đông')
+    expect(wards.indexOf('Đặc khu Côn Đảo')).toBeGreaterThan(wards.indexOf('Phường Bình Thạnh'))
+    fireEvent.change(combo('Phường/Xã'), { target: { value: 'an' } })
+    expect(screen.getAllByRole('option')[0].textContent).toBe('Phường An Đông')
+  })
+
+  it('brings back the province and ward of the draft by name', async () => {
+    sessionStorage.setItem('hatlanh_checkout_draft_v1', JSON.stringify({ provinceCode: '79', wardCode: '27316' }))
+    renderCheckout()
+    await waitFor(() => expect(combo('Tỉnh/Thành phố').value).toBe('Thành phố Hồ Chí Minh'))
+    expect(combo('Phường/Xã').value).toBe('Phường An Đông')
+    // A restored province does not grab the focus
+    expect(document.activeElement).not.toBe(combo('Phường/Xã'))
+  })
+
+  it('shows the province error and keeps free text out of the form', async () => {
+    renderCheckout()
+    await waitFor(() => expect(combo('Tỉnh/Thành phố').disabled).toBe(false))
+    const box = combo('Tỉnh/Thành phố')
+    act(() => box.focus())
+    fireEvent.change(box, { target: { value: 'khong co tinh nay' } })
+    expect(screen.getByRole('option').textContent).toBe('Không tìm thấy “khong co tinh nay”')
+    act(() => box.blur())
+    expect(box.value).toBe('')
+    expect(await screen.findByText('Vui lòng chọn tỉnh/thành phố')).toBeTruthy()
+    expect(box.getAttribute('aria-invalid')).toBe('true')
   })
 
   it('sends only ids and quantities, normalized phone, and the same idempotency key on retry', async () => {
@@ -330,8 +383,8 @@ describe('CheckoutPage', () => {
     for (const label of ['Họ và tên', 'Số điện thoại', 'Địa chỉ chi tiết']) {
       expect(input(label).getAttribute('aria-required')).toBe('true')
     }
-    expect(select('Tỉnh/Thành phố').getAttribute('aria-required')).toBe('true')
-    expect(select('Phường/Xã').getAttribute('aria-required')).toBe('true')
+    expect(combo('Tỉnh/Thành phố').getAttribute('aria-required')).toBe('true')
+    expect(combo('Phường/Xã').getAttribute('aria-required')).toBe('true')
     expect(input('Email (không bắt buộc)').hasAttribute('aria-required')).toBe(false)
     expect(screen.getByLabelText('Ghi chú (không bắt buộc)').hasAttribute('aria-required')).toBe(false)
     expect(screen.getByText(/là thông tin bắt buộc/)).toBeTruthy()
