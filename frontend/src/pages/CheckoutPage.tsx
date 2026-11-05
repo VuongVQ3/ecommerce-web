@@ -1,13 +1,16 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Controller } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { checkoutSchema } from '../auth/schemas'
 import { useAuthForm } from '../auth/useAuthForm'
 import { useCart } from '../cart/CartContext'
+import { ComboboxField } from '../components/ComboboxField'
 import { Spinner } from '../components/Feedback'
-import { Checkbox, FormError, RequiredLegend, SelectField, SubmitButton, TextField } from '../components/FormFields'
+import { Checkbox, FormError, RequiredLegend, SubmitButton, TextField } from '../components/FormFields'
 import { PriceTag } from '../components/Price'
 import ProductImage from '../components/ProductImage'
+import { provinceChoices, wardChoices } from '../lib/addressSearch'
 import { useProvinces } from '../lib/adminUnits'
 import { useMediaQuery } from '../lib/media'
 import { SHIPPING_PROMISE, useSiteInfo } from '../lib/siteInfo'
@@ -220,7 +223,18 @@ function CheckoutForm({ view, summary }: { view: CartView; summary?: ReactNode }
     const subscription = form.watch((values) => writeDraft(values as Draft))
     return () => subscription.unsubscribe()
   }, [form])
-  const wards = provinces?.find((p) => String(p.code) === provinceCode)?.wards ?? []
+  // Sorted once per load (and per province), not on every keystroke
+  const provinceList = useMemo(() => (provinces ? provinceChoices(provinces) : null), [provinces])
+  const wardList = useMemo(
+    () => wardChoices(provinces?.find((p) => String(p.code) === provinceCode)?.wards ?? []),
+    [provinces, provinceCode],
+  )
+  // Picking a province moves on to its wards (once the ward box is enabled)
+  const provincePicked = useRef(false)
+  useEffect(() => {
+    if (provincePicked.current && provinceCode) form.setFocus('wardCode')
+    provincePicked.current = false
+  }, [form, provinceCode])
   // The hidden box counts as ticked; signing out (or a newer policy) brings it back unticked
   useEffect(() => {
     form.setValue('acceptPrivacy', hasCurrentConsent)
@@ -263,28 +277,43 @@ function CheckoutForm({ view, summary }: { view: CartView; summary?: ReactNode }
           Địa chỉ giao hàng
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <SelectField
-            label="Tỉnh/Thành phố"
-            requiredMark
-            placeholder={provinces ? 'Chọn tỉnh/thành phố' : 'Đang tải...'}
-            disabled={!provinces}
-            autoComplete="address-level1"
-            options={(provinces ?? []).map((p) => ({ value: p.code, label: p.name }))}
-            error={errors.provinceCode?.message}
-            {...form.register('provinceCode', {
-              // A ward belongs to one province: picking another province clears it
-              onChange: () => form.setValue('wardCode', ''),
-            })}
+          <Controller
+            control={form.control}
+            name="provinceCode"
+            render={({ field }) => (
+              <ComboboxField
+                {...field}
+                label="Tỉnh/Thành phố"
+                requiredMark
+                placeholder={provinceList ? 'Chọn tỉnh/thành phố' : 'Đang tải...'}
+                disabled={!provinceList}
+                options={provinceList?.options ?? []}
+                groups={provinceList?.groups}
+                error={errors.provinceCode?.message}
+                onChange={(code) => {
+                  if (code === field.value) return
+                  field.onChange(code)
+                  // A ward belongs to one province: picking another province clears it
+                  form.setValue('wardCode', '')
+                  provincePicked.current = code !== ''
+                }}
+              />
+            )}
           />
-          <SelectField
-            label="Phường/Xã"
-            requiredMark
-            placeholder={provinceCode ? 'Chọn phường/xã' : 'Chọn tỉnh/thành phố trước'}
-            disabled={!provinceCode}
-            autoComplete="address-level2"
-            options={wards.map(([code, name]) => ({ value: code, label: name }))}
-            error={errors.wardCode?.message}
-            {...form.register('wardCode')}
+          <Controller
+            control={form.control}
+            name="wardCode"
+            render={({ field }) => (
+              <ComboboxField
+                {...field}
+                label="Phường/Xã"
+                requiredMark
+                placeholder={provinceCode ? 'Chọn phường/xã' : 'Chọn tỉnh/thành phố trước'}
+                disabled={!provinceCode}
+                options={wardList}
+                error={errors.wardCode?.message}
+              />
+            )}
           />
         </div>
         <TextField
