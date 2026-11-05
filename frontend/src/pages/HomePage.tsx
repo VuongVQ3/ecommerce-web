@@ -143,13 +143,22 @@ function Hero({ productCount }: { productCount?: number }) {
   )
 }
 
-function Stats({ products, categories }: { products: number; categories: number }) {
+type Stat = { value: number | string; suffix?: string; label: string }
+
+// TODO: placeholder cho UI, thay bằng số liệu thật trước khi lên production
+// Dev only: the condition is false in a production build, so the bundle does not even contain the number
+const VISITS_PLACEHOLDER: Stat | null = import.meta.env.DEV ? { value: '3000+', label: 'lượt truy cập mỗi ngày' } : null
+
+/** Production: in place of the visits placeholder */
+const ORIGIN_STAT: Stat = { value: 'Đắk Lắk', label: 'nguồn hạt rõ ràng' }
+
+function Stats() {
   // A number counts up when it comes into view; a word (Freeship) is shown as it is
-  const items: { value: number | string; suffix?: string; label: string }[] = [
-    { value: products, label: 'sản phẩm' },
-    { value: categories, label: 'nhóm sản phẩm' },
-    SHIPPING_PROMISE.stat,
+  const items: Stat[] = [
+    { value: 100, suffix: '%', label: 'hạt tuyển chọn' },
+    VISITS_PLACEHOLDER ?? ORIGIN_STAT,
     { value: 7, suffix: ' ngày', label: 'đổi trả dễ dàng' },
+    SHIPPING_PROMISE.stat,
   ]
   const valueClass = 'block text-[clamp(1.5rem,7vw,1.875rem)] font-extrabold whitespace-nowrap text-brand-700 md:text-4xl'
   return (
@@ -234,7 +243,7 @@ export default function HomePage() {
 
       {catalog.data && categories.data && catalog.data.totalItems > 0 && (
         <div className="mt-14">
-          <Stats products={catalog.data.totalItems} categories={categories.data.length} />
+          <Stats />
         </div>
       )}
 
