@@ -1213,4 +1213,185 @@ class AdminE2ETest {
 		assertThat(user.getRole()).isEqualTo(com.nutshop.user.Role.ADMIN);
 		assertThat(audits("USER_PROMOTED", user.getId())).isEqualTo(1);
 	}
+
+	// ---- deleting orders --------------------------------------------------------------------------------------
+
+	/** [code, guest tracking token] */
+	private String[] placeTrackedOrder(long productId, int quantity) throws Exception {
+		String body = """
+				{"acceptPrivacy":true,"idempotencyKey":"del-%s","customerName":"Khách Xoá Đơn","phone":"0987654321","email":"xoa@example.com",
+				 "provinceCode":1,"wardCode":4,"addressLine":"9 Ngõ Xoá","note":"Giao giờ hành chính","items":[{"productId":%d,"quantity":%d}]}"""
+			.formatted(UUID.randomUUID(), productId, quantity);
+		orderCreateRateLimiter.reset();
+		String response = mvc.perform(json(post("/api/orders"), body))
+			.andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		mailbox.clear();
+		return new String[] { response.replaceAll("(?s).*?\"code\":\"([A-Z0-9]+)\".*", "$1"),
+				response.replaceAll("(?s).*?\"accessToken\":\"([^\"]+)\".*", "$1") };
+	}
+
+	private void shipAndComplete(Cookie admin, String code) throws Exception {
+		call(json(post("/api/admin/orders/" + code + "/confirm"), "{\"contact\":\"CALLED\"}"), admin).andExpect(status().isOk());
+		call(json(post("/api/admin/orders/" + code + "/ship"), "{\"carrier\":\"GHN\",\"trackingNumber\":\"T-" + code + "\"}"),
+				admin)
+			.andExpect(status().isOk());
+		call(post("/api/admin/orders/" + code + "/complete"), admin).andExpect(status().isOk());
+	}
+
+	private void cancel(Cookie admin, String code) throws Exception {
+		call(json(post("/api/admin/orders/" + code + "/cancel"), "{\"reasonCode\":\"OTHER\",\"reason\":\"Đơn test\"}"), admin)
+			.andExpect(status().isOk());
+	}
+
+	private int count(String sql, Object... args) {
+		return jdbc.queryForObject(sql, Integer.class, args);
+	}
+
+	@Test
+	void deletingOrdersIsAdminOnlyAndNeedsAClosedOrder() throws Exception {
+		Cookie admin = as("ADMIN");
+		Cookie staff = as("STAFF");
+		long id = createProduct(admin, "Xoá đơn quyền " + UUID.randomUUID(), null);
+		importStock(admin, id, 10);
+		String pending = placeOrder(id, 1);
+		String cancelled = placeOrder(id, 1);
+		cancel(admin, cancelled);
+
+		call(delete("/api/admin/orders/" + cancelled), staff).andExpect(status().isForbidden());
+		call(json(post("/api/admin/orders/bulk-delete"), "{\"codes\":[\"" + cancelled + "\"]}"), staff)
+			.andExpect(status().isForbidden());
+		assertThat(count("SELECT COUNT(*) FROM orders WHERE code = ?", cancelled)).isEqualTo(1);
+
+		call(delete("/api/admin/orders/" + pending), admin).andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_NOT_CLOSED"))
+			.andExpect(jsonPath("$.message").value("Huỷ đơn trước rồi mới xoá"));
+		call(delete("/api/admin/orders/HL000000NOPE"), admin).andExpect(status().isNotFound());
+		assertThat(count("SELECT COUNT(*) FROM orders WHERE code = ?", pending)).isEqualTo(1);
+	}
+
+	@Test
+	void deletingACancelledOrderRemovesItsRowsButKeepsTheStockLedger() throws Exception {
+		Cookie admin = as("ADMIN");
+		long id = createProduct(admin, "Xoá đơn huỷ " + UUID.randomUUID(), null);
+		importStock(admin, id, 10);
+		String[] placed = placeTrackedOrder(id, 3);
+		String code = placed[0];
+		call(json(post("/api/admin/orders/" + code + "/notes"), "{\"body\":\"Ghi chú nội bộ\"}"), admin).andExpect(status().isOk());
+		cancel(admin, code);
+		String orderId = jdbc.queryForObject("SELECT id::text FROM orders WHERE code = ?", String.class, code);
+		int movements = count("SELECT COUNT(*) FROM inventory_movements WHERE product_id = ?", id);
+		int[] before = stock(id);
+		track(code, placed[1]).andExpect(status().isOk());
+
+		call(delete("/api/admin/orders/" + code), admin).andExpect(status().isNoContent());
+
+		assertThat(count("SELECT COUNT(*) FROM orders WHERE code = ?", code)).isZero();
+		for (String table : List.of("order_items", "order_status_history", "order_notes", "order_access_tokens")) {
+			assertThat(count("SELECT COUNT(*) FROM " + table + " WHERE order_id = ?::uuid", orderId)).as(table).isZero();
+		}
+		// Every ledger row stays, no longer pointing at the order; the cancelled order's stock was already back
+		assertThat(count("SELECT COUNT(*) FROM inventory_movements WHERE product_id = ?", id)).isEqualTo(movements);
+		assertThat(count("SELECT COUNT(*) FROM inventory_movements WHERE order_id = ?::uuid", orderId)).isZero();
+		assertThat(count("SELECT COUNT(*) FROM inventory_movements WHERE product_id = ? AND order_id IS NULL AND type LIKE 'ORDER_%'", id))
+			.isEqualTo(2);
+		assertThat(stock(id)).isEqualTo(before);
+		assertLedgerMatches(id);
+
+		// The customer's tracking link and the admin page no longer find it
+		track(code, placed[1]).andExpect(status().isNotFound());
+		call(get("/api/admin/orders/" + code), admin).andExpect(status().isNotFound());
+		// The stock history shows the movements without an order
+		call(get("/api/admin/inventory/" + id + "/movements"), admin).andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[?(@.type == 'ORDER_RESERVE')].orderCode").value(hasItem((Object) null)));
+
+		// The audit row keeps what was sold, nothing about the customer
+		String audit = jdbc.queryForObject(
+				"SELECT before::text || ' ' || COALESCE(after::text, '') || ' ' || entity_label FROM audit_logs WHERE action = 'ORDER_DELETED' AND entity_id = ?",
+				String.class, code);
+		assertThat(audit).contains(code, "CANCELLED", "Xoá đơn huỷ", "\"quantity\": 3", "\"restock\": false", "subtotal",
+				"shippingFee", "createdAt");
+		assertThat(audit).doesNotContain("Khách Xoá Đơn", "0987654321", "xoa@example.com", "Ngõ Xoá", "Giao giờ hành chính",
+				"Ghi chú nội bộ", "Đơn test");
+
+		// With its only order gone the product can be deleted
+		call(delete("/api/admin/products/" + id), admin).andExpect(status().isNoContent());
+	}
+
+	@Test
+	void deletingACompletedOrderPutsTheGoodsBackOnlyWhenAsked() throws Exception {
+		Cookie admin = as("ADMIN");
+		long id = createProduct(admin, "Xoá đơn đã giao " + UUID.randomUUID(), null);
+		importStock(admin, id, 20);
+		String kept = placeOrder(id, 2);
+		String restocked = placeOrder(id, 5);
+		shipAndComplete(admin, kept);
+		shipAndComplete(admin, restocked);
+		assertThat(stock(id)).containsExactly(13, 0);
+
+		// No body: restock false, nothing moves
+		call(delete("/api/admin/orders/" + kept), admin).andExpect(status().isNoContent());
+		assertThat(stock(id)).containsExactly(13, 0);
+		assertLedgerMatches(id);
+
+		call(json(delete("/api/admin/orders/" + restocked), "{\"restock\":true}"), admin).andExpect(status().isNoContent());
+		assertThat(stock(id)).containsExactly(18, 0);
+		assertThat(jdbc.queryForObject("SELECT quantity FROM inventory_movements WHERE product_id = ? AND type = 'ADJUST'",
+				Integer.class, id)).isEqualTo(5);
+		assertThat(count("SELECT COUNT(*) FROM inventory_movements WHERE product_id = ? AND type = 'ADJUST' AND note = ?", id,
+				"Hoàn kho khi xoá đơn test #" + restocked)).isEqualTo(1);
+		assertLedgerMatches(id);
+		assertThat(jdbc.queryForObject("SELECT before::text FROM audit_logs WHERE action = 'ORDER_DELETED' AND entity_id = ?",
+				String.class, restocked)).contains("\"restock\": true", "COMPLETED");
+
+		// The dashboard still answers for the day the orders were placed
+		call(get("/api/admin/dashboard/day").param("date", LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).toString()), admin)
+			.andExpect(status().isOk());
+		call(get("/api/admin/dashboard/now"), admin).andExpect(status().isOk());
+		call(get("/api/admin/orders/summary"), admin).andExpect(status().isOk());
+	}
+
+	@Test
+	void bulkDeleteSkipsWhatCannotGoAndDeletesTheRest() throws Exception {
+		Cookie admin = as("ADMIN");
+		long id = createProduct(admin, "Xoá đơn hàng loạt " + UUID.randomUUID(), null);
+		importStock(admin, id, 20);
+		String completed = placeOrder(id, 4);
+		String cancelled = placeOrder(id, 1);
+		String pending = placeOrder(id, 2);
+		shipAndComplete(admin, completed);
+		cancel(admin, cancelled);
+		int[] before = stock(id);
+
+		String body = "{\"codes\":[\"" + completed + "\",\"" + pending + "\",\"" + cancelled + "\",\"HL000000NOPE\"],\"restock\":true}";
+		call(json(post("/api/admin/orders/bulk-delete"), body), admin).andExpect(status().isOk())
+			.andExpect(jsonPath("$.deleted", hasSize(2)))
+			.andExpect(jsonPath("$.deleted", hasItem(completed)))
+			.andExpect(jsonPath("$.deleted", hasItem(cancelled)))
+			.andExpect(jsonPath("$.skipped", hasSize(2)))
+			.andExpect(jsonPath("$.skipped[?(@.code == '" + pending + "')].reason").value(hasItem("Huỷ đơn trước rồi mới xoá")))
+			.andExpect(jsonPath("$.skipped[?(@.code == 'HL000000NOPE')].reason").value(hasItem("Không tìm thấy đơn hàng")));
+
+		assertThat(count("SELECT COUNT(*) FROM orders WHERE code IN (?, ?)", completed, cancelled)).isZero();
+		assertThat(count("SELECT COUNT(*) FROM orders WHERE code = ?", pending)).isEqualTo(1);
+		// Only the completed order's goods come back; the pending order still holds its 2
+		assertThat(stock(id)).containsExactly(before[0] + 4, before[1]);
+		assertLedgerMatches(id);
+		assertThat(audits("ORDER_DELETED", completed)).isEqualTo(1);
+		assertThat(audits("ORDER_DELETED", cancelled)).isEqualTo(1);
+		assertThat(audits("ORDER_DELETED", pending)).isZero();
+
+		StringBuilder tooMany = new StringBuilder("{\"codes\":[");
+		for (int i = 0; i < 101; i++) {
+			tooMany.append(i > 0 ? "," : "").append("\"HL").append(i).append('"');
+		}
+		call(json(post("/api/admin/orders/bulk-delete"), tooMany + "]}"), admin).andExpect(status().isBadRequest());
+		call(json(post("/api/admin/orders/bulk-delete"), "{\"codes\":[]}"), admin).andExpect(status().isBadRequest());
+	}
+
+	private ResultActions track(String code, String token) throws Exception {
+		return mvc.perform(get("/api/orders/track/" + code).param("t", token));
+	}
 }

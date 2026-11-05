@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -58,6 +59,14 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
 	Optional<Order> findWithLockByCode(String code);
 
 	boolean existsByCode(String code);
+
+	/**
+	 * Deletes the order row: its lines, status history, notes and tracking links go with it (ON DELETE CASCADE); its
+	 * stock movements stay, with order_id NULL (ON DELETE SET NULL).
+	 */
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query(value = "DELETE FROM orders WHERE id = :id", nativeQuery = true)
+	int deleteRowById(@Param("id") UUID id);
 
 	Page<Order> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
 

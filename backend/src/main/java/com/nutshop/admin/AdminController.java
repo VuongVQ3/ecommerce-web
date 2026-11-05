@@ -1,7 +1,9 @@
 package com.nutshop.admin;
 
+import com.nutshop.admin.AdminDtos.BulkDeleteOrdersRequest;
 import com.nutshop.admin.AdminDtos.CancelRequest;
 import com.nutshop.admin.AdminDtos.ConfirmRequest;
+import com.nutshop.admin.AdminDtos.DeleteOrderRequest;
 import com.nutshop.admin.AdminDtos.PhoneFlagRequest;
 import com.nutshop.admin.AdminDtos.ReasonRequest;
 import com.nutshop.admin.AdminDtos.ImportRequest;
@@ -14,6 +16,8 @@ import com.nutshop.order.CancelReason;
 import com.nutshop.order.AdminOrderService.Action;
 import com.nutshop.order.AdminOrderService.AdminOrderDetail;
 import com.nutshop.order.AdminOrderService.OrderList;
+import com.nutshop.order.OrderDeletionService;
+import com.nutshop.order.OrderDeletionService.BulkResult;
 import com.nutshop.order.OrderStatus;
 import com.nutshop.order.PhoneFlag;
 import com.nutshop.order.PhoneFlagService;
@@ -39,10 +43,12 @@ public class AdminController {
 	private final AdminInventoryService inventory;
 	private final DashboardService dashboard;
 	private final PhoneFlagService phoneFlags;
+	private final OrderDeletionService deletion;
 
 	public AdminController(AdminOrderService orders, AdminInventoryService inventory, DashboardService dashboard,
-			PhoneFlagService phoneFlags) {
+			PhoneFlagService phoneFlags, OrderDeletionService deletion) {
 		this.phoneFlags = phoneFlags;
+		this.deletion = deletion;
 		this.orders = orders;
 		this.inventory = inventory;
 		this.dashboard = dashboard;
@@ -105,6 +111,22 @@ public class AdminController {
 	public AdminOrderDetail cancel(@PathVariable String code, @Valid @RequestBody CancelRequest req,
 			@AuthenticationPrincipal Jwt jwt) {
 		return orders.act(code, Action.CANCEL, null, null, req.reason(), req.reasonCode(), userId(jwt));
+	}
+
+	/** Deletes a cancelled or completed order for good (409 ORDER_NOT_CLOSED otherwise). ADMIN only. */
+	@DeleteMapping("/orders/{code}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@Roles(Role.ADMIN)
+	public void deleteOrder(@PathVariable String code, @RequestBody(required = false) DeleteOrderRequest req,
+			@AuthenticationPrincipal Jwt jwt) {
+		deletion.delete(code, req != null && req.restocks(), userId(jwt));
+	}
+
+	/** Up to 100 orders; those that cannot be deleted come back in `skipped` with the reason. ADMIN only. */
+	@PostMapping("/orders/bulk-delete")
+	@Roles(Role.ADMIN)
+	public BulkResult deleteOrders(@Valid @RequestBody BulkDeleteOrdersRequest req, @AuthenticationPrincipal Jwt jwt) {
+		return deletion.deleteAll(req.codes(), req.restocks(), userId(jwt));
 	}
 
 	@PostMapping("/orders/{code}/notes")

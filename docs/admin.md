@@ -11,6 +11,7 @@ trên cùng (tên trang + nút menu mở ngăn kéo). Mã nguồn: `frontend/src
 | Tổng quan, đơn hàng (xem, xác nhận, giao, hoàn tất, huỷ, ghi chú) | ✅ | ✅ |
 | Đánh dấu số điện thoại "Cần lưu ý" (số chưa có đánh dấu) | ✅ | ✅ |
 | Chặn COD, sửa/bỏ đánh dấu số điện thoại | ❌ (403) | ✅ |
+| Xoá vĩnh viễn đơn đã huỷ / hoàn tất (xem [Xoá đơn test](#xoá-đơn-test-admin)) | ❌ (403) | ✅ |
 | Tồn kho (xem, nhập hàng, kiểm kê, lịch sử) | ✅ | ✅ |
 | Xem danh mục | ✅ | ✅ |
 | Sản phẩm, giá, ảnh, ẩn/hiện; thêm/đổi tên danh mục; khuyến mại | ❌ (403) | ✅ |
@@ -18,7 +19,7 @@ trên cùng (tên trang + nút menu mở ngăn kéo). Mã nguồn: `frontend/src
 | Người dùng (đổi vai trò, khoá, mời nhân viên), nhật ký thao tác | ❌ (403) | ✅ |
 
 - Mọi đường dẫn `/api/admin/**` yêu cầu STAFF hoặc ADMIN ngay ở tầng filter, và từng controller còn gắn `@Roles`
-  (`AdminController`: STAFF+ADMIN, `AdminCatalogController`/`AdminUserController`/`AdminBlogController`: ADMIN). Khách thường → 403, chưa
+  (`AdminController`: STAFF+ADMIN, trừ hai API xoá đơn chỉ ADMIN; `AdminCatalogController`/`AdminUserController`/`AdminBlogController`: ADMIN). Khách thường → 403, chưa
   đăng nhập → 401.
 - **Vai trò và trạng thái khoá được kiểm tra lại ở mỗi request** (`UserStatusFilter`, đọc DB qua cache 60 giây, cache
   bị xoá ngay khi admin đổi vai trò/khoá). Vì vậy:
@@ -111,6 +112,61 @@ mỗi dòng có `flagLevel`/`flagReason` nếu số điện thoại bị đánh 
   khi commit.
 - Nhãn trạng thái dùng chung một nguồn: `frontend/src/lib/orderStatus.ts` và `OrderStatus.java` (Chờ xác nhận, Đã xác
   nhận, Đang giao, **Hoàn tất**, Đã huỷ).
+
+### Xoá đơn test (ADMIN)
+
+Để xoá các đơn chủ shop tự đặt thử trên production, cho danh sách đơn, Tổng quan (doanh thu, số đơn) và thống kê khách
+theo số điện thoại đúng với thực tế. Chỉ ADMIN; STAFF → 403.
+
+**Quy tắc** (`OrderDeletionService`):
+
+- Chỉ xoá được đơn **Đã huỷ** hoặc **Hoàn tất**. Đơn Chờ xác nhận / Đã xác nhận / Đang giao → 409 `ORDER_NOT_CLOSED`
+  "Huỷ đơn trước rồi mới xoá": bước huỷ có sẵn đã trả hàng giữ chỗ về kho đúng cách.
+- Dòng đơn được khoá (`SELECT … FOR UPDATE`) trước khi đọc trạng thái, nên không xoá trùng lúc nhân viên đang thao tác
+  đơn đó.
+- Xoá dòng `orders`; `order_items`, `order_status_history`, `order_notes`, `order_access_tokens` bị xoá theo
+  (`ON DELETE CASCADE`). Khách không tra cứu được đơn nữa (404), đơn biến khỏi "Đơn của tôi" và Tổng quan.
+- **Sổ kho giữ nguyên mọi dòng cũ**: các movement của đơn còn đó với `order_id = NULL` (trang Tồn kho → Lịch sử kho ghi
+  "Đơn đã xoá"), nên `on_hand` vẫn bằng tổng sổ kho.
+- **Ảnh hưởng tới kho:**
+  - Đơn **Đã huỷ**: hàng đã trả về khi huỷ; xoá không động tới kho.
+  - Đơn **Hoàn tất**: hàng đã trừ khỏi `on_hand` lúc giao vận chuyển. Mặc định xoá không động tới kho. Tick **"Cộng lại
+    hàng của các đơn đã giao vào kho"** (`restock: true`) thì mỗi dòng đơn thêm một movement `ADJUST` +số lượng, ghi
+    chú "Hoàn kho khi xoá đơn test #HL…". Chỉ tick khi hàng chưa thực sự rời kho.
+- **Nhật ký:** `ORDER_DELETED` (entity ORDER, nhãn là mã đơn), chỉ lưu mã đơn, trạng thái, ngày đặt, tạm tính, phí
+  ship, tổng, danh sách {tên sản phẩm, số lượng} và có hoàn kho hay không. **Không** lưu tên, số điện thoại, email,
+  địa chỉ, ghi chú của khách: đơn đã xoá thì nhật ký cũng không giữ dữ liệu cá nhân của nó.
+- **Đánh dấu số điện thoại (`phone_flags`) không tự đổi.** Nếu đã đánh dấu số test, ADMIN tự bỏ đánh dấu.
+- Xoá hết các đơn chứa một sản phẩm thì sản phẩm đó xoá được (trước đó bị chặn bởi `PRODUCT_HAS_ORDERS`).
+
+**API:**
+
+- `DELETE /api/admin/orders/{code}`, body tuỳ chọn `{"restock": true|false}` (mặc định false) → 204.
+- `POST /api/admin/orders/bulk-delete {"codes": [...], "restock": bool}` → 200 `{"deleted": [...], "skipped":
+  [{"code", "reason"}]}`. Tối đa 100 mã (quá → 400). Đơn không tìm thấy hoặc chưa đóng nằm trong `skipped`, các đơn
+  khác vẫn bị xoá; mỗi đơn một dòng nhật ký.
+- **Cả lô chạy trong một transaction.** Đơn bị bỏ qua được quyết định trước khi ghi gì, nên request chỉ thất bại khi có
+  lỗi bất ngờ, và khi đó không đơn nào bị xoá: không có lô xoá dở dang phải đối chiếu lại. Các đơn được khoá theo thứ tự
+  mã đơn, nên hai lô chồng nhau không thể deadlock. 100 đơn nhỏ vẫn là một transaction ngắn.
+
+**Giao diện:**
+
+- Trang Đơn hàng (ADMIN): cột checkbox ở bảng và thẻ trên điện thoại, kèm "Chọn tất cả đơn đã đóng trong trang". Đơn
+  chưa đóng có checkbox mờ, di chuột vào thấy "Huỷ đơn trước rồi mới xoá". Khi có đơn được chọn, thanh "Đã chọn N đơn ·
+  Xoá" dính ở cuối màn hình.
+- Trang chi tiết đơn đã huỷ / hoàn tất (ADMIN): menu "⋯" → "Xoá đơn"; xoá xong quay về danh sách.
+- Hộp thoại xác nhận: liệt kê mã đơn (10 mã, còn lại "và N đơn khác"), cảnh báo không khôi phục được, ô hoàn kho (chỉ
+  khi có đơn Hoàn tất, mặc định không tick, kèm số gói sẽ cộng lại theo từng sản phẩm), và phải gõ **XOÁ** (chấp nhận cả
+  "XÓA") mới bật nút "Xoá vĩnh viễn". Xong: thông báo "Đã xoá N đơn" (kèm "bỏ qua M đơn: lý do" nếu có).
+
+**Quy trình khuyến nghị:**
+
+1. Trang Đơn hàng, ô tìm kiếm: gõ **số điện thoại dùng để đặt thử** (khớp đúng số sau khi chuẩn hoá: 0912 345 678,
+   +84912345678… đều được).
+2. Huỷ các đơn chưa đóng, lý do **Lý do khác: đơn test**.
+3. Chọn tất cả → **Xoá**. Chỉ tick **hoàn kho** nếu đơn test đã từng bấm "Giao cho vận chuyển" (hàng bị trừ kho lúc đó)
+   mà thực ra không gửi hàng đi.
+4. Nếu đã đánh dấu số test, bỏ đánh dấu trong trang chi tiết đơn / danh sách số điện thoại.
 
 ## Tồn kho
 

@@ -1,8 +1,10 @@
-import { RefreshCw, X } from 'lucide-react'
+import { RefreshCw, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
+import { useAuth } from '../auth/AuthContext'
 import { ErrorMessage } from '../components/Feedback'
 import { StatusBadge } from '../components/OrderDetails'
+import { useToast } from '../components/Toast'
 import type { OrderStatus } from '../lib/api'
 import { adminApi, type AdminOrderRow } from '../lib/adminApi'
 import { formatAdminDateTime, formatPrice, formatRelative, formatShortDateTime } from '../lib/format'
@@ -10,9 +12,11 @@ import { CANCEL_REASON_LABEL, ORDER_STATUS_LABEL, ORDER_STATUSES, type CancelRea
 import { useAsync } from '../lib/useAsync'
 import { Skeleton } from './Skeleton'
 import { DateRangeFilter } from './DateField'
+import { DeleteOrdersDialog } from './DeleteOrdersDialog'
+import { deleteResultMessage, isClosed, NOT_CLOSED_HINT } from './orderDeletion'
 import { vnTodayIso } from './dates'
 import { OVERDUE_PARAM } from './labels'
-import { useOnNewOrder } from './newOrders'
+import { useNewOrders, useOnNewOrder } from './newOrders'
 import { FlagIcon } from './phoneFlags'
 import { btn, filterInput, input, table } from './styles'
 import { Dialog, EmptyState, FilterBar, PageHeader, Pagination, SearchFilter, TableFrame } from './ui'
@@ -60,6 +64,48 @@ function FilterSheet({
   )
 }
 
+/** Orders ticked for deletion (ADMIN): code → status. Null where the current account cannot delete. */
+interface Selection {
+  selected: Map<string, OrderStatus>
+  toggle: (o: AdminOrderRow) => void
+  /** Ticks every closed order of the page, or unticks them when all are ticked */
+  toggleAll: () => void
+  all: boolean
+  some: boolean
+}
+
+function RowCheckbox({ o, selection }: { o: AdminOrderRow; selection: Selection }) {
+  const closed = isClosed(o.status)
+  return (
+    // The hint sits on the wrapper: a disabled box gets no hover
+    <span title={closed ? undefined : NOT_CLOSED_HINT} className="inline-flex">
+      <input
+        type="checkbox"
+        checked={selection.selected.has(o.code)}
+        disabled={!closed}
+        onChange={() => selection.toggle(o)}
+        aria-label={closed ? `Chọn đơn ${o.code}` : `Đơn ${o.code}: ${NOT_CLOSED_HINT}`}
+        className="size-4 cursor-pointer accent-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
+      />
+    </span>
+  )
+}
+
+function SelectAll({ selection, className = '' }: { selection: Selection; className?: string }) {
+  return (
+    <input
+      type="checkbox"
+      checked={selection.all}
+      ref={(el) => {
+        if (el) el.indeterminate = selection.some && !selection.all
+      }}
+      onChange={selection.toggleAll}
+      aria-label="Chọn tất cả đơn đã đóng trong trang"
+      className={`size-4 cursor-pointer accent-brand-600 ${className}`}
+    />
+  )
+}
+
 function Customer({ o }: { o: AdminOrderRow }) {
   return (
     <>
@@ -75,14 +121,28 @@ function Customer({ o }: { o: AdminOrderRow }) {
 }
 
 /** Below 768px: one card per order, the whole card opens it. */
-function OrderCards({ rows }: { rows: AdminOrderRow[] }) {
+function OrderCards({ rows, selection }: { rows: AdminOrderRow[]; selection: Selection | null }) {
   return (
     <ul className="space-y-3 md:hidden">
+      {selection && (
+        <li>
+          <label className="flex items-center gap-3 px-1 text-sm font-medium text-stone-700">
+            <SelectAll selection={selection} />
+            Chọn tất cả đơn đã đóng trong trang
+          </label>
+        </li>
+      )}
       {rows.map((o) => (
-        <li key={o.code}>
+        <li key={o.code} className="flex items-stretch gap-2">
+          {selection && (
+            // A wide tap target beside the card, which opens the order
+            <label className="flex w-10 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-stone-200 bg-white has-disabled:cursor-not-allowed has-disabled:bg-stone-50">
+              <RowCheckbox o={o} selection={selection} />
+            </label>
+          )}
           <Link
             to={`/admin/don-hang/${o.code}`}
-            className="block rounded-2xl border border-stone-200 bg-white p-4 hover:border-brand-300 focus-visible:outline-2 focus-visible:outline-brand-700"
+            className="block min-w-0 flex-1 rounded-2xl border border-stone-200 bg-white p-4 hover:border-brand-300 focus-visible:outline-2 focus-visible:outline-brand-700"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono font-semibold text-brand-700">{o.code}</span>
@@ -107,13 +167,18 @@ function OrderCards({ rows }: { rows: AdminOrderRow[] }) {
 }
 
 /** 768px and up: a table; below 1280px without the quantity column and with short dates. */
-function OrderTable({ rows }: { rows: AdminOrderRow[] }) {
+function OrderTable({ rows, selection }: { rows: AdminOrderRow[]; selection: Selection | null }) {
   const navigate = useNavigate()
   return (
     <TableFrame className="hidden md:block">
       <table className="w-full text-left text-sm">
         <thead>
           <tr>
+            {selection && (
+              <th className={`${table.th} w-10`}>
+                <SelectAll selection={selection} className="align-middle" />
+              </th>
+            )}
             <th className={table.th}>Mã đơn</th>
             <th className={table.th}>Ngày đặt</th>
             <th className={table.th}>Khách hàng</th>
@@ -128,10 +193,15 @@ function OrderTable({ rows }: { rows: AdminOrderRow[] }) {
               key={o.code}
               className="cursor-pointer transition-colors hover:bg-brand-50/60 focus-within:bg-brand-50/60"
               onClick={(e) => {
-                // The link handles its own clicks (and middle/ctrl-click)
-                if (!(e.target as HTMLElement).closest('a')) navigate(`/admin/don-hang/${o.code}`)
+                // The link handles its own clicks (and middle/ctrl-click); the checkbox cell only ticks
+                if (!(e.target as HTMLElement).closest('a, [data-select]')) navigate(`/admin/don-hang/${o.code}`)
               }}
             >
+              {selection && (
+                <td className={`${table.td} w-10`} data-select>
+                  <RowCheckbox o={o} selection={selection} />
+                </td>
+              )}
               <td className={table.td}>
                 <Link to={`/admin/don-hang/${o.code}`} className="font-mono font-semibold text-brand-700 hover:underline">
                   {o.code}
@@ -176,6 +246,12 @@ export default function OrdersPage() {
   const listTo = overdue && (!to || to > cutoffDay) ? cutoffDay : to
   const [sheetOpen, setSheetOpen] = useState(false)
   const chips = useRef<HTMLDivElement>(null)
+  const isAdmin = useAuth().user?.role === 'ADMIN'
+  const toast = useToast()
+  const { refresh: refreshNewOrders } = useNewOrders()
+  // Ticked orders belong to the filters and page they were ticked on: another view starts with none
+  const [ticked, setTicked] = useState<{ view: string; orders: Map<string, OrderStatus> }>({ view: '', orders: new Map() })
+  const [deleting, setDeleting] = useState(false)
 
   const { data, error, loading, reload } = useAsync(
     (signal) => adminApi.orders({ status, from, to: listTo, q, cancelReasonCode, page }, signal),
@@ -209,6 +285,25 @@ export default function OrdersPage() {
   }
 
   const activeFilters = (q ? 1 : 0) + (from || to ? 1 : 0)
+
+  const view = params.toString()
+  const selected = ticked.view === view ? ticked.orders : new Map<string, OrderStatus>()
+  const closedRows = rows.filter((o) => isClosed(o.status))
+  const allTicked = closedRows.length > 0 && closedRows.every((o) => selected.has(o.code))
+  const selection: Selection | null = isAdmin
+    ? {
+        selected,
+        all: allTicked,
+        some: selected.size > 0,
+        toggle: (o) => {
+          const next = new Map(selected)
+          if (next.has(o.code)) next.delete(o.code)
+          else next.set(o.code, o.status)
+          setTicked({ view, orders: next })
+        },
+        toggleAll: () => setTicked({ view, orders: allTicked ? new Map() : new Map(closedRows.map((o) => [o.code, o.status])) }),
+      }
+    : null
 
   // A new order (the layout polls every 20 s): on the first page with no filter the list reloads by itself; anywhere
   // else a bar offers to reload, so the rows being looked at do not move. The bar belongs to the current filters.
@@ -343,10 +438,46 @@ export default function OrdersPage() {
         </EmptyState>
       ) : (
         <div aria-busy={loading}>
-          <OrderCards rows={rows} />
-          <OrderTable rows={rows} />
+          <OrderCards rows={rows} selection={selection} />
+          <OrderTable rows={rows} selection={selection} />
           <Pagination page={data.page.page} totalPages={data.page.totalPages} onChange={(p) => update({ page: String(p) })} />
         </div>
+      )}
+
+      {selected.size > 0 && (
+        // Stays at the bottom of the screen while the list scrolls
+        <div
+          role="region"
+          aria-label="Đơn đã chọn"
+          className="sticky bottom-3 z-20 mt-4 flex items-center justify-between gap-3 rounded-2xl bg-stone-900 px-4 py-3 text-sm text-white shadow-lg"
+        >
+          <span className="font-medium">
+            Đã chọn <span className="tabular-nums">{selected.size}</span> đơn
+          </span>
+          <div className="flex items-center gap-2">
+            <button type="button" className="rounded-lg px-3 py-1.5 text-stone-300 hover:bg-white/10 hover:text-white" onClick={() => setTicked({ view, orders: new Map() })}>
+              Bỏ chọn
+            </button>
+            <button type="button" className={`${btn.danger} py-1.5`} onClick={() => setDeleting(true)}>
+              <Trash2 aria-hidden className="size-4" />
+              Xoá
+            </button>
+          </div>
+        </div>
+      )}
+      {deleting && (
+        <DeleteOrdersDialog
+          orders={[...selected].map(([code, s]) => ({ code, status: s }))}
+          onClose={() => setDeleting(false)}
+          onDone={(result) => {
+            setDeleting(false)
+            setTicked({ view, orders: new Map() })
+            toast({ message: deleteResultMessage(result), tone: result.deleted.length > 0 ? 'success' : 'error' })
+            reload()
+            countsQuery.reload()
+            refreshNewOrders()
+          }}
+        />
       )}
     </>
   )

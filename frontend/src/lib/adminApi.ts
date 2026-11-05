@@ -212,6 +212,12 @@ function query(params: Record<string, string | number | boolean | undefined | nu
 }
 
 const put = (body: unknown) => ({ method: 'PUT', body: JSON.stringify(body) })
+
+/** POST /api/admin/orders/bulk-delete: what went, and what stayed with the reason */
+export interface BulkDeleteResult {
+  deleted: string[]
+  skipped: { code: string; reason: string }[]
+}
 const order = (code: string) => `/api/admin/orders/${encodeURIComponent(code)}`
 
 export const adminApi = {
@@ -249,6 +255,12 @@ export const adminApi = {
   removePhoneFlag: (phone: string, reason: string) =>
     apiRequest<void>(`/api/admin/phone-flags/${encodeURIComponent(phone)}/remove`, post({ reason })),
   addNote: (code: string, body: string) => apiRequest<AdminOrderDetail>(`${order(code)}/notes`, post({ body })),
+  /** ADMIN, cancelled or completed orders only (409 ORDER_NOT_CLOSED); `restock` puts a completed order's goods back */
+  deleteOrder: (code: string, restock: boolean) =>
+    apiRequest<void>(order(code), { method: 'DELETE', body: JSON.stringify({ restock }) }),
+  /** ADMIN, up to 100 codes; the ones that cannot be deleted come back in `skipped` */
+  deleteOrders: (codes: string[], restock: boolean) =>
+    apiRequest<BulkDeleteResult>('/api/admin/orders/bulk-delete', post({ codes, restock })),
 
   inventory: (q: string, low: boolean, signal?: AbortSignal, page = 0) =>
     apiRequest<Page<StockRow>>(`/api/admin/inventory${query({ q, low, page, size: 100 })}`, { signal }),

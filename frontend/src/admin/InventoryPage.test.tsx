@@ -70,3 +70,34 @@ describe('import dialog', () => {
     await waitFor(() => expect(importStock).toHaveBeenCalledWith(7, { quantity: 20, unitCost: undefined, supplier: undefined, note: undefined }))
   })
 })
+
+describe('stock history', () => {
+  it('names the order of a movement, or says it was deleted', async () => {
+    vi.spyOn(adminApi, 'inventory').mockResolvedValue({ items: [STOCK], page: 0, size: 100, totalItems: 1, totalPages: 1 })
+    const row = { quantity: -2, note: null, unitCost: null, supplier: null, actorName: null, createdAt: '2026-11-05T03:00:00Z' }
+    vi.spyOn(adminApi, 'movements').mockResolvedValue({
+      items: [
+        { ...row, id: 'm1', type: 'ORDER_SHIP', orderCode: 'HL261105ABCD' },
+        // The order was deleted: its movements stay, without an order
+        { ...row, id: 'm2', type: 'ORDER_RESERVE', orderCode: null, quantity: 3 },
+        { ...row, id: 'm3', type: 'ADJUST', orderCode: null, quantity: 3, note: 'Hoàn kho khi xoá đơn test #HL261104TEST' },
+      ],
+      page: 0,
+      size: 20,
+      totalItems: 3,
+      totalPages: 1,
+    })
+    const router = createMemoryRouter([{ path: '/admin/kho', element: <InventoryPage /> }], { initialEntries: ['/admin/kho'] })
+    render(<RouterProvider router={router} />)
+    fireEvent.click(within(await screen.findByRole('table')).getByRole('button', { name: 'Thao tác khác với Hạt điều' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Lịch sử kho' }))
+
+    const dialog = await screen.findByRole('dialog')
+    const rows = await within(dialog).findAllByRole('row')
+    const text = rows.map((r) => r.textContent)
+    expect(text.find((t) => t?.includes('Xuất kho'))).toContain('Đơn HL261105ABCD')
+    expect(text.find((t) => t?.includes('Giữ hàng'))).toContain('Đơn đã xoá')
+    // An adjustment never belonged to an order
+    expect(text.find((t) => t?.includes('Hoàn kho khi xoá'))).not.toContain('Đơn đã xoá')
+  })
+})

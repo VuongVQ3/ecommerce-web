@@ -21,6 +21,9 @@ const MOVEMENT_LABEL: Record<MovementType, string> = {
   RETURN: 'Hàng hoàn về (khách không nhận)',
 }
 
+/** Movements made for an order: without an order code, that order was deleted */
+const ORDER_MOVEMENTS = new Set<MovementType>(['ORDER_RESERVE', 'ORDER_CANCEL', 'ORDER_SHIP', 'RETURN'])
+
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
 /** Parses a whole number typed by staff; empty → undefined. */
@@ -188,7 +191,7 @@ function HistoryDialog({ product, onClose }: { product: StockRow; onClose: () =>
                   </td>
                   <td className={`${table.td} text-stone-700`}>
                     {[
-                      m.orderCode && `Đơn ${m.orderCode}`,
+                      m.orderCode ? `Đơn ${m.orderCode}` : ORDER_MOVEMENTS.has(m.type) && 'Đơn đã xoá',
                       m.supplier && `NCC: ${m.supplier}`,
                       m.unitCost != null && `Giá nhập ${formatPrice(m.unitCost)}`,
                       m.note,
