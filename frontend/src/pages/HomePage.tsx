@@ -10,7 +10,7 @@ import ProductCard from '../components/ProductCard'
 import QuickViewHost from '../components/QuickView'
 import { api } from '../lib/api'
 import { categoryEmoji } from '../lib/categoryStyle'
-import { useInView } from '../lib/motion'
+import { useCountUpProgress, useInView } from '../lib/motion'
 import { MIN_PRODUCTS_WITH_NUTRITION, withNutrition } from '../lib/nutrition'
 import { SHIPPING_PROMISE } from '../lib/siteInfo'
 import { useAsync } from '../lib/useAsync'
@@ -144,18 +144,22 @@ function Hero({ productCount }: { productCount?: number }) {
   )
 }
 
-/** `short`: the label under 640px, where each one gets a single line */
-type Stat = { value: number | string; suffix?: string; label: string; short?: string }
+/** `short`: the label under 640px, where each one gets a single line; `grouping` false: no thousands separator */
+type Stat = { value: number | string; suffix?: string; grouping?: boolean; label: string; short?: string }
 
 // TODO: placeholder cho UI, thay bằng số liệu thật trước khi lên production
 // Dev only: the condition is false in a production build, so the bundle does not even contain the number
-const VISITS_PLACEHOLDER: Stat | null = import.meta.env.DEV ? { value: '3000+', label: 'lượt truy cập mỗi ngày', short: 'truy cập mỗi ngày' } : null
+const VISITS_PLACEHOLDER: Stat | null = import.meta.env.DEV ? { value: 3000, suffix: '+', grouping: false, label: 'lượt truy cập mỗi ngày', short: 'truy cập mỗi ngày' }
+  : null
 
 /** Production: in place of the visits placeholder */
 const ORIGIN_STAT: Stat = { value: 'Đắk Lắk', label: 'nguồn hạt rõ ràng' }
 
 function Stats() {
-  // A number counts up when it comes into view; a word (Freeship) is shown as it is
+  // The numbers count up together when the band comes into view (one clock: they land on the same frame); a word
+  // (Freeship) is shown as it is
+  const [band, visible] = useInView<HTMLDivElement>()
+  const progress = useCountUpProgress(visible)
   const items: Stat[] = [
     { value: 100, suffix: '%', label: 'hạt tuyển chọn' },
     VISITS_PLACEHOLDER ?? ORIGIN_STAT,
@@ -167,11 +171,14 @@ function Stats() {
     <section className="mx-auto max-w-6xl px-4">
       {/* Phones: room on the right for the floating buttons in the corner */}
       {/* 2×2 rows of equal height, each tile centred; under 640px every label is one line (short form) */}
-      <div className="grid auto-rows-fr grid-cols-2 gap-4 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm max-sm:gap-x-2 max-sm:pr-12 max-sm:pl-3 md:grid-cols-4 md:p-8">
+      <div
+        ref={band}
+        className="grid auto-rows-fr grid-cols-2 gap-4 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm max-sm:gap-x-2 max-sm:pr-12 max-sm:pl-3 md:grid-cols-4 md:p-8"
+      >
         {items.map((s, i) => (
           <Reveal key={s.label} delay={i * 100} className="flex flex-col items-center justify-center text-center">
             {typeof s.value === 'number' ? (
-              <CountUp value={s.value} suffix={s.suffix} className={valueClass} />
+              <CountUp value={s.value} progress={progress} suffix={s.suffix} grouping={s.grouping} className={valueClass} />
             ) : (
               <span className={valueClass}>{s.value}</span>
             )}
@@ -261,15 +268,21 @@ export default function HomePage() {
 
       <section className="mx-auto max-w-6xl px-4 pt-20">
         <SectionTitle eyebrow="Vì sao chọn Hạt Lành" title="Chọn lọc kỹ, giao tận nơi" />
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Phones: compact cards, icon on the left of the title and text */}
+        <div className="mt-8 grid gap-4 max-sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {BENEFITS.map((b, i) => (
             <Reveal key={b.title} delay={i * 110} from="scale">
-              <TiltCard className="h-full rounded-2xl border border-stone-200 bg-white p-6">
-                <span className="inline-flex size-12 items-center justify-center rounded-xl bg-brand-50 text-brand-700" aria-hidden>
+              <TiltCard className="h-full rounded-2xl border border-stone-200 bg-white p-6 max-sm:flex max-sm:items-start max-sm:gap-4 max-sm:p-4">
+                <span
+                  className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 max-sm:size-11"
+                  aria-hidden
+                >
                   <b.icon className="size-6" strokeWidth={1.75} />
                 </span>
-                <h3 className="mt-3 font-bold text-stone-900">{b.title}</h3>
-                <p className="mt-1 text-sm text-stone-600">{b.text}</p>
+                <div>
+                  <h3 className="mt-3 font-bold text-stone-900 max-sm:mt-0">{b.title}</h3>
+                  <p className="mt-1 text-sm text-stone-600">{b.text}</p>
+                </div>
               </TiltCard>
             </Reveal>
           ))}

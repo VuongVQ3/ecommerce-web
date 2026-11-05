@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
-import { useCountUp, useInView, usePrefersReducedMotion } from '../../lib/motion'
+import { useInView, usePrefersReducedMotion } from '../../lib/motion'
 
 type RevealFrom = 'up' | 'left' | 'right' | 'scale'
 
@@ -27,18 +27,36 @@ export function Reveal({
   )
 }
 
-/** A number that counts up when it becomes visible. Screen readers get the final value only. */
-export function CountUp({ value, suffix = '', className = '' }: { value: number; suffix?: string; className?: string }) {
-  const [ref, visible] = useInView<HTMLSpanElement>()
-  const shown = useCountUp(value, visible)
+/**
+ * A number counting up on a shared clock (`progress` from useCountUpProgress), so a row of them lands together.
+ * Digits are tabular and the box keeps the width of the final number, right-aligned, so the suffix ("+", "%")
+ * stays put while it counts. `grouping` false: "3000", not "3.000". Read by screen readers as the final number.
+ */
+export function CountUp({
+  value,
+  progress,
+  suffix = '',
+  grouping = true,
+  className = '',
+}: {
+  value: number
+  progress: number
+  suffix?: string
+  grouping?: boolean
+  className?: string
+}) {
+  const format = (n: number) => (grouping ? n.toLocaleString('vi-VN') : String(n))
   return (
-    <span ref={ref} className={className}>
+    <span className={className}>
       <span aria-hidden className="tabular-nums">
-        {shown.toLocaleString('vi-VN')}
+        <span className="inline-grid justify-items-end">
+          <span className="invisible col-start-1 row-start-1">{format(value)}</span>
+          <span className="col-start-1 row-start-1">{format(Math.round(value * progress))}</span>
+        </span>
         {suffix}
       </span>
       <span className="sr-only">
-        {value.toLocaleString('vi-VN')}
+        {format(value)}
         {suffix}
       </span>
     </span>
