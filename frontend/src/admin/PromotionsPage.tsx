@@ -354,7 +354,7 @@ function EditDialog({ row, onClose, onDone }: { row: PromotionRow; onClose: () =
       <Field label="Giá khuyến mại (₫)" requiredMark hint="Bội số của 1.000₫, thấp hơn giá gốc">
         {(p) => <MoneyInput {...p} value={price} onChange={setPrice} />}
       </Field>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         {running ? (
           <div>
             <p className="text-sm font-medium text-stone-800">Từ ngày</p>
