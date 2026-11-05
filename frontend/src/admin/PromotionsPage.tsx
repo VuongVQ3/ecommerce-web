@@ -254,14 +254,46 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
             {(p) => <MoneyInput {...p} value={price} onChange={setPrice} />}
           </Field>
         )}
-        <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+        {/* Stacked on phones: side by side, an empty field cut its "dd/MM/yyyy" placeholder */}
+        <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
           <DateField label="Từ ngày" requiredMark min={today} value={first} onChange={setFirst} />
           <DateField label="Đến hết ngày" requiredMark min={first || today} value={last} onChange={setLast} />
-          {first === today && <p className="col-span-2 text-sm text-stone-600">Từ hôm nay: khuyến mại bắt đầu ngay khi lưu.</p>}
+          {first === today && <p className="text-sm text-stone-600 sm:col-span-2">Từ hôm nay: khuyến mại bắt đầu ngay khi lưu.</p>}
         </div>
       </fieldset>
 
       {preview.length > 0 && (
+        <>
+        {/* Phones: one card per product (the table would scroll sideways) */}
+        <section aria-labelledby="promo-preview-cards" className="sm:hidden">
+          <h3 id="promo-preview-cards" className="text-sm font-semibold text-stone-900">
+            3. Xem trước giá mới
+          </h3>
+          <ul className="mt-2 space-y-2">
+            {preview.map(({ p, sale, off, after, problems }) => (
+              <li
+                key={p.id}
+                className={`rounded-xl border px-4 py-3 text-sm ${problems.length ? 'border-red-200 bg-red-50' : 'border-stone-200'}`}
+              >
+                <p className="font-medium text-stone-900">{p.name}</p>
+                {problems.length > 0 && <p className="text-xs font-semibold text-danger">{problems.join(' · ')}</p>}
+                <p className="mt-1 tabular-nums">
+                  <s className="text-muted">
+                    <span className="sr-only">Giá gốc </span>
+                    {formatPrice(p.price)}
+                  </s>
+                  <span aria-hidden> → </span>
+                  <span className="sr-only">, giá khuyến mại </span>
+                  <strong className="text-red-700">{sale > 0 ? `${formatPrice(sale)} (-${off}%)` : '—'}</strong>
+                </p>
+                <div className="mt-2">
+                  {after != null ? <DaysUsage used={after} max={usage.maxDaysPerYear} /> : <span className="text-xs text-muted">Năm khác</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <div className="max-sm:hidden">
         <TableFrame>
           <table className={table.table}>
             <caption className="px-4 pt-3 text-left text-sm font-semibold text-stone-900">3. Xem trước giá mới</caption>
@@ -290,6 +322,8 @@ function CreatePromotion({ usage, onDone, onCancel }: { usage: PromotionUsage; o
             </tbody>
           </table>
         </TableFrame>
+        </div>
+        </>
       )}
 
       {results && (

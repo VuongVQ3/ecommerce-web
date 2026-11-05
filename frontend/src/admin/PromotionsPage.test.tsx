@@ -51,7 +51,12 @@ const ENDED = row('end', 'ENDED', '2026-10-01T17:00:00Z', '2026-10-05T09:25:49Z'
 
 function renderPage() {
   vi.spyOn(promotionApi, 'list').mockResolvedValue([RUNNING, UPCOMING, ENDED])
-  vi.spyOn(promotionApi, 'usage').mockResolvedValue({ year: 2026, maxDaysPerYear: 120, maxDiscountPercent: 50, products: [] })
+  vi.spyOn(promotionApi, 'usage').mockResolvedValue({
+    year: 2026,
+    maxDaysPerYear: 120,
+    maxDiscountPercent: 50,
+    products: [{ id: 31, name: 'Hạnh nhân Mỹ sấy mộc', price: 269_000, active: true, daysUsed: 3, runningSalePrice: null }],
+  })
   const update = vi.spyOn(promotionApi, 'update').mockResolvedValue(RUNNING)
   render(<PromotionsPage />)
   return update
@@ -112,5 +117,22 @@ describe('PromotionsPage: editing', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Đã kết thúc (1)' }))
     const tr = within(await rowOf('Mắc ca end'))
     expect(tr.queryByRole('button')).toBeNull()
+  })
+})
+
+describe('PromotionsPage: create drawer', () => {
+  it('previews each product as a card for phones (the table is for wider screens)', async () => {
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: '+ Tạo khuyến mại' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Hạnh nhân Mỹ sấy mộc' }))
+    const cards = within(screen.getByRole('region', { name: '3. Xem trước giá mới' }))
+    const card = cards.getByRole('listitem')
+    // 20% off (the default) 269.000₫ = 215.000₫; no last day picked yet, so the days bar shows the days already used
+    expect(card.textContent).toContain('Hạnh nhân Mỹ sấy mộc')
+    expect(card.textContent).toMatch(/Giá gốc 269\.000\s?₫/)
+    expect(card.textContent).toMatch(/215\.000\s?₫ \(-20%\)/)
+    expect(card.textContent).toContain('Đã đặt 3/120 ngày')
+    expect(screen.getByRole('table', { name: '3. Xem trước giá mới' })).toBeTruthy()
+    expect(screen.getByText('Từ hôm nay: khuyến mại bắt đầu ngay khi lưu.')).toBeTruthy()
   })
 })
