@@ -281,17 +281,26 @@ class SiteE2ETest {
 			if (path.equals("*")) {
 				continue;
 			}
-			// Children of /admin and /tai-khoan are relative
+			// Children of /admin, /author and /tai-khoan are relative: they belong to the closest parent above them
 			if (!path.startsWith("/")) {
-				path = (routes.indexOf("path: '" + path + "'") > routes.indexOf("path: '/tai-khoan'")
-						? "/tai-khoan/" : "/admin/") + path;
+				String parent = null;
+				int parentAt = -1;
+				for (String candidate : List.of("/admin", "/author", "/tai-khoan")) {
+					int at = routes.indexOf("path: '" + candidate + "'");
+					if (at >= 0 && at < m.start() && at > parentAt) {
+						parent = candidate;
+						parentAt = at;
+					}
+				}
+				path = parent + "/" + path;
 			}
 			paths.add(path.replace(":slug", path.startsWith("/danh-muc") ? "hat-dinh-duong"
 					: path.startsWith("/blog") ? postSlug : slug)
 				.replace(":code", "HL2610130000")
 				.replace(":id", "1"));
 		}
-		assertThat(paths).contains("/", "/san-pham", "/danh-muc/hat-dinh-duong", "/lien-he", "/admin/don-hang");
+		assertThat(paths).contains("/", "/san-pham", "/danh-muc/hat-dinh-duong", "/lien-he", "/admin/don-hang",
+				"/author", "/author/assets", "/tai-khoan/doi-mat-khau");
 		try {
 			for (String path : paths) {
 				int status = mvc.perform(get(path)).andReturn().getResponse().getStatus();

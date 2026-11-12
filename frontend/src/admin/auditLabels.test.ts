@@ -13,6 +13,14 @@ describe('audit labels', () => {
     expect(fieldLabel('sortOrder')).toBe('Thứ tự hiển thị')
   })
 
+  it('names the CMS actions shared by Sites, Assets and Content Fragments', () => {
+    const codes = ['CREATED', 'UPDATED', 'PUBLISHED', 'UNPUBLISHED', 'DELETED', 'ROLLED_BACK'].map((s) => `CONTENT_${s}`)
+    for (const code of codes) expect(actionLabel(code)).not.toBe(code)
+    expect(actionLabel('CONTENT_PUBLISHED')).toBe('Publish nội dung')
+    expect(actionIcon('CONTENT_DELETED').icon).toBe('trash')
+    expect(actionIcon('CONTENT_CREATED').icon).toBe('plus')
+  })
+
   it('links to the product, except once it is deleted', () => {
     expect(entityLink({ entityType: 'PRODUCT', entityId: '7', action: 'PRODUCT_MOVED' })).toBe('/admin/san-pham/7')
     expect(entityLink({ entityType: 'PRODUCT', entityId: '7', action: 'PRODUCT_DELETED' })).toBeNull()

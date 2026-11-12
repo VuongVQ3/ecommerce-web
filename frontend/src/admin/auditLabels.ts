@@ -53,6 +53,13 @@ export const ACTION_LABEL: Record<string, string> = {
   USER_EMAIL_VERIFIED: 'Xác minh email',
   USER_GOOGLE_TAKEOVER: 'Chủ email nhận lại tài khoản qua Google',
   USER_PASSWORD_SET: 'Đặt mật khẩu',
+  // CMS (Author environment): Sites, Assets and Content Fragments share these (ContentAudit on the backend)
+  CONTENT_CREATED: 'Tạo nội dung',
+  CONTENT_UPDATED: 'Sửa nội dung',
+  CONTENT_PUBLISHED: 'Publish nội dung',
+  CONTENT_UNPUBLISHED: 'Gỡ publish nội dung',
+  CONTENT_DELETED: 'Xoá nội dung',
+  CONTENT_ROLLED_BACK: 'Khôi phục phiên bản cũ',
 }
 
 export const actionLabel = (code: string) => ACTION_LABEL[code] ?? code
@@ -64,6 +71,10 @@ export const ENTITY_LABEL: Record<string, string> = {
   BLOG_POST: 'Bài blog',
   USER: 'Người dùng',
   PHONE: 'Số điện thoại',
+  // CMS content (ContentType on the backend)
+  ASSET: 'Asset',
+  FRAGMENT: 'Content Fragment',
+  PAGE: 'Trang (Sites)',
 }
 
 export const FIELD_LABEL: Record<string, string> = {

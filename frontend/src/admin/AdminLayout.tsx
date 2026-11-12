@@ -8,6 +8,7 @@ import {
   Menu,
   Newspaper,
   Package,
+  PenLine,
   Receipt,
   Users,
   Warehouse,
@@ -36,6 +37,8 @@ const NAV: { to: string; label: string; icon: LucideIcon; roles: Role[]; end?: b
   { to: '/admin/blog', label: 'Blog', icon: Newspaper, roles: ['ADMIN'] },
   { to: '/admin/nguoi-dung', label: 'Người dùng', icon: Users, roles: ['ADMIN'] },
   { to: '/admin/nhat-ky', label: 'Nhật ký', icon: History, roles: ['ADMIN'] },
+  // The CMS Author environment: a separate area with its own layout
+  { to: '/author', label: 'Nội dung (Author)', icon: PenLine, roles: ['STAFF', 'ADMIN'] },
 ]
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>

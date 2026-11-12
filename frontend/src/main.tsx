@@ -31,6 +31,12 @@ import VerifyEmailPage from './pages/VerifyEmailPage'
 /** Admin pages are loaded on demand, so shoppers never download them. */
 const page = (load: () => Promise<{ default: ComponentType }>) => async () => ({ Component: (await load()).default })
 
+/** An Author module that is not built yet (Sites, Assets, Content Fragments), loaded on demand too. */
+const authorPlaceholder = (module: 'sites' | 'assets' | 'fragments') => async () => {
+  const { default: Placeholder } = await import('./author/AuthorPlaceholderPage')
+  return { element: <Placeholder module={module} /> }
+}
+
 const router = createBrowserRouter([
   {
     // AuthProvider lives inside the router so it can redirect to the login page when a session expires
@@ -75,6 +81,23 @@ const router = createBrowserRouter([
                   { path: 'blog/:id', lazy: page(() => import('./admin/BlogFormPage')) },
                 ],
               },
+              { path: '*', element: <NotFoundPage /> },
+            ],
+          },
+        ],
+      },
+      {
+        // /author/*: CMS Author environment (STAFF and ADMIN), its own layout; what each may do comes from the API
+        path: '/author',
+        element: <RequireAuth roles={['STAFF', 'ADMIN']} />,
+        children: [
+          {
+            lazy: page(() => import('./author/AuthorLayout')),
+            children: [
+              { index: true, lazy: page(() => import('./author/AuthorHomePage')) },
+              { path: 'sites', lazy: authorPlaceholder('sites') },
+              { path: 'assets', lazy: authorPlaceholder('assets') },
+              { path: 'fragments', lazy: authorPlaceholder('fragments') },
               { path: '*', element: <NotFoundPage /> },
             ],
           },

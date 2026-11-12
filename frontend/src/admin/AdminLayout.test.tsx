@@ -50,6 +50,17 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+describe('AdminLayout menu', () => {
+  it('links to the Author environment', async () => {
+    vi.spyOn(adminApi, 'orderSummary').mockResolvedValue(summary('HL1', 0))
+    renderAdmin()
+    await tick()
+    const links = screen.getAllByRole('link', { name: 'Nội dung (Author)' })
+    expect(links.length).toBeGreaterThan(0)
+    expect(links[0].getAttribute('href')).toBe('/author')
+  })
+})
+
 describe('AdminLayout and new orders', () => {
   it('shows the pending count on "Đơn hàng" and in the tab title', async () => {
     vi.spyOn(adminApi, 'orderSummary').mockResolvedValue(summary('HL1', 3))

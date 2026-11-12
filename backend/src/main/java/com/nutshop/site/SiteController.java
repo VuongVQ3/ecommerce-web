@@ -79,6 +79,7 @@ public class SiteController {
 				User-agent: *
 				Allow: /
 				Disallow: /admin
+				Disallow: /author
 				Disallow: /tai-khoan
 				Disallow: /thanh-toan
 				Disallow: /don-hang/
