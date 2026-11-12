@@ -417,7 +417,7 @@ public class DamAssetService {
 	}
 
 	/** "/files/{id}/bang-gia-2026.pdf": the readable part is a slug of the file name and is never looked up. */
-	static String stableUrl(UUID id, String fileName) {
+	public static String stableUrl(UUID id, String fileName) {
 		String extension = AssetTypes.extension(fileName);
 		String base = extension.isEmpty() ? fileName : fileName.substring(0, fileName.length() - extension.length() - 1);
 		String slug = Slugs.from(base == null ? "" : base);

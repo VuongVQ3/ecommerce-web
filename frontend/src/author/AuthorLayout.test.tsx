@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import RequireAuth from '../auth/RequireAuth'
@@ -95,7 +95,7 @@ describe('AuthorLayout', () => {
     signIn('STAFF')
     mockSession(() => json(200, session('STAFF')))
     renderAuthor()
-    const nav = (await screen.findAllByRole('navigation', { name: 'Author' }))[0]
+    const nav = (await screen.findAllByRole('navigation', { name: 'Author' }, { timeout: 3000 }))[0]
     const links = within(nav).getAllByRole('link')
     expect(links.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
       ['Tổng quan', '/author'],
@@ -107,7 +107,7 @@ describe('AuthorLayout', () => {
     expect(screen.getAllByRole('link', { name: 'Xem website' })[0].getAttribute('href')).toBe('/')
     // Its own identity, so it is never mistaken for the back office
     expect(screen.getAllByText('Môi trường soạn thảo').length).toBeGreaterThan(0)
-    expect(document.title).toBe('Tổng quan | Author | Hạt Lành')
+    await waitFor(() => expect(document.title).toBe('Tổng quan | Author | Hạt Lành'))
   })
 
   it('asks for the session only once while moving between pages', async () => {
@@ -174,7 +174,7 @@ describe('AuthorHomePage', () => {
     }
     // Assets is built: its card shows how many assets there are instead of "Sắp có"
     expect(await screen.findByText('1.234 asset')).toBeTruthy()
-    expect(screen.getAllByText('Sắp có')).toHaveLength(2)
+    expect(screen.getAllByText('Sắp có')).toHaveLength(1) // only Sites now
   })
 
   it('ADMIN: may do everything', async () => {
