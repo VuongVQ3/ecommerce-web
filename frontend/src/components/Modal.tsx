@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 
 /**
  * Small modal form on the native <dialog>: showModal() traps focus and makes the page behind inert, Esc closes.
@@ -15,6 +15,7 @@ export default function Modal({
   danger = false,
   submitDisabled = false,
   error,
+  width,
   children,
 }: {
   title: string
@@ -28,6 +29,8 @@ export default function Modal({
   /** e.g. until a required choice is made */
   submitDisabled?: boolean
   error?: string | null
+  /** Wider than the default 28rem, e.g. '56rem' for a picker grid */
+  width?: string
   children: ReactNode
 }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -56,7 +59,8 @@ export default function Modal({
         e.preventDefault()
         if (!pending) onClose()
       }}
-      className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-2xl bg-white p-0 shadow-2xl backdrop:bg-stone-900/50"
+      style={width ? ({ '--modal-width': width } as CSSProperties) : undefined}
+      className="m-auto w-[min(var(--modal-width,28rem),calc(100vw-2rem))] rounded-2xl bg-white p-0 shadow-2xl backdrop:bg-stone-900/50"
     >
       <form onSubmit={submit} noValidate className="flex flex-col gap-4 p-6">
         <h2 id={titleId} className="text-lg font-bold text-stone-900">

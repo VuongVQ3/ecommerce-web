@@ -17,6 +17,13 @@ public final class ContentAudit {
 	public static final String CONTENT_UNPUBLISHED = "CONTENT_UNPUBLISHED";
 	public static final String CONTENT_DELETED = "CONTENT_DELETED";
 	public static final String CONTENT_ROLLED_BACK = "CONTENT_ROLLED_BACK";
+	/** Moved to another folder (assets). */
+	public static final String CONTENT_MOVED = "CONTENT_MOVED";
+	/** The file behind an asset was replaced (same id, same stable link). */
+	public static final String CONTENT_FILE_REPLACED = "CONTENT_FILE_REPLACED";
+
+	/** Entity type of DAM folders (not a {@link ContentType}: folders are not content themselves). */
+	public static final String DAM_FOLDER = "DAM_FOLDER";
 
 	private ContentAudit() {
 	}

@@ -1,12 +1,31 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { Badge, PageHeader } from '../admin/ui'
+import { damApi } from './assets/damApi'
 import { AUTHOR_MODULES } from './authorModules'
 import { permissionSentence } from './permissions'
 import { useAuthorSession } from './AuthorSessionContext'
 
-/** Overview of the Author environment: the three modules (coming soon) and what the user may do. */
+/** Total number of assets for the Assets card; null while unknown (or when it could not be read). */
+function useAssetTotal(): number | null {
+  const [total, setTotal] = useState<number | null>(null)
+  useEffect(() => {
+    const controller = new AbortController()
+    damApi.list({ size: 1 }, controller.signal).then(
+      (page) => setTotal(page.totalItems),
+      () => {
+        // The card simply shows no count
+      },
+    )
+    return () => controller.abort()
+  }, [])
+  return total
+}
+
+/** Overview of the Author environment: the three modules and what the user may do. */
 export default function AuthorHomePage() {
   const session = useAuthorSession()
+  const assetTotal = useAssetTotal()
   return (
     <>
       <PageHeader title="Tổng quan nội dung" />
@@ -21,7 +40,12 @@ export default function AuthorHomePage() {
                 <span className="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
                   <m.icon aria-hidden className="size-5" strokeWidth={1.75} />
                 </span>
-                <Badge tone="gray">Sắp có</Badge>
+                {!m.ready ? (
+                  <Badge tone="gray">Sắp có</Badge>
+                ) : (
+                  m.key === 'assets' &&
+                  assetTotal !== null && <Badge tone="green">{`${assetTotal.toLocaleString('vi-VN')} asset`}</Badge>
+                )}
               </span>
               <span className="text-lg font-bold text-stone-900">{m.label}</span>
               <span className="text-sm text-stone-600">{m.summary}</span>

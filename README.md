@@ -18,6 +18,7 @@ Website bán các loại hạt ăn kiêng: hạnh nhân, óc chó, macca, hạt 
 - Đặt hàng COD, tra cứu đơn, huỷ đơn. Chi tiết: [docs/orders.md](docs/orders.md)
 - Blog `/blog`: chủ shop soạn bài Markdown có ảnh trong `/admin/blog`, bài có meta/JSON-LD và nội dung đọc được không cần JavaScript. Chi tiết: [docs/blog.md](docs/blog.md)
 - Trang quản trị `/admin`: đơn hàng, tồn kho, sản phẩm, ảnh (Cloudinary), danh mục, audit log. Chi tiết: [docs/admin.md](docs/admin.md)
+- Môi trường soạn nội dung `/author` (STAFF, ADMIN). Đã có **Assets**: kho ảnh (JPEG/PNG/WebP) và PDF dùng chung, có thư mục, tag, tìm kiếm không dấu, rendition, và link ổn định `/files/{id}/{tên}` không đổi khi thay file. Sites và Content Fragments: sắp có.
 - 13 sản phẩm mẫu trong 3 danh mục
 
 ## Chạy trên máy
@@ -51,6 +52,18 @@ Khi phát triển, Vite chuyển tiếp mọi request `/api` sang backend (cùng
 Chỉ có **một** biến: frontend lấy Client ID từ `GET /api/auth/providers`, nên không có `VITE_GOOGLE_CLIENT_ID` và đổi
 Client ID không cần build lại. Nếu không có Client ID (hoặc không tải được script của Google), nút Google tự ẩn, form
 email vẫn dùng bình thường. Chi tiết luồng: [docs/auth.md](docs/auth.md#đăng-nhập-google).
+
+### Cloudinary cho Assets (PDF)
+
+Assets dùng chung `CLOUDINARY_URL` với ảnh sản phẩm; mọi file nằm trong thư mục `hat-lanh/dam` trên Cloudinary
+(thư mục trong `/author/assets` chỉ có trong database). Tài khoản Cloudinary mới **chặn tải PDF** mặc định, nên link PDF
+sẽ lỗi cho tới khi bật:
+
+1. Cloudinary Console → **Settings** → **Security**.
+2. Bật **Allow delivery of PDF and ZIP files**, rồi lưu.
+
+Làm một lần cho mỗi tài khoản Cloudinary (máy dev và live nếu khác tài khoản). Ảnh trang 1 của PDF (thumbnail) không
+cần bước này, nhưng nút "Mở PDF" và link `/files/...` thì cần.
 
 ## Deploy
 

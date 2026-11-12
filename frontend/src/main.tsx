@@ -31,8 +31,8 @@ import VerifyEmailPage from './pages/VerifyEmailPage'
 /** Admin pages are loaded on demand, so shoppers never download them. */
 const page = (load: () => Promise<{ default: ComponentType }>) => async () => ({ Component: (await load()).default })
 
-/** An Author module that is not built yet (Sites, Assets, Content Fragments), loaded on demand too. */
-const authorPlaceholder = (module: 'sites' | 'assets' | 'fragments') => async () => {
+/** An Author module that is not built yet (Sites, Content Fragments), loaded on demand too. */
+const authorPlaceholder = (module: 'sites' | 'fragments') => async () => {
   const { default: Placeholder } = await import('./author/AuthorPlaceholderPage')
   return { element: <Placeholder module={module} /> }
 }
@@ -96,7 +96,8 @@ const router = createBrowserRouter([
             children: [
               { index: true, lazy: page(() => import('./author/AuthorHomePage')) },
               { path: 'sites', lazy: authorPlaceholder('sites') },
-              { path: 'assets', lazy: authorPlaceholder('assets') },
+              { path: 'assets', lazy: page(() => import('./author/assets/AssetsPage')) },
+              { path: 'assets/:id', lazy: page(() => import('./author/assets/AssetDetailPage')) },
               { path: 'fragments', lazy: authorPlaceholder('fragments') },
               { path: '*', element: <NotFoundPage /> },
             ],

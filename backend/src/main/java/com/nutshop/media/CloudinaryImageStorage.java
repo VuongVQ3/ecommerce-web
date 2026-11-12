@@ -110,8 +110,12 @@ public class CloudinaryImageStorage implements ImageStorage {
 		}
 	}
 
-	/** The API key as ****1234 wherever Cloudinary quotes it */
 	private String masked(String message) {
+		return masked(cloudinary, message);
+	}
+
+	/** The API key as ****1234 wherever Cloudinary quotes it (also used by CloudinaryAssetStorage) */
+	static String masked(Cloudinary cloudinary, String message) {
 		String key = cloudinary.config.apiKey;
 		if (message == null || key == null || key.isEmpty()) {
 			return message;
