@@ -77,6 +77,10 @@ public class SecurityConfig {
 			PATHS.matcher(HttpMethod.GET, "/api/categories/*"),
 			PATHS.matcher(HttpMethod.GET, "/api/blog"),
 			PATHS.matcher(HttpMethod.GET, "/api/blog/*"),
+			// Content Fragment delivery: published versions only; previews need their token in ?token=
+			PATHS.matcher(HttpMethod.GET, "/api/content/fragments"),
+			PATHS.matcher(HttpMethod.GET, "/api/content/fragments/*"),
+			PATHS.matcher(HttpMethod.GET, "/api/content/preview/fragments/*"),
 			// Any method, so HEAD probes (curl -I, uptime monitors) work too
 			PATHS.matcher("/api/health"),
 			PATHS.matcher("/api/site"),

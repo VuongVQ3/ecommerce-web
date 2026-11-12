@@ -96,12 +96,17 @@ export default function MarkdownEditor({
   onChange,
   uploadImage,
   label = 'Nội dung',
+  preview: renderPreview = adminBlogApi.preview,
+  maxLength = BLOG_CONTENT_MAX,
 }: {
   value: string
   onChange: (value: string) => void
-  /** Uploads to the post (saving a new post as a draft first) */
-  uploadImage: (file: File) => Promise<{ url: string; id: string }>
+  /** Uploads to the post (saving a new post as a draft first). Without it there is no image button. */
+  uploadImage?: (file: File) => Promise<{ url: string; id: string }>
   label?: string
+  /** Server rendering for the preview pane (the blog's own by default; Content Fragments use the author one) */
+  preview?: (markdown: string, signal?: AbortSignal) => Promise<{ html: string; readingMinutes: number }>
+  maxLength?: number
 }) {
   const area = useRef<HTMLTextAreaElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -115,10 +120,10 @@ export default function MarkdownEditor({
 
   // Server preview, a moment after typing stops
   useEffect(() => {
-    if (value.length > BLOG_CONTENT_MAX) return
+    if (value.length > maxLength) return
     const controller = new AbortController()
     const timer = window.setTimeout(() => {
-      adminBlogApi.preview(value, controller.signal).then(
+      renderPreview(value, controller.signal).then(
         (p) => {
           setPreview(p)
           setPreviewError(null)
@@ -132,7 +137,7 @@ export default function MarkdownEditor({
       window.clearTimeout(timer)
       controller.abort()
     }
-  }, [value])
+  }, [value, maxLength, renderPreview])
 
   // Put the cursor where an edit says, once the new text is in the textarea
   useEffect(() => {
@@ -152,6 +157,7 @@ export default function MarkdownEditor({
   }
 
   const chooseImage = (file: File) => {
+    if (!uploadImage) return
     const problem = imageFileProblem(file)
     if (problem) {
       setImageError(problem)
@@ -164,6 +170,7 @@ export default function MarkdownEditor({
   }
 
   const onDrop = (e: DragEvent<HTMLTextAreaElement>) => {
+    if (!uploadImage) return
     const file = [...e.dataTransfer.files].find((f) => f.type.startsWith('image/'))
     if (!file) return
     e.preventDefault()
@@ -171,13 +178,14 @@ export default function MarkdownEditor({
   }
 
   const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!uploadImage) return
     const file = [...e.clipboardData.files].find((f) => f.type.startsWith('image/'))
     if (!file) return
     e.preventDefault()
     chooseImage(file)
   }
 
-  const tooLong = value.length > BLOG_CONTENT_MAX
+  const tooLong = value.length > maxLength
   const tabClass = (active: boolean) =>
     `flex-1 rounded-lg px-3 py-1.5 text-sm font-semibold ${active ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-600'}`
 
@@ -188,7 +196,7 @@ export default function MarkdownEditor({
           {label}
         </label>
         <span className={`text-xs tabular-nums ${tooLong ? 'font-semibold text-danger' : 'text-muted'}`}>
-          {value.length.toLocaleString('vi-VN')}/{BLOG_CONTENT_MAX.toLocaleString('vi-VN')} ký tự
+          {value.length.toLocaleString('vi-VN')}/{maxLength.toLocaleString('vi-VN')} ký tự
           {preview && ` · ${preview.readingMinutes} phút đọc`}
         </span>
       </div>
@@ -226,21 +234,25 @@ export default function MarkdownEditor({
             <ToolButton label="Chèn link" onClick={() => apply((t, s, e) => wrapSelection(t, s, e, '[', '](https://)', 'chữ hiển thị'))}>
               <Link2 className="size-4" />
             </ToolButton>
-            <ToolButton label="Chèn ảnh" onClick={() => fileInput.current?.click()}>
-              <ImagePlus className="size-4" />
-            </ToolButton>
-            <input
-              ref={fileInput}
-              type="file"
-              accept={IMAGE_TYPES.join(',')}
-              className="hidden"
-              data-testid="editor-image-input"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                e.target.value = ''
-                if (file) chooseImage(file)
-              }}
-            />
+            {uploadImage && (
+              <>
+                <ToolButton label="Chèn ảnh" onClick={() => fileInput.current?.click()}>
+                  <ImagePlus className="size-4" />
+                </ToolButton>
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept={IMAGE_TYPES.join(',')}
+                  className="hidden"
+                  data-testid="editor-image-input"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    e.target.value = ''
+                    if (file) chooseImage(file)
+                  }}
+                />
+              </>
+            )}
           </div>
           <textarea
             ref={area}

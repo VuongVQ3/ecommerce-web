@@ -78,6 +78,7 @@ export const ENTITY_LABEL: Record<string, string> = {
   FRAGMENT: 'Content Fragment',
   PAGE: 'Trang (Sites)',
   DAM_FOLDER: 'Thư mục asset',
+  CF_MODEL: 'Content Fragment Model',
 }
 
 export const FIELD_LABEL: Record<string, string> = {
@@ -154,6 +155,13 @@ export const FIELD_LABEL: Record<string, string> = {
   pageCount: 'Số trang',
   checksum: 'Mã kiểm tra (SHA-256)',
   storageVersion: 'Phiên bản file',
+  // Content Fragments and their models
+  model: 'Model',
+  folderPath: 'Thư mục',
+  version: 'Phiên bản',
+  publishAt: 'Hiện từ',
+  unpublishAt: 'Ẩn từ',
+  fields: 'Field',
 }
 
 export const fieldLabel = (field: string) => (field === '' ? 'Nội dung' : (FIELD_LABEL[field] ?? field))
@@ -294,6 +302,8 @@ export function entityLink(row: Pick<AuditRow, 'entityType' | 'entityId' | 'acti
   // CMS: deleted assets and folders have nothing left to open
   if (row.entityType === 'ASSET') return row.action === 'CONTENT_DELETED' ? null : `/author/assets/${id}`
   if (row.entityType === 'DAM_FOLDER') return row.action === 'CONTENT_DELETED' ? null : `/author/assets?folder=${id}`
+  if (row.entityType === 'FRAGMENT') return row.action === 'CONTENT_DELETED' ? null : `/author/fragments/${id}`
+  if (row.entityType === 'CF_MODEL') return row.action === 'CONTENT_DELETED' ? null : `/author/fragments/models/${id}`
   return null
 }
 

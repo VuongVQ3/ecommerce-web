@@ -31,8 +31,8 @@ import VerifyEmailPage from './pages/VerifyEmailPage'
 /** Admin pages are loaded on demand, so shoppers never download them. */
 const page = (load: () => Promise<{ default: ComponentType }>) => async () => ({ Component: (await load()).default })
 
-/** An Author module that is not built yet (Sites, Content Fragments), loaded on demand too. */
-const authorPlaceholder = (module: 'sites' | 'fragments') => async () => {
+/** An Author module that is not built yet (Sites), loaded on demand too. */
+const authorPlaceholder = (module: 'sites') => async () => {
   const { default: Placeholder } = await import('./author/AuthorPlaceholderPage')
   return { element: <Placeholder module={module} /> }
 }
@@ -98,7 +98,11 @@ const router = createBrowserRouter([
               { path: 'sites', lazy: authorPlaceholder('sites') },
               { path: 'assets', lazy: page(() => import('./author/assets/AssetsPage')) },
               { path: 'assets/:id', lazy: page(() => import('./author/assets/AssetDetailPage')) },
-              { path: 'fragments', lazy: authorPlaceholder('fragments') },
+              { path: 'fragments', lazy: page(() => import('./author/fragments/FragmentsPage')) },
+              { path: 'fragments/new', lazy: page(() => import('./author/fragments/FragmentEditorPage')) },
+              { path: 'fragments/models', lazy: page(() => import('./author/fragments/ModelsPage')) },
+              { path: 'fragments/models/:id', lazy: page(() => import('./author/fragments/ModelEditorPage')) },
+              { path: 'fragments/:id', lazy: page(() => import('./author/fragments/FragmentEditorPage')) },
               { path: '*', element: <NotFoundPage /> },
             ],
           },

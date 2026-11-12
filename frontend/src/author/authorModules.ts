@@ -41,6 +41,7 @@ export const AUTHOR_MODULES: AuthorModule[] = [
     to: '/author/fragments',
     icon: Puzzle,
     summary: 'Nội dung có cấu trúc theo mẫu, dùng lại ở nhiều nơi.',
+    ready: true,
     description:
       'Soạn nội dung theo content model (ví dụ: câu hỏi thường gặp, cảm nhận khách hàng) để một nội dung hiển thị nhất quán ở nhiều trang.',
   },

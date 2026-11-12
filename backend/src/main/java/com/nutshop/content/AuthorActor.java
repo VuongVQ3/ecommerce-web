@@ -22,4 +22,20 @@ public record AuthorActor(UUID id, Role role) {
 		}
 		return this;
 	}
+
+	/** 403 unless the role may publish and unpublish (see {@link ContentPermissions#canPublish}). */
+	public AuthorActor requirePublish() {
+		if (!ContentPermissions.canPublish(role)) {
+			throw new ApiException(HttpStatus.FORBIDDEN, "CONTENT_PUBLISH_FORBIDDEN", "Chỉ quản trị viên được publish nội dung");
+		}
+		return this;
+	}
+
+	/** 403 unless the role may change content models (see {@link ContentPermissions#canManageModels}). */
+	public AuthorActor requireManageModels() {
+		if (!ContentPermissions.canManageModels(role)) {
+			throw new ApiException(HttpStatus.FORBIDDEN, "CONTENT_MODEL_FORBIDDEN", "Chỉ quản trị viên được sửa content model");
+		}
+		return this;
+	}
 }

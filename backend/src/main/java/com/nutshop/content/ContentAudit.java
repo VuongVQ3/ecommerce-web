@@ -25,6 +25,9 @@ public final class ContentAudit {
 	/** Entity type of DAM folders (not a {@link ContentType}: folders are not content themselves). */
 	public static final String DAM_FOLDER = "DAM_FOLDER";
 
+	/** Entity type of Content Fragment Models (the structure of fragments, not content themselves). */
+	public static final String CF_MODEL = "CF_MODEL";
+
 	private ContentAudit() {
 	}
 
