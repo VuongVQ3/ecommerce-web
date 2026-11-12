@@ -1,5 +1,6 @@
 package com.nutshop.common;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -71,9 +72,15 @@ public class GlobalExceptionHandler {
 		return problem;
 	}
 
-	/** Upload above spring.servlet.multipart.max-file-size (5MB). */
+	/** Upload above spring.servlet.multipart.max-file-size. */
 	@ExceptionHandler(MaxUploadSizeExceededException.class)
-	ProblemDetail handleTooLarge(MaxUploadSizeExceededException ex) {
+	ProblemDetail handleTooLarge(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+		if (request.getRequestURI().startsWith("/api/author/assets")) {
+			// DAM files (images and PDFs): 10MB, the multipart file limit itself
+			ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "File tối đa 10MB");
+			problem.setProperty("code", "FILE_TOO_LARGE");
+			return problem;
+		}
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Ảnh tối đa 5MB");
 		problem.setProperty("code", "IMAGE_TOO_LARGE");
 		return problem;

@@ -60,6 +60,8 @@ export const ACTION_LABEL: Record<string, string> = {
   CONTENT_UNPUBLISHED: 'Gỡ publish nội dung',
   CONTENT_DELETED: 'Xoá nội dung',
   CONTENT_ROLLED_BACK: 'Khôi phục phiên bản cũ',
+  CONTENT_MOVED: 'Di chuyển nội dung',
+  CONTENT_FILE_REPLACED: 'Thay file',
 }
 
 export const actionLabel = (code: string) => ACTION_LABEL[code] ?? code
@@ -75,6 +77,7 @@ export const ENTITY_LABEL: Record<string, string> = {
   ASSET: 'Asset',
   FRAGMENT: 'Content Fragment',
   PAGE: 'Trang (Sites)',
+  DAM_FOLDER: 'Thư mục asset',
 }
 
 export const FIELD_LABEL: Record<string, string> = {
@@ -137,6 +140,20 @@ export const FIELD_LABEL: Record<string, string> = {
   primary: 'Ảnh chính',
   productId: 'Sản phẩm',
   userId: 'Tài khoản',
+  // CMS assets (DAM)
+  alt: 'Mô tả ảnh (alt)',
+  tags: 'Tag',
+  fileName: 'Tên file',
+  folder: 'Thư mục',
+  path: 'Đường dẫn thư mục',
+  kind: 'Loại file',
+  mime: 'Định dạng',
+  sizeBytes: 'Dung lượng (byte)',
+  width: 'Chiều rộng (px)',
+  height: 'Chiều cao (px)',
+  pageCount: 'Số trang',
+  checksum: 'Mã kiểm tra (SHA-256)',
+  storageVersion: 'Phiên bản file',
 }
 
 export const fieldLabel = (field: string) => (field === '' ? 'Nội dung' : (FIELD_LABEL[field] ?? field))
@@ -181,11 +198,14 @@ export function formatAuditValue(field: string, value: unknown, ctx: ValueContex
     if (field === 'status') return ORDER_STATUS_LABEL[value as OrderStatus] ?? value
     if (field === 'role') return ROLE_LABEL[value as Role] ?? value
     if (field === 'method') return METHOD_LABEL[value] ?? value
+    if (field === 'kind') return value === 'IMAGE' ? 'Ảnh' : value === 'PDF' ? 'PDF' : value
     if (field === 'endsAt' && ISO_DATE_TIME.test(value) && !Number.isNaN(Date.parse(value))) return formatPromotionEnd(value)
     if (ISO_DATE_TIME.test(value) && !Number.isNaN(Date.parse(value))) return formatAdminDateTime(value)
     return value
   }
   if (typeof value === 'number') return value.toLocaleString('vi-VN')
+  // Asset tags: "tết, banner"
+  if (Array.isArray(value) && value.every((v) => typeof v === 'string')) return value.length ? value.join(', ') : '—'
   // The lines of a deleted order: "Mắc ca × 2, Hạt điều × 1"
   if (field === 'items' && Array.isArray(value)) {
     return value.map((l: { product?: string; quantity?: number }) => `${l.product ?? '?'} × ${l.quantity ?? '?'}`).join(', ')
@@ -271,6 +291,9 @@ export function entityLink(row: Pick<AuditRow, 'entityType' | 'entityId' | 'acti
   if (row.entityType === 'BLOG_POST') return row.action === 'BLOG_POST_DELETED' ? null : `/admin/blog/${id}`
   if (row.entityType === 'USER') return `/admin/nguoi-dung/${id}`
   if (row.entityType === 'PHONE') return `/admin/don-hang?q=${id}`
+  // CMS: deleted assets and folders have nothing left to open
+  if (row.entityType === 'ASSET') return row.action === 'CONTENT_DELETED' ? null : `/author/assets/${id}`
+  if (row.entityType === 'DAM_FOLDER') return row.action === 'CONTENT_DELETED' ? null : `/author/assets?folder=${id}`
   return null
 }
 

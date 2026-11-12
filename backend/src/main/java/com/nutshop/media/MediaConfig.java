@@ -38,4 +38,28 @@ public class MediaConfig {
 			}
 		};
 	}
+
+	/** DAM files (images and PDFs): same CLOUDINARY_URL; without it uploads answer 503 with a clear message. */
+	@Bean
+	AssetStorage assetStorage(@Value("${app.cloudinary-url:}") String cloudinaryUrl) {
+		if (StringUtils.hasText(cloudinaryUrl)) {
+			return new CloudinaryAssetStorage(cloudinaryUrl);
+		}
+		log.warn("CLOUDINARY_URL is not set: DAM uploads are disabled");
+		return new AssetStorage() {
+			@Override
+			public boolean isEnabled() {
+				return false;
+			}
+
+			@Override
+			public StoredAsset upload(byte[] bytes, AssetTypes.Kind kind) {
+				throw AssetStorageException.disabled();
+			}
+
+			@Override
+			public void delete(String publicId) {
+			}
+		};
+	}
 }

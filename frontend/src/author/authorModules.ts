@@ -10,6 +10,8 @@ export interface AuthorModule {
   summary: string
   /** What the module will do, on its own page */
   description: string
+  /** Built already (no "Sắp có") */
+  ready?: boolean
 }
 
 /** The three modules, in menu order (the overview cards, the menu and the placeholder pages read from here). */
@@ -29,6 +31,7 @@ export const AUTHOR_MODULES: AuthorModule[] = [
     to: '/author/assets',
     icon: Images,
     summary: 'Kho ảnh và tài liệu PDF dùng chung cho mọi trang.',
+    ready: true,
     description:
       'Tải lên, sắp xếp theo thư mục và gắn mô tả cho ảnh và PDF, để dùng lại ở Sites và Content Fragments mà không phải tải lại.',
   },

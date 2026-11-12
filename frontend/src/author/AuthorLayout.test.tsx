@@ -30,15 +30,23 @@ const session = (role: Role) => ({
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
-/** GET /api/author/session answers with these, in order (the last one repeats). */
+/**
+ * GET /api/author/session answers with these, in order (the last one repeats); other requests (the asset count on
+ * the overview) get a 404. Returns a spy counting session requests only.
+ */
 function mockSession(...answers: (() => Response | Promise<Response>)[]) {
+  const sessionCalls = vi.fn()
   const fetch = vi.fn((input: RequestInfo | URL) => {
+    if (String(input).includes('/api/author/assets?size=1')) {
+      return Promise.resolve(json(200, { items: [], page: 0, size: 1, totalItems: 1234, totalPages: 1234 }))
+    }
     if (!String(input).endsWith('/api/author/session')) return Promise.resolve(json(404, {}))
+    sessionCalls()
     const answer = answers.length > 1 ? answers.shift()! : answers[0]
     return Promise.resolve(answer())
   })
   vi.stubGlobal('fetch', fetch)
-  return fetch
+  return sessionCalls
 }
 
 function Where() {
@@ -106,8 +114,8 @@ describe('AuthorLayout', () => {
     signIn('STAFF')
     const fetch = mockSession(() => json(200, session('STAFF')))
     renderAuthor()
-    fireEvent.click((await screen.findAllByRole('link', { name: 'Assets' }))[0])
-    expect(await screen.findByRole('heading', { name: 'Assets' })).toBeTruthy()
+    fireEvent.click((await screen.findAllByRole('link', { name: 'Sites' }))[0])
+    expect(await screen.findByRole('heading', { name: 'Sites' })).toBeTruthy()
     expect(screen.getAllByText('Sắp có').length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /tải lên|tạo|thêm/i })).toBeNull()
     expect(fetch).toHaveBeenCalledTimes(1)
@@ -164,6 +172,9 @@ describe('AuthorHomePage', () => {
     for (const name of ['Sites', 'Assets', 'Content Fragments']) {
       expect(screen.getAllByText(name).length).toBeGreaterThan(1) // menu entry and card
     }
+    // Assets is built: its card shows how many assets there are instead of "Sắp có"
+    expect(await screen.findByText('1.234 asset')).toBeTruthy()
+    expect(screen.getAllByText('Sắp có')).toHaveLength(2)
   })
 
   it('ADMIN: may do everything', async () => {
