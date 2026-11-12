@@ -61,7 +61,7 @@ public final class FragmentValidator {
 	/** Values from a datetime input without a zone are Vietnam time. */
 	static final ZoneId SHOP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 	private static final Pattern LINK = Pattern.compile("^(/(?!/)\\S*|https?://\\S+|mailto:\\S+|tel:[+0-9 .-]+|#\\S*)$");
-	static final String REQUIRED = "Bắt buộc";
+	public static final String REQUIRED = "Bắt buộc";
 
 	private static final JsonNodeFactory NODES = JsonNodeFactory.instance;
 

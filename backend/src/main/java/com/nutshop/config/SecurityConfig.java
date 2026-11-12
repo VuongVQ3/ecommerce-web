@@ -38,8 +38,13 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenResolv
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
+import org.springframework.security.web.header.writers.ContentSecurityPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
+import org.springframework.security.web.header.writers.frameoptions.XFrameOptionsHeaderWriter;
+import org.springframework.security.web.header.writers.frameoptions.XFrameOptionsHeaderWriter.XFrameOptionsMode;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
@@ -81,6 +86,10 @@ public class SecurityConfig {
 			PATHS.matcher(HttpMethod.GET, "/api/content/fragments"),
 			PATHS.matcher(HttpMethod.GET, "/api/content/fragments/*"),
 			PATHS.matcher(HttpMethod.GET, "/api/content/preview/fragments/*"),
+			// CMS pages: published only; the preview needs its token in ?token=
+			PATHS.matcher(HttpMethod.GET, "/api/content/pages"),
+			PATHS.matcher(HttpMethod.GET, "/api/content/menu"),
+			PATHS.matcher(HttpMethod.GET, "/api/content/preview/pages"),
 			// Any method, so HEAD probes (curl -I, uptime monitors) work too
 			PATHS.matcher("/api/health"),
 			PATHS.matcher("/api/site"),
@@ -118,6 +127,9 @@ public class SecurityConfig {
 	 * Fonts; product images from Cloudinary. JSON-LD blocks are data, not scripts, so they need no exception.
 	 * 'unsafe-inline' styles are needed by Google Sign-In's injected button styles.
 	 */
+	/** The CMS page preview (/author/preview), shown in an iframe of the page editor. */
+	static final RequestMatcher CMS_PREVIEW = PATHS.matcher(HttpMethod.GET, "/author/preview");
+
 	static final String CONTENT_SECURITY_POLICY = String.join("; ",
 			"default-src 'self'",
 			"script-src 'self' https://challenges.cloudflare.com https://accounts.google.com/gsi/client",
@@ -130,6 +142,10 @@ public class SecurityConfig {
 			"base-uri 'self'",
 			"form-action 'self'",
 			"frame-ancestors 'none'");
+
+	/** The same policy, but the page editor (same origin) may show the preview in an iframe. */
+	static final String PREVIEW_CONTENT_SECURITY_POLICY = CONTENT_SECURITY_POLICY.replace("frame-ancestors 'none'",
+			"frame-ancestors 'self'");
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http,
@@ -160,9 +176,17 @@ public class SecurityConfig {
 				// The React app itself is public; pages like /tai-khoan are guarded client-side and by the API
 				.anyRequest()
 				.permitAll())
-			.headers(h -> h.contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
-				.referrerPolicy(r -> r.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
-				.frameOptions(f -> f.deny()))
+			// Nothing may frame the site, except the CMS page editor framing its own preview (same origin)
+			.headers(h -> h.referrerPolicy(r -> r.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+				.frameOptions(f -> f.disable())
+				.addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(new NegatedRequestMatcher(CMS_PREVIEW),
+						new ContentSecurityPolicyHeaderWriter(CONTENT_SECURITY_POLICY)))
+				.addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(CMS_PREVIEW,
+						new ContentSecurityPolicyHeaderWriter(PREVIEW_CONTENT_SECURITY_POLICY)))
+				.addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(new NegatedRequestMatcher(CMS_PREVIEW),
+						new XFrameOptionsHeaderWriter(XFrameOptionsMode.DENY)))
+				.addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(CMS_PREVIEW,
+						new XFrameOptionsHeaderWriter(XFrameOptionsMode.SAMEORIGIN))))
 			.addFilterAfter(new RequestedWithHeaderFilter(), CorsFilter.class)
 			.addFilterAfter(new RateLimitFilter(authRateLimiter, AUTH_LIMITED_PATHS), RequestedWithHeaderFilter.class)
 			.addFilterAfter(new RateLimitFilter(cartValidateRateLimiter, Set.of("/api/cart/validate")),

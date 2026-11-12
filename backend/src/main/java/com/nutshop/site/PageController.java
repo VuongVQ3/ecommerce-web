@@ -199,6 +199,17 @@ public class PageController {
 				HttpStatus.OK);
 	}
 
+	/**
+	 * Preview of a CMS page's working copy: the token in ?token= is the proof (no sign-in), so like the other secret
+	 * links it is never cached, never indexed and never sends a Referer. May be framed by the page editor (same
+	 * origin, see SecurityConfig).
+	 */
+	@GetMapping("/author/preview")
+	public ResponseEntity<String> authorPreview(HttpServletRequest request) {
+		return secret(pages.render(PageMeta.privatePage("Xem trước | " + PageMetaService.BRAND, request.getRequestURI()),
+				HttpStatus.OK));
+	}
+
 	/** CMS Author environment: guarded by the app and the API; never indexed (robots.txt, not in the sitemap). */
 	@GetMapping({ "/author", "/author/**" })
 	public ResponseEntity<String> author(HttpServletRequest request) {

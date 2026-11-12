@@ -22,6 +22,7 @@ export const AUTHOR_MODULES: AuthorModule[] = [
     to: '/author/sites',
     icon: LayoutTemplate,
     summary: 'Dựng trang cho website bằng các khối nội dung có sẵn.',
+    ready: true,
     description:
       'Tạo và sắp xếp trang từ các component (banner, khối chữ, lưới sản phẩm…), xem trước bản nháp qua link riêng rồi publish khi đã sẵn sàng.',
   },

@@ -25,8 +25,6 @@ import com.nutshop.content.fragment.CfDtos.VersionRow;
 import com.nutshop.content.fragment.CfModelService.Model;
 import com.nutshop.content.fragment.FragmentValidator.Mode;
 import com.nutshop.content.fragment.FragmentValidator.Result;
-import com.nutshop.dam.AssetRenditions;
-import com.nutshop.media.AssetTypes;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -80,9 +78,12 @@ public class CfFragmentService {
 	private final PreviewTokenService previews;
 	private final FragmentDelivery delivery;
 	private final AuditLog audit;
+	private final RefSummaries refSummaries;
 
 	public CfFragmentService(JdbcTemplate jdbc, JsonMapper json, CfModelService models, FragmentValidator.Lookup lookup,
-			ContentReferenceService references, PreviewTokenService previews, FragmentDelivery delivery, AuditLog audit) {
+			ContentReferenceService references, PreviewTokenService previews, FragmentDelivery delivery, AuditLog audit,
+			RefSummaries refSummaries) {
+		this.refSummaries = refSummaries;
 		this.jdbc = jdbc;
 		this.json = json;
 		this.models = models;
@@ -508,27 +509,7 @@ public class CfFragmentService {
 
 	/** Titles (and thumbnails) of what the data points to, by id. */
 	private Map<String, RefSummary> summaries(List<FieldDef> fields, JsonNode data) {
-		Map<String, RefSummary> refs = new LinkedHashMap<>();
-		for (Target t : FragmentValidator.references(fields, data)) {
-			switch (t.type()) {
-				case ASSET -> jdbc.query("SELECT title, kind, url FROM dam_assets WHERE id = CAST(? AS uuid)", rs -> {
-					String thumb = AssetRenditions.url(rs.getString("url"), AssetTypes.Kind.valueOf(rs.getString("kind")),
-							AssetRenditions.THUMB);
-					refs.put(t.id(), new RefSummary(t.id(), "ASSET", rs.getString("title"), thumb, rs.getString("kind")));
-				}, t.id());
-				case FRAGMENT -> jdbc.query("SELECT title, status FROM cf_fragments WHERE id = CAST(? AS uuid)",
-						rs -> {
-							refs.put(t.id(), new RefSummary(t.id(), "FRAGMENT", rs.getString("title"), null, rs.getString("status")));
-						}, t.id());
-				case PRODUCT -> jdbc.query("SELECT name, active FROM products WHERE id = ?", rs -> {
-					refs.put(t.id(), new RefSummary(t.id(), "PRODUCT", rs.getString("name"), null,
-							rs.getBoolean("active") ? "ACTIVE" : "HIDDEN"));
-				}, Long.parseLong(t.id()));
-				default -> {
-				}
-			}
-		}
-		return refs;
+		return refSummaries.of(FragmentValidator.references(fields, data));
 	}
 
 	private static Instant instant(Timestamp ts) {

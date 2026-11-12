@@ -140,6 +140,14 @@ public class SiteController {
 		for (String path : PageMetaService.INDEXED_STATIC_PAGES) {
 			url(xml, path, null);
 		}
+		// Published CMS pages inside their window, except those marked noindex
+		jdbc.query("""
+				SELECT p.path, p.published_at FROM site_pages p JOIN site_page_versions v ON v.id = p.published_version_id
+				WHERE (p.publish_at IS NULL OR p.publish_at <= now()) AND (p.unpublish_at IS NULL OR p.unpublish_at > now())
+				  AND (v.properties ->> 'noindex')::boolean IS NOT TRUE
+				ORDER BY p.path""", rs -> {
+			url(xml, rs.getString("path"), rs.getTimestamp("published_at").toInstant());
+		});
 		return xml.append("</urlset>\n").toString();
 	}
 
