@@ -58,11 +58,6 @@ public class MediaConfig {
 			}
 
 			@Override
-			public StoredAsset replace(String publicId, byte[] bytes, AssetTypes.Kind kind) {
-				throw AssetStorageException.disabled();
-			}
-
-			@Override
 			public void delete(String publicId) {
 			}
 		};

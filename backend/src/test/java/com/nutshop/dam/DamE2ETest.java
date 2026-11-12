@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -96,14 +97,15 @@ class DamE2ETest {
 	private long folder;
 	private String folderPath;
 	private final List<String> sources = new ArrayList<>();
+	private final AtomicLong versions = new AtomicLong(1_700_000_000L);
 
 	@BeforeEach
 	void setUp() throws Exception {
 		authRateLimiter.reset();
 		when(storage.isEnabled()).thenReturn(true);
+		// Like Cloudinary: a new public id for every upload, and a later version each time
 		when(storage.upload(any(), any())).thenAnswer(inv -> stored("hat-lanh/dam/" + UUID.randomUUID(),
-				inv.getArgument(1), 1L));
-		when(storage.replace(any(), any(), any())).thenAnswer(inv -> stored(inv.getArgument(0), inv.getArgument(2), 2L));
+				inv.getArgument(1), versions.incrementAndGet()));
 		staff = as("STAFF");
 		admin = as("ADMIN");
 		rootId = jdbc.queryForObject("SELECT id FROM dam_folders WHERE path = '/hat-lanh'", Long.class);
@@ -399,29 +401,62 @@ class DamE2ETest {
 
 	// ---- replace and the stable link ------------------------------------------------------------------------
 
+	private String publicIdOf(String assetId) {
+		return jdbc.queryForObject("SELECT storage_public_id FROM dam_assets WHERE id = ?::uuid", String.class, assetId);
+	}
+
 	@Test
-	void replacingKeepsTheIdAndStableLinkAndChangesVersionAndChecksum() throws Exception {
+	void replacingUploadsANewFileSwitchesToItAndDeletesTheOldOne() throws Exception {
 		JsonNode before = uploaded(pdf(), "Bảng giá.pdf");
 		String id = before.get("id").asText();
+		String oldPublicId = publicIdOf(id);
 		call(json(patch(API + "/" + id), "{\"title\":\"Bảng giá sỉ\",\"alt\":null,\"tags\":[\"gia\"]}"), staff)
 			.andExpect(status().isOk());
 
 		JsonNode after = body(replace(id, pdf(), "bang-gia-moi.pdf", staff).andExpect(status().isOk()));
 
+		// Same asset, same stable link and metadata
 		assertThat(after.get("id").asText()).isEqualTo(id);
 		assertThat(after.get("stableUrl").asText()).isEqualTo(before.get("stableUrl").asText());
 		assertThat(after.get("fileName").asText()).isEqualTo("Bảng giá.pdf");
 		assertThat(after.get("title").asText()).isEqualTo("Bảng giá sỉ");
 		assertThat(after.get("tags").get(0).asText()).isEqualTo("gia");
-		assertThat(after.get("storageVersion").asLong()).isEqualTo(2);
+		// Another file: new public id, URL, version and checksum; the old file is gone from the store
+		String newPublicId = publicIdOf(id);
+		assertThat(newPublicId).isNotEqualTo(oldPublicId).startsWith("hat-lanh/dam/");
+		assertThat(after.get("url").asText()).isNotEqualTo(before.get("url").asText()).contains(newPublicId);
+		assertThat(after.get("storageVersion").asLong()).isGreaterThan(before.get("storageVersion").asLong());
 		assertThat(after.get("checksum").asText()).isNotEqualTo(before.get("checksum").asText());
-		assertThat(after.get("url").asText()).contains("/v2/");
-		String publicId = jdbc.queryForObject("SELECT storage_public_id FROM dam_assets WHERE id = ?::uuid", String.class, id);
-		verify(storage).replace(eq(publicId), any(), eq(AssetTypes.Kind.PDF));
-		String checksums = jdbc.queryForObject("""
-				SELECT before ->> 'checksum' || '>' || (after ->> 'checksum') FROM audit_logs
-				WHERE entity_type = 'ASSET' AND entity_id = ? AND action = 'CONTENT_FILE_REPLACED'""", String.class, id);
-		assertThat(checksums).isEqualTo(before.get("checksum").asText() + ">" + after.get("checksum").asText());
+		verify(storage, org.mockito.Mockito.times(2)).upload(any(), eq(AssetTypes.Kind.PDF));
+		verify(storage).delete(oldPublicId);
+		verify(storage, never()).delete(newPublicId);
+		String change = jdbc.queryForObject("""
+				SELECT concat_ws('|', before ->> 'checksum', after ->> 'checksum', before ->> 'publicId', after ->> 'publicId')
+				FROM audit_logs WHERE entity_type = 'ASSET' AND entity_id = ? AND action = 'CONTENT_FILE_REPLACED'""",
+				String.class, id);
+		assertThat(change).isEqualTo(String.join("|", before.get("checksum").asText(), after.get("checksum").asText(),
+				oldPublicId, newPublicId));
+	}
+
+	@Test
+	void whenSwitchingFailsTheNewFileGoesAndTheOldOneStays() throws Exception {
+		JsonNode before = uploaded(pdf(), "Bảng giá.pdf");
+		String id = before.get("id").asText();
+		String oldPublicId = publicIdOf(id);
+		String taken = publicIdOf(uploaded(pdf(), "khac.pdf").get("id").asText());
+		// The store hands back a public id already in the table: the update fails on its unique constraint
+		when(storage.upload(any(), any())).thenReturn(stored(taken, AssetTypes.Kind.PDF, versions.incrementAndGet()));
+
+		replace(id, pdf(), "moi.pdf", staff).andExpect(status().isConflict());
+
+		verify(storage).delete(taken);
+		verify(storage, never()).delete(oldPublicId);
+		assertThat(publicIdOf(id)).isEqualTo(oldPublicId);
+		JsonNode now = body(call(get(API + "/" + id), staff).andExpect(status().isOk()));
+		assertThat(now.get("url").asText()).isEqualTo(before.get("url").asText());
+		assertThat(now.get("checksum").asText()).isEqualTo(before.get("checksum").asText());
+		assertThat(auditActions(id)).doesNotContain("CONTENT_FILE_REPLACED");
+		mvc.perform(get(before.get("stableUrl").asText())).andExpect(header().string("Location", before.get("url").asText()));
 	}
 
 	@Test
@@ -434,7 +469,9 @@ class DamE2ETest {
 		uploaded(taken, "c.jpg");
 		replace(other, taken, "c.jpg", staff).andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("DUPLICATE_ASSET"));
-		verify(storage, never()).replace(any(), any(), any());
+		// Refused before anything was uploaded: only the three initial uploads reached the store
+		verify(storage, org.mockito.Mockito.times(3)).upload(any(), any());
+		verify(storage, never()).delete(any());
 	}
 
 	@Test
@@ -451,8 +488,9 @@ class DamE2ETest {
 		mvc.perform(get("/files/" + pdf.get("id").asText() + "/ten-khac.pdf")).andExpect(status().isFound());
 
 		JsonNode replaced = body(replace(pdf.get("id").asText(), pdf(), "moi.pdf", staff).andExpect(status().isOk()));
-		mvc.perform(get(link)).andExpect(header().string("Location", replaced.get("url").asText()))
-			.andExpect(header().string("Location", containsString("/v2/")));
+		assertThat(replaced.get("url").asText()).isNotEqualTo(pdf.get("url").asText());
+		mvc.perform(get(link)).andExpect(status().isFound())
+			.andExpect(header().string("Location", replaced.get("url").asText()));
 
 		JsonNode image = uploaded(jpeg(), "a.jpg");
 		mvc.perform(get(image.get("stableUrl").asText())).andExpect(status().isFound())

@@ -106,7 +106,7 @@ export const damApi = {
 
   list: (q: AssetQuery, signal?: AbortSignal) => apiRequest<Page<AssetRow>>(`${BASE}${query(q)}`, { signal }),
   get: (id: string, signal?: AbortSignal) => apiRequest<AssetDetail>(`${BASE}/${encodeURIComponent(id)}`, { signal }),
-  /** One file per request (the server takes 10MB per request). 409 DUPLICATE_ASSET carries the existing assetId. */
+  /** One file per request (at most 10MB). 409 DUPLICATE_ASSET carries the existing assetId. */
   upload: (file: File, folderId: number, extra: { title?: string; alt?: string } = {}) =>
     apiRequest<AssetDetail>(BASE, { method: 'POST', body: fileForm(file, { folderId, ...extra }) }),
   update: (id: string, input: MetadataInput) => apiRequest<AssetDetail>(`${BASE}/${encodeURIComponent(id)}`, json('PATCH', input)),

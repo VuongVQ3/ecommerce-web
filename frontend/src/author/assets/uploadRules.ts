@@ -1,6 +1,6 @@
 import type { AssetKind } from './damApi'
 
-/** Same limit as the server (one file per request, 10MB per request). */
+/** Same limit as the server: 10MB per file, one file per request. */
 export const MAX_FILE_BYTES = 10 * 1024 * 1024
 
 const TYPES: { kind: AssetKind; mime: string; extensions: string[] }[] = [

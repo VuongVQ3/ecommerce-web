@@ -36,17 +36,10 @@ public class CloudinaryAssetStorage implements AssetStorage {
 
 	@Override
 	public StoredAsset upload(byte[] bytes, AssetTypes.Kind kind) {
-		return send(bytes, ObjectUtils.asMap("folder", FOLDER), "upload");
-	}
-
-	@Override
-	public StoredAsset replace(String publicId, byte[] bytes, AssetTypes.Kind kind) {
-		// Same public id: the file is overwritten and CDN copies invalidated; the version (and so the URL) changes
-		return send(bytes, ObjectUtils.asMap("public_id", publicId, "overwrite", true, "invalidate", true), "replace");
-	}
-
-	private StoredAsset send(byte[] bytes, Map<String, Object> extra, String what) {
-		Map<String, Object> options = new HashMap<>(extra);
+		String what = "upload";
+		Map<String, Object> options = new HashMap<>();
+		// Cloudinary picks a new random public id inside the folder every time
+		options.put("folder", FOLDER);
 		options.put("resource_type", "image");
 		// return_error: an error comes back as {error: {http_code, message}} instead of a bare exception
 		options.put("return_error", true);

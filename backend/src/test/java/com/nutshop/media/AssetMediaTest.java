@@ -112,19 +112,21 @@ class AssetMediaTest {
 	}
 
 	@Test
-	void replacingOverwritesTheSamePublicIdAndInvalidatesTheCdn() throws Exception {
+	void everyUploadIsANewFileNeverAnOverwrite() throws Exception {
 		Uploader uploader = mock(Uploader.class);
-		when(uploader.upload(any(), any())).thenReturn(Map.of("public_id", "hat-lanh/dam/abc", "secure_url",
-				"https://res.cloudinary.com/demo/image/upload/v18/hat-lanh/dam/abc.png", "version", 18L));
+		when(uploader.upload(any(), any())).thenReturn(Map.of("public_id", "hat-lanh/dam/xyz", "secure_url",
+				"https://res.cloudinary.com/demo/image/upload/v18/hat-lanh/dam/xyz.png", "version", 18L, "width", 4,
+				"height", 3));
 		byte[] png = realImage("png");
 
-		var stored = storage(uploader).replace("hat-lanh/dam/abc", png, AssetTypes.Kind.IMAGE);
+		var stored = storage(uploader).upload(png, AssetTypes.Kind.IMAGE);
 
-		assertThat(stored.version()).isEqualTo(18L);
-		assertThat(options(uploader, png)).containsEntry("public_id", "hat-lanh/dam/abc")
-			.containsEntry("overwrite", true)
-			.containsEntry("invalidate", true)
-			.doesNotContainKey("folder");
+		assertThat(stored.width()).isEqualTo(4);
+		assertThat(stored.pages()).isNull();
+		// Cloudinary chooses the public id: nothing can overwrite a file an asset still points to
+		assertThat(options(uploader, png)).containsEntry("folder", "hat-lanh/dam")
+			.doesNotContainKey("public_id")
+			.doesNotContainKey("overwrite");
 	}
 
 	@Test
@@ -149,7 +151,7 @@ class AssetMediaTest {
 			.allSatisfy(m -> assertThat(m).doesNotContain("s3cr3t").doesNotContain("123456789012345"));
 
 		when(uploader.upload(any(), any())).thenThrow(new IOException("connect timed out"));
-		assertThatThrownBy(() -> storage(uploader).replace("x", PDF, AssetTypes.Kind.PDF))
+		assertThatThrownBy(() -> storage(uploader).upload(PDF, AssetTypes.Kind.PDF))
 			.isInstanceOf(AssetStorageException.class)
 			.extracting("code").isEqualTo(AssetStorageException.FAILED);
 	}

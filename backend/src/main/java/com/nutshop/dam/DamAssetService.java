@@ -21,8 +21,6 @@ import com.nutshop.media.AssetStorage.StoredAsset;
 import com.nutshop.media.AssetTypes;
 import com.nutshop.media.AssetTypes.AssetType;
 import com.nutshop.media.AssetTypes.Kind;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -61,8 +59,6 @@ import java.util.UUID;
  */
 @Service
 public class DamAssetService {
-
-	private static final Logger log = LoggerFactory.getLogger(DamAssetService.class);
 
 	/** Images and PDFs alike; matches spring.servlet.multipart (one file per request). */
 	public static final long MAX_FILE_BYTES = 10L * 1024 * 1024;
@@ -261,58 +257,69 @@ public class DamAssetService {
 	}
 
 	/**
-	 * A new file for the same asset: id, title, alt, tags, file name and stable link stay; checksum, size,
-	 * dimensions or page count and the Cloudinary version change. An image is replaced by an image, a PDF by a PDF.
+	 * A new file for the same asset: id, title, alt, tags, file name and stable link stay; the file itself (public
+	 * id, URL, version), checksum, size and dimensions or page count change. An image is replaced by an image, a PDF
+	 * by a PDF.
 	 * <p>
-	 * The store overwrites the file before the row is updated; should the update then fail, the row keeps describing
-	 * the previous file until the next replace (the file itself cannot be put back).
+	 * The new file is uploaded under a new public id first (outside the transaction), then the row is switched to it.
+	 * If that fails the new file is deleted and the asset still shows the old one; once committed, the old file is
+	 * deleted.
 	 */
 	public AssetDetail replace(UUID id, byte[] bytes, String fileName, UUID actorId) {
 		AssetType type = checkFile(bytes, fileName);
 		Asset current = find(id, false);
-		if (type.kind() != current.kind()) {
-			throw new ApiException(HttpStatus.BAD_REQUEST, "KIND_MISMATCH",
-					current.kind() == Kind.IMAGE ? "Ảnh chỉ thay được bằng ảnh (JPEG, PNG hoặc WebP)"
-							: "PDF chỉ thay được bằng file PDF");
-		}
+		// Checked before uploading (nothing wasted), and again under the lock
+		requireSameKind(current, type);
 		String checksum = sha256(bytes);
 		if (checksum.equals(current.checksum())) {
 			return get(id);
 		}
 		refuseDuplicate(checksum, id);
-		StoredAsset stored = storage.replace(current.publicId(), bytes, type.kind());
+		StoredAsset stored = storage.upload(bytes, type.kind());
 		boolean image = type.kind() == Kind.IMAGE;
 		Integer width = image ? stored.width() : null;
 		Integer height = image ? stored.height() : null;
 		Integer pages = image ? null : stored.pages();
+		String oldPublicId;
 		try {
-			tx.executeWithoutResult(status -> {
-				int updated = jdbc.update("""
-						UPDATE dam_assets SET mime = ?, size_bytes = ?, width = ?, height = ?, page_count = ?, url = ?,
-						       storage_version = ?, checksum_sha256 = ?, updated_at = now(), updated_by = ?
-						WHERE id = ?""", type.mime(), (long) bytes.length, width, height, pages, stored.url(),
-						stored.version(), checksum, actorId, id);
-				if (updated == 0) {
-					throw notFound();
-				}
+			oldPublicId = tx.execute(status -> {
+				Asset locked = find(id, true);
+				requireSameKind(locked, type);
+				jdbc.update("""
+						UPDATE dam_assets SET storage_public_id = ?, url = ?, storage_version = ?, mime = ?, size_bytes = ?,
+						       width = ?, height = ?, page_count = ?, checksum_sha256 = ?, updated_at = now(), updated_by = ?
+						WHERE id = ?""", stored.publicId(), stored.url(), stored.version(), type.mime(), (long) bytes.length,
+						width, height, pages, checksum, actorId, id);
 				audit.entry(ContentAudit.CONTENT_FILE_REPLACED, ContentAudit.entityType(ContentType.ASSET), id,
-						current.title())
+						locked.title())
 					.by(actorId)
-					.changes(file(current.checksum(), current.mime(), current.sizeBytes(), current.width(),
-							current.height(), current.pageCount(), current.storageVersion()),
-							file(checksum, type.mime(), bytes.length, width, height, pages, stored.version()))
+					.changes(file(locked.publicId(), locked.checksum(), locked.mime(), locked.sizeBytes(), locked.width(),
+							locked.height(), locked.pageCount(), locked.storageVersion()),
+							file(stored.publicId(), checksum, type.mime(), bytes.length, width, height, pages,
+									stored.version()))
 					.record();
+				return locked.publicId();
 			});
 		}
-		catch (DuplicateKeyException ex) {
-			refuseDuplicate(checksum, id);
-			throw ex;
-		}
 		catch (RuntimeException ex) {
-			log.error("Asset {}: file replaced in the store but the row was not updated: {}", id, ex.getMessage());
+			// The asset still points to its old file, which stays; only the new upload goes
+			storage.delete(stored.publicId());
+			if (ex instanceof DuplicateKeyException) {
+				refuseDuplicate(checksum, id);
+			}
 			throw ex;
 		}
+		// Committed: nothing points to the old file any more (best effort, like every delete in the store)
+		storage.delete(oldPublicId);
 		return get(id);
+	}
+
+	private static void requireSameKind(Asset asset, AssetType type) {
+		if (type.kind() != asset.kind()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "KIND_MISMATCH",
+					asset.kind() == Kind.IMAGE ? "Ảnh chỉ thay được bằng ảnh (JPEG, PNG hoặc WebP)"
+							: "PDF chỉ thay được bằng file PDF");
+		}
 	}
 
 	/**
@@ -440,9 +447,10 @@ public class DamAssetService {
 		return m;
 	}
 
-	private static Map<String, Object> file(String checksum, String mime, long sizeBytes, Integer width, Integer height,
-			Integer pages, Long version) {
+	private static Map<String, Object> file(String publicId, String checksum, String mime, long sizeBytes, Integer width,
+			Integer height, Integer pages, Long version) {
 		Map<String, Object> m = new LinkedHashMap<>();
+		m.put("publicId", publicId);
 		m.put("checksum", checksum);
 		m.put("mime", mime);
 		m.put("sizeBytes", sizeBytes);

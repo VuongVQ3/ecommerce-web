@@ -88,7 +88,7 @@ public class AuthorAssetController {
 		return assets.list(folderId, includeSubfolders, q, kind, tag, page, size);
 	}
 
-	/** One file per request (the request size limit is 10MB). 409 DUPLICATE_ASSET with assetId for a known file. */
+	/** One file per request (at most 10MB). 409 DUPLICATE_ASSET with assetId for a known file. */
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	@ResponseStatus(HttpStatus.CREATED)
 	public AssetDetail upload(@RequestPart(name = "file", required = false) MultipartFile file,

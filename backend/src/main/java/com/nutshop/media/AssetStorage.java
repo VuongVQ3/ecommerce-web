@@ -21,10 +21,11 @@ public interface AssetStorage {
 	/** False when not configured (no CLOUDINARY_URL): uploads are refused with a clear message. */
 	boolean isEnabled();
 
+	/**
+	 * Always a new file under a new public id (also when an asset's file is replaced: the old one is deleted once
+	 * the database points to the new one).
+	 */
 	StoredAsset upload(byte[] bytes, AssetTypes.Kind kind);
-
-	/** Overwrites the file under the same public id (CDN caches invalidated); returns the new version. */
-	StoredAsset replace(String publicId, byte[] bytes, AssetTypes.Kind kind);
 
 	/** Best effort: a failed delete only leaves an orphan file behind. */
 	void delete(String publicId);

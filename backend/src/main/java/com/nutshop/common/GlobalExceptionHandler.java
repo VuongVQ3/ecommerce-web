@@ -76,7 +76,7 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(MaxUploadSizeExceededException.class)
 	ProblemDetail handleTooLarge(MaxUploadSizeExceededException ex, HttpServletRequest request) {
 		if (request.getRequestURI().startsWith("/api/author/assets")) {
-			// DAM files (images and PDFs): 10MB, the request limit itself
+			// DAM files (images and PDFs): 10MB, the multipart file limit itself
 			ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "File tối đa 10MB");
 			problem.setProperty("code", "FILE_TOO_LARGE");
 			return problem;
