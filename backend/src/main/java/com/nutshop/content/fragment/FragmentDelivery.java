@@ -61,6 +61,8 @@ public class FragmentDelivery {
 			Integer version, Instant publishedAt) {
 	}
 
+	private final List<Runnable> evictListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+
 	private final Cache<String, JsonNode> cache = Caffeine.newBuilder().expireAfterWrite(TTL).maximumSize(2000).build();
 
 	private final JdbcTemplate jdbc;
@@ -135,9 +137,34 @@ public class FragmentDelivery {
 		});
 	}
 
-	/** Clears every cached answer (after something was published, unpublished, deleted or a model changed). */
+	/**
+	 * Clears every cached answer (after something was published, unpublished, deleted or a model changed), and the
+	 * caches of whatever embeds fragments (pages, see {@link #onEvict}).
+	 */
 	public void evictAll() {
 		cache.invalidateAll();
+		evictListeners.forEach(Runnable::run);
+	}
+
+	/** Called on every {@link #evictAll()}: for caches that embed fragment content. */
+	public void onEvict(Runnable listener) {
+		evictListeners.add(listener);
+	}
+
+	// ---- building blocks for other delivery APIs (Sites) ----------------------------------------------------
+
+	/** A published fragment rendered as in the API (or its working copy for a preview); empty when not visible. */
+	@Transactional(readOnly = true)
+	public Optional<JsonNode> fragment(UUID id, boolean working) {
+		return (working ? workingSource(id) : publishedSource(id)).map(s -> render(s, 0, working, new HashSet<>()));
+	}
+
+	/** {markdown, html}, rendered as for fragments. */
+	public JsonNode markdown(String text) {
+		ObjectNode md = NODES.objectNode();
+		md.put("markdown", text);
+		md.put("html", markdown.render(text, Map.of()).html());
+		return md;
 	}
 
 	/** {@link #evictAll()} once the current transaction commits (at once outside a transaction). */
@@ -245,20 +272,16 @@ public class FragmentDelivery {
 	private JsonNode single(FieldDef field, JsonNode raw, int depth, boolean working, Set<UUID> path) {
 		Type type = field.typeEnum();
 		return switch (type) {
-			case MARKDOWN -> {
-				ObjectNode md = NODES.objectNode();
-				md.put("markdown", raw.asString(""));
-				md.put("html", markdown.render(raw.asString(""), Map.of()).html());
-				yield md;
-			}
+			case MARKDOWN -> markdown(raw.asString(""));
 			case ASSET -> asset(raw.asString(""));
-			case PRODUCT -> raw.canConvertToExactIntegral() ? product(raw.asLong()) : NullNode.getInstance();
+			case PRODUCT -> raw.canConvertToExactIntegral() ? productCard(raw.asLong()) : NullNode.getInstance();
 			case FRAGMENT -> fragment(raw.asString(""), depth, working, path);
 			default -> raw;
 		};
 	}
 
-	private JsonNode asset(String rawId) {
+	/** An asset as the API shows it: {id, kind, title, url, alt, width, height, pageCount, renditions, stableUrl}; null node when gone. */
+	public JsonNode asset(String rawId) {
 		UUID id = uuid(rawId);
 		if (id == null) {
 			return NullNode.getInstance();
@@ -282,7 +305,7 @@ public class FragmentDelivery {
 	}
 
 	/** Only a product on sale (shown and priced); its current price includes a running promotion. */
-	private JsonNode product(long id) {
+	public JsonNode productCard(long id) {
 		return products.findById(id).filter(p -> p.isActive() && p.getPrice() != null && p.getPrice() > 0).<JsonNode>map(p -> {
 			ObjectNode o = NODES.objectNode();
 			o.put("id", p.getId());

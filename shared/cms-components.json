@@ -1,0 +1,139 @@
+{
+  "$comment": "CMS Sites component registry, shared by the backend (validation, delivery) and the frontend (editor forms, rendering). Props use the Content Fragment field format: {name, label, type, required, multiple, help, rules}. Extra rules: ref (category | cfModel | fragmentFolder) checks the value against the database, requiredWhen {prop: value} makes a prop required (on publish) when another prop has that value.",
+  "version": 1,
+  "regions": ["main"],
+  "templates": {
+    "landing": { "label": "Landing (mọi component)", "allowed": "*" },
+    "content": { "label": "Trang nội dung", "allowed": ["rich-text", "image", "image-text", "faq", "pdf-download", "cta"] }
+  },
+  "pageProperties": [
+    { "name": "seoTitle", "label": "Tiêu đề SEO", "type": "text", "required": false, "multiple": false, "help": "Để trống thì dùng tiêu đề trang", "rules": { "maxLength": 70 } },
+    { "name": "seoDescription", "label": "Mô tả SEO", "type": "textarea", "required": false, "multiple": false, "help": "Khoảng 150 ký tự, hiện trên Google", "rules": { "maxLength": 160 } },
+    { "name": "ogImage", "label": "Ảnh chia sẻ (Open Graph)", "type": "asset", "required": false, "multiple": false, "help": "Ảnh hiện khi chia sẻ link lên Facebook, Zalo", "rules": { "allowedKinds": ["IMAGE"] } },
+    { "name": "noindex", "label": "Ẩn khỏi Google (noindex)", "type": "boolean", "required": false, "multiple": false, "help": null, "rules": {} },
+    { "name": "showInMenu", "label": "Hiện trong menu", "type": "boolean", "required": false, "multiple": false, "help": null, "rules": {} }
+  ],
+  "components": {
+    "hero": {
+      "label": "Hero (banner lớn)",
+      "defaults": { "align": "left" },
+      "props": [
+        { "name": "headline", "label": "Tiêu đề", "type": "text", "required": true, "multiple": false, "help": null, "rules": { "maxLength": 120 } },
+        { "name": "subline", "label": "Dòng phụ", "type": "textarea", "required": false, "multiple": false, "help": null, "rules": { "maxLength": 300 } },
+        { "name": "image", "label": "Ảnh nền", "type": "asset", "required": false, "multiple": false, "help": null, "rules": { "allowedKinds": ["IMAGE"] } },
+        { "name": "ctaLabel", "label": "Chữ trên nút", "type": "text", "required": false, "multiple": false, "help": null, "rules": { "maxLength": 40 } },
+        { "name": "ctaLink", "label": "Link của nút", "type": "link", "required": false, "multiple": false, "help": null, "rules": {} },
+        { "name": "align", "label": "Căn chữ", "type": "enum", "required": false, "multiple": false, "help": null, "rules": { "options": ["left", "center", "right"] } }
+      ]
+    },
+    "rich-text": {
+      "label": "Đoạn văn (Markdown)",
+      "props": [
+        { "name": "markdown", "label": "Nội dung", "type": "markdown", "required": true, "multiple": false, "help": null, "rules": { "maxLength": 20000 } }
+      ]
+    },
+    "image": {
+      "label": "Ảnh",
+      "props": [
+        { "name": "asset", "label": "Ảnh", "type": "asset", "required": true, "multiple": false, "help": null, "rules": { "allowedKinds": ["IMAGE"] } },
+        { "name": "caption", "label": "Chú thích", "type": "text", "required": false, "multiple": false, "help": null, "rules": { "maxLength": 200 } },
+        { "name": "link", "label": "Link khi bấm ảnh", "type": "link", "required": false, "multiple": false, "help": null, "rules": {} }
+      ]
+    },
+    "image-text": {
+      "label": "Ảnh + chữ",
+      "defaults": { "imageSide": "left" },
+      "props": [
+        { "name": "asset", "label": "Ảnh", "type": "asset", "required": true, "multiple": false, "help": null, "rules": { "allowedKinds": ["IMAGE"] } },
+        { "name": "markdown", "label": "Nội dung", "type": "markdown", "required": true, "multiple": false, "help": null, "rules": { "maxLength": 10000 } },
+        { "name": "imageSide", "label": "Ảnh nằm bên", "type": "enum", "required": false, "multiple": false, "help": null, "rules": { "options": ["left", "right"] } }
+      ]
+    },
+    "product-grid": {
+      "label": "Lưới sản phẩm",
+      "defaults": { "mode": "category", "limit": 8 },
+      "props": [
+        { "name": "title", "label": "Tiêu đề", "type": "text", "required": false, "multiple": false, "help": null, "rules": { "maxLength": 120 } },
+        { "name": "mode", "label": "Lấy sản phẩm", "type": "enum", "required": true, "multiple": false, "help": "category: theo danh mục; manual: tự chọn", "rules": { "options": ["category", "manual"] } },
+        { "name": "categorySlug", "label": "Danh mục", "type": "text", "required": false, "multiple": false, "help": null, "rules": { "ref": "category", "requiredWhen": { "mode": "category" } } },
+        { "name": "productIds", "label": "Sản phẩm", "type": "product", "required": false, "multiple": true, "help": null, "rules": { "maxItems": 24, "requiredWhen": { "mode": "manual" } } },
+        { "name": "limit", "label": "Số sản phẩm tối đa", "type": "number", "required": false, "multiple": false, "help": null, "rules": { "min": 1, "max": 24 } }
+      ]
+    },
+    "product-carousel": {
+      "label": "Băng chuyền sản phẩm",
+      "defaults": { "mode": "category", "limit": 10 },
+      "props": [
+        { "name": "title", "label": "Tiêu đề", "type": "text", "required": false, "multiple": false, "help": null, "rules": { "maxLength": 120 } },
+        { "name": "mode", "label": "Lấy sản phẩm", "type": "enum", "required": true, "multiple": false, "help": "category: theo danh mục; manual: tự chọn", "rules": { "options": ["category", "manual"] } },
+        { "name": "categorySlug", "label": "Danh mục", "type": "text", "required": false, "multiple": false, "help": null, "rules": { "ref": "category", "requiredWhen": { "mode": "category" } } },
+        { "name": "productIds", "label": "Sản phẩm", "type": "product", "required": false, "multiple": true, "help": null, "rules": { "maxItems": 24, "requiredWhen": { "mode": "manual" } } },
+        { "name": "limit", "label": "Số sản phẩm tối đa", "type": "number", "required": false, "multiple": false, "help": null, "rules": { "min": 1, "max": 24 } }
+      ]
+    },
+    "fragment": {
+      "label": "Content Fragment",
+      "defaults": { "display": "card" },
+      "props": [
+        { "name": "fragmentId", "label": "Fragment", "type": "fragment", "required": true, "multiple": false, "help": null, "rules": {} },
+        { "name": "display", "label": "Hiển thị", "type": "enum", "required": false, "multiple": false, "help": null, "rules": { "options": ["card", "full"] } }
+      ]
+    },
+    "fragment-list": {
+      "label": "Danh sách fragment",
+      "defaults": { "display": "card", "limit": 6 },
+      "props": [
+        { "name": "model", "label": "Model", "type": "text", "required": true, "multiple": false, "help": null, "rules": { "ref": "cfModel" } },
+        { "name": "folder", "label": "Thư mục fragment", "type": "text", "required": false, "multiple": false, "help": "Để trống = mọi thư mục", "rules": { "ref": "fragmentFolder" } },
+        { "name": "limit", "label": "Số fragment tối đa", "type": "number", "required": false, "multiple": false, "help": null, "rules": { "min": 1, "max": 50 } },
+        { "name": "display", "label": "Hiển thị", "type": "enum", "required": false, "multiple": false, "help": null, "rules": { "options": ["card", "full"] } }
+      ]
+    },
+    "faq": {
+      "label": "Câu hỏi thường gặp",
+      "props": [
+        { "name": "title", "label": "Tiêu đề", "type": "text", "required": false, "multiple": false, "help": null, "rules": { "maxLength": 120 } },
+        { "name": "fragmentIds", "label": "Câu hỏi (chọn từng câu)", "type": "fragment", "required": false, "multiple": true, "help": "Để trống thì lấy mọi FAQ trong thư mục bên dưới", "rules": { "allowedModels": ["faq"], "maxItems": 50 } },
+        { "name": "folder", "label": "Thư mục FAQ", "type": "text", "required": false, "multiple": false, "help": "Dùng khi không chọn từng câu", "rules": { "ref": "fragmentFolder" } }
+      ]
+    },
+    "cta": {
+      "label": "Lời kêu gọi (CTA)",
+      "defaults": { "style": "primary" },
+      "props": [
+        { "name": "text", "label": "Nội dung", "type": "text", "required": true, "multiple": false, "help": null, "rules": { "maxLength": 200 } },
+        { "name": "buttonLabel", "label": "Chữ trên nút", "type": "text", "required": true, "multiple": false, "help": null, "rules": { "maxLength": 40 } },
+        { "name": "link", "label": "Link", "type": "link", "required": true, "multiple": false, "help": null, "rules": {} },
+        { "name": "style", "label": "Kiểu", "type": "enum", "required": false, "multiple": false, "help": null, "rules": { "options": ["primary", "secondary", "dark"] } }
+      ]
+    },
+    "marquee": {
+      "label": "Chữ chạy",
+      "props": [
+        { "name": "items", "label": "Các dòng", "type": "list", "required": true, "multiple": false, "help": null, "rules": { "itemType": "text", "maxLength": 120, "maxItems": 20 } }
+      ]
+    },
+    "pdf-download": {
+      "label": "Tải PDF",
+      "props": [
+        { "name": "asset", "label": "File PDF", "type": "asset", "required": true, "multiple": false, "help": null, "rules": { "allowedKinds": ["PDF"] } },
+        { "name": "label", "label": "Chữ trên nút", "type": "text", "required": false, "multiple": false, "help": "Để trống thì dùng tên file", "rules": { "maxLength": 80 } }
+      ]
+    },
+    "spacer": {
+      "label": "Khoảng trống",
+      "defaults": { "size": "md" },
+      "props": [
+        { "name": "size", "label": "Cỡ", "type": "enum", "required": true, "multiple": false, "help": null, "rules": { "options": ["sm", "md", "lg"] } }
+      ]
+    },
+    "container": {
+      "label": "Khung nhiều cột",
+      "children": true,
+      "defaults": { "columns": "2" },
+      "props": [
+        { "name": "columns", "label": "Số cột", "type": "enum", "required": true, "multiple": false, "help": null, "rules": { "options": ["1", "2", "3"] } }
+      ]
+    }
+  }
+}

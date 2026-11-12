@@ -7,6 +7,8 @@ FROM node:24-alpine AS frontend
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
+# CMS component registry, imported by the app as ../shared (also read by the backend)
+COPY shared/ /shared/
 COPY frontend/ ./
 # Public, build-time value. Default = Cloudflare's always-pass TEST site key (no real bot protection):
 # set your own site key as a build argument / Render env var before taking real customers.
@@ -21,6 +23,8 @@ COPY backend/.mvn .mvn
 COPY backend/mvnw backend/pom.xml ./
 RUN chmod +x mvnw && ./mvnw -B -q dependency:go-offline
 COPY backend/src src
+# The pom reads the CMS component registry from ../shared
+COPY shared/ /shared/
 COPY --from=frontend /app/dist src/main/resources/static
 # Tests need Docker (Testcontainers) and run in development/CI, not inside the image build
 RUN ./mvnw -B -q package -DskipTests && cp target/*.jar app.jar

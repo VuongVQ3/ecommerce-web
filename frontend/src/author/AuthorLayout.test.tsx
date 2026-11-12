@@ -174,7 +174,8 @@ describe('AuthorHomePage', () => {
     }
     // Assets is built: its card shows how many assets there are instead of "Sắp có"
     expect(await screen.findByText('1.234 asset')).toBeTruthy()
-    expect(screen.getAllByText('Sắp có')).toHaveLength(1) // only Sites now
+    // Every module is built now: no "Sắp có" left
+    expect(screen.queryAllByText('Sắp có')).toHaveLength(0)
   })
 
   it('ADMIN: may do everything', async () => {

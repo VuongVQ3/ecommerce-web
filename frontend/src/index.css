@@ -355,3 +355,9 @@ body {
   }
   .btt-ring { transition: none; }
 }
+
+/* CMS marquee block: two copies of the row slide left in a loop (motion-safe only) */
+@keyframes cms-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}

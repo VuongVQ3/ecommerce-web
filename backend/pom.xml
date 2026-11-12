@@ -134,6 +134,19 @@
 	</dependencies>
 
 	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+			<!-- CMS component registry shared with the frontend (repository root /shared), on the classpath as cms/ -->
+			<resource>
+				<directory>${project.basedir}/../shared</directory>
+				<targetPath>cms</targetPath>
+				<includes>
+					<include>cms-components.json</include>
+				</includes>
+			</resource>
+		</resources>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>

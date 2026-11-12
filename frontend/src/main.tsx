@@ -31,12 +31,6 @@ import VerifyEmailPage from './pages/VerifyEmailPage'
 /** Admin pages are loaded on demand, so shoppers never download them. */
 const page = (load: () => Promise<{ default: ComponentType }>) => async () => ({ Component: (await load()).default })
 
-/** An Author module that is not built yet (Sites), loaded on demand too. */
-const authorPlaceholder = (module: 'sites') => async () => {
-  const { default: Placeholder } = await import('./author/AuthorPlaceholderPage')
-  return { element: <Placeholder module={module} /> }
-}
-
 const router = createBrowserRouter([
   {
     // AuthProvider lives inside the router so it can redirect to the login page when a session expires
@@ -95,7 +89,8 @@ const router = createBrowserRouter([
             lazy: page(() => import('./author/AuthorLayout')),
             children: [
               { index: true, lazy: page(() => import('./author/AuthorHomePage')) },
-              { path: 'sites', lazy: authorPlaceholder('sites') },
+              { path: 'sites', lazy: page(() => import('./author/sites/SitesPage')) },
+              { path: 'sites/:id', lazy: page(() => import('./author/sites/PageEditorPage')) },
               { path: 'assets', lazy: page(() => import('./author/assets/AssetsPage')) },
               { path: 'assets/:id', lazy: page(() => import('./author/assets/AssetDetailPage')) },
               { path: 'fragments', lazy: page(() => import('./author/fragments/FragmentsPage')) },
@@ -139,6 +134,8 @@ const router = createBrowserRouter([
           { path: '/chinh-sach-doi-tra', element: <ReturnPolicyPage /> },
           { path: '/chinh-sach-van-chuyen', element: <ShippingPolicyPage /> },
           { path: '/lien-he', element: <ContactPage /> },
+          // A CMS page's working copy for whoever holds the preview link (no sign-in), in the site's own layout
+          { path: '/author/preview', lazy: page(() => import('./pages/CmsPreviewPage')) },
           {
             // /tai-khoan/*: signed-in users only
             element: <RequireAuth />,
@@ -156,7 +153,8 @@ const router = createBrowserRouter([
               },
             ],
           },
-          { path: '*', element: <NotFoundPage /> },
+          // Last: a published CMS page at this address, else "page not found" (loaded on demand)
+          { path: '*', lazy: page(() => import('./pages/CmsPage')) },
         ],
       },
     ],
