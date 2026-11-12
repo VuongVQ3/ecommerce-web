@@ -199,6 +199,13 @@ public class PageController {
 				HttpStatus.OK);
 	}
 
+	/** CMS Author environment: guarded by the app and the API; never indexed (robots.txt, not in the sitemap). */
+	@GetMapping({ "/author", "/author/**" })
+	public ResponseEntity<String> author(HttpServletRequest request) {
+		return pages.render(PageMeta.privatePage("Author | " + PageMetaService.BRAND, request.getRequestURI()),
+				HttpStatus.OK);
+	}
+
 	/** Old address of the terms page (now terms of sale and privacy policy in one page). */
 	@GetMapping("/dieu-khoan")
 	public ResponseEntity<Void> oldTerms() {

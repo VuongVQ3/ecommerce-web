@@ -147,6 +147,9 @@ public class SecurityConfig {
 				// Defense in depth: controllers also carry @Roles (products/categories are ADMIN only)
 				.requestMatchers(PATHS.matcher("/api/admin/**"))
 				.hasAnyRole("STAFF", "ADMIN")
+				// CMS Author environment: same audience; finer rules (publish, delete…) live in ContentPermissions
+				.requestMatchers(PATHS.matcher("/api/author/**"))
+				.hasAnyRole("STAFF", "ADMIN")
 				// Unknown API paths fall through to a 404 instead of asking anonymous callers to sign in
 				.requestMatchers(API)
 				.access(authenticatedOrUnmapped(handlerMappings))
