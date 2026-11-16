@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatPromotionEnd } from './format'
+import { formatPriceShort, formatPromotionEnd } from './format'
 
 describe('formatPromotionEnd', () => {
   it('shows the last day of a promotion ending at midnight Vietnam time', () => {
@@ -13,5 +13,14 @@ describe('formatPromotionEnd', () => {
 
   it('shows the moment when it ended in the middle of a day (ended early)', () => {
     expect(formatPromotionEnd('2026-10-16T08:30:00Z')).toBe('16/10/2026 15:30')
+  })
+})
+
+describe('formatPriceShort', () => {
+  it('shortens round amounts for compact copy', () => {
+    expect(formatPriceShort(199_000)).toBe('199k')
+    expect(formatPriceShort(1_000_000)).toBe('1tr')
+    expect(formatPriceShort(1_500_000)).toBe('1,5tr')
+    expect(formatPriceShort(199_500)).toBe('199.500₫')
   })
 })

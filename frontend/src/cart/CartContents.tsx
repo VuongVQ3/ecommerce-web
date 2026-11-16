@@ -7,6 +7,7 @@ import { PriceTag } from '../components/Price'
 import { formatPrice } from '../lib/format'
 import { FREE_FOR_ALL_SHORT } from '../lib/siteInfo'
 import { useCart } from './CartContext'
+import FreeShippingNudge from './FreeShippingNudge'
 import QuantityStepper from './QuantityStepper'
 
 const STATUS_NOTE: Partial<Record<CartLine['status'], (l: CartLine) => string>> = {
@@ -170,9 +171,7 @@ export function CartSummary({ view, onCheckout }: { view: CartView; onCheckout: 
         </p>
       ) : (
         view.amountToFreeShipping > 0 && (
-          <p className="rounded-xl bg-brand-50 px-3 py-2 text-brand-800">
-            Mua thêm <strong className="tabular-nums">{formatPrice(view.amountToFreeShipping)}</strong> để được miễn phí giao hàng
-          </p>
+          <FreeShippingNudge view={view} className="rounded-xl bg-brand-50 px-3 py-2 text-brand-800" />
         )
       )}
       <div className="flex justify-between border-t border-stone-100 pt-3 text-base">

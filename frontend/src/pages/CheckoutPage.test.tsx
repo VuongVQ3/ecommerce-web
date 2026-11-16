@@ -231,8 +231,25 @@ describe('CheckoutPage', () => {
     // 258.000₫ is above the 199.000₫ threshold
     const fee = screen.getByText('Phí giao hàng').parentElement!
     expect(fee.textContent).toBe('Phí giao hàngMiễn phí')
+    expect(screen.queryByText(/FREESHIP/)).toBeNull()
     expect(screen.getByRole('link', { name: /Chính sách vận chuyển/ }).getAttribute('target')).toBe('_blank')
     expect(screen.getByRole('link', { name: /Chính sách vận chuyển/ }).getAttribute('href')).toBe('/chinh-sach-van-chuyen')
+  })
+
+  it('a 109.000₫ subtotal pays the 30.000₫ standard shipping fee, with the FREESHIP line under it', async () => {
+    const saved = { ...view }
+    Object.assign(view, { subtotal: 109_000, shippingFee: 30_000, amountToFreeShipping: 90_000, total: 139_000 })
+    try {
+      renderCheckout()
+      const label = await screen.findByText('Phí giao hàng')
+      expect(label.nextElementSibling!.textContent).toBe('30.000₫')
+      const nudge = label.nextElementSibling!.nextElementSibling!
+      expect(nudge.tagName).toBe('DD')
+      expect(nudge.textContent).toBe('FREESHIP cho đơn từ 199k. Mua thêm 90.000₫ để được miễn phí giao hàng!!')
+      expect(screen.getByText('Tổng cộng').parentElement!.textContent).toBe('Tổng cộng139.000₫')
+    } finally {
+      Object.assign(view, saved)
+    }
   })
 
   it('a 198.000₫ subtotal pays the 30.000₫ standard shipping fee', async () => {
@@ -240,8 +257,8 @@ describe('CheckoutPage', () => {
     Object.assign(view, { subtotal: 198_000, shippingFee: 30_000, amountToFreeShipping: 1_000, total: 228_000 })
     try {
       renderCheckout()
-      const fee = (await screen.findByText('Phí giao hàng')).parentElement!
-      expect(fee.textContent).toBe('Phí giao hàng30.000₫')
+      const label = await screen.findByText('Phí giao hàng')
+      expect(label.nextElementSibling!.textContent).toBe('30.000₫')
       expect(screen.getByText('Tổng cộng').parentElement!.textContent).toBe('Tổng cộng228.000₫')
     } finally {
       Object.assign(view, saved)

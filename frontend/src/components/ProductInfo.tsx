@@ -4,7 +4,7 @@ import AddToCartButton from '../cart/AddToCartButton'
 import { useCart } from '../cart/CartContext'
 import QuantityStepper from '../cart/QuantityStepper'
 import type { Nutrition, Pricing, ProductDetail } from '../lib/api'
-import { formatPrice, formatPromotionEnd, formatWeight } from '../lib/format'
+import { formatPrice, formatWeight } from '../lib/format'
 import { stockLabel } from '../lib/images'
 import { NUTRIENTS, nutrientLabel } from '../lib/nutrition'
 import { DiscountBadge, PriceTag } from './Price'
@@ -33,10 +33,7 @@ export function ProductPrice({
         <DiscountBadge percent={product.discountPercent} />
       </div>
       {product.discountPercent && product.promotionEndsAt && (
-        <p className="mt-2 text-sm text-stone-700">
-          <span className="font-semibold text-success">Tiết kiệm {formatPrice(product.regularPrice - product.price)}</span>
-          {' · '}Khuyến mại {formatPromotionEnd(product.promotionEndsAt, { year: false }).toLowerCase()}
-        </p>
+        <p className="mt-2 text-sm font-semibold text-success">Tiết kiệm {formatPrice(product.regularPrice - product.price)}</p>
       )}
     </>
   )

@@ -59,6 +59,12 @@ afterEach(() => {
 const alwaysClamped = (el: Element) => [...el.classList].filter((c) => /^line-clamp-/.test(c))
 
 describe('QuickView', () => {
+  it('during a promotion shows only how much is saved, not when the promotion ends', async () => {
+    open(detail({ price: 175_000, discountPercent: 30, promotionEndsAt: '2026-12-31T17:00:00Z' }))
+    expect(await screen.findByText('Tiết kiệm 75.000₫')).toBeTruthy()
+    expect(document.body.textContent).not.toMatch(/đến hết|31\/12/i)
+  })
+
   it('shows the short description, not the full one', async () => {
     open(detail())
     const summary = await screen.findByTestId('quick-view-summary')

@@ -6,6 +6,15 @@ export const formatPrice = (value: number) => `${vnd.format(value)}₫`
 /** ISO timestamp -> "14/10/2026 01:26", Vietnam time (one format across the shop and the back office). */
 export const formatDateTime = (iso: string) => formatAdminDateTime(iso)
 
+const vnd1 = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 })
+
+/** Short price for compact copy: 199000 -> "199k", 1000000 -> "1tr". Falls back to formatPrice when not round. */
+export function formatPriceShort(value: number): string {
+  if (value >= 1_000_000 && value % 100_000 === 0) return `${vnd1.format(value / 1_000_000)}tr`
+  if (value % 1000 === 0) return `${vnd.format(value / 1000)}k`
+  return formatPrice(value)
+}
+
 export const formatWeight =(grams: number) => (grams >= 1000 ? `${grams / 1000}kg` : `${grams}g`)
 
 const VN = 'Asia/Ho_Chi_Minh'
