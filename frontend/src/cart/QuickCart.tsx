@@ -8,6 +8,7 @@ import type { CartLine } from '../lib/api'
 import { formatPrice } from '../lib/format'
 import { FREE_FOR_ALL_SHORT } from '../lib/siteInfo'
 import { useCart } from './CartContext'
+import FreeShippingNudge from './FreeShippingNudge'
 import { onAdded } from './quickCartEvents'
 
 const OPEN_DELAY = 150
@@ -255,10 +256,7 @@ export default function QuickCart() {
                         {free ? (
                           'Bạn được miễn phí giao hàng'
                         ) : (
-                          <>
-                            Mua thêm <strong className="tabular-nums">{formatPrice(view.amountToFreeShipping)}</strong> để được
-                            miễn phí giao hàng
-                          </>
+                          <FreeShippingNudge view={view} as="span" />
                         )}
                       </p>
                       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-100" aria-hidden="true">

@@ -126,7 +126,7 @@ describe('QuickCart', () => {
     expect(within(region).getByText('Granola mới thêm')).toBeTruthy()
     expect(within(region).queryByText('Hạnh nhân rang mộc')).toBeNull()
     expect(within(region).getByText('và 1 sản phẩm khác')).toBeTruthy()
-    expect(region.textContent).toMatch(/Mua thêm 1\.000₫ để được miễn\s*phí giao hàng/)
+    expect(region.textContent).toContain('FREESHIP cho đơn từ 199k. Mua thêm 1.000₫ để được miễn phí giao hàng!!')
     expect(within(region).getByRole('link', { name: 'Thanh toán' }).getAttribute('href')).toBe('/thanh-toan')
   })
 
@@ -143,7 +143,9 @@ describe('QuickCart', () => {
   it('with a threshold, keeps the "Mua thêm" line and its progress bar', () => {
     const { container } = renderCart()
     fireEvent.click(screen.getByRole('button', { name: 'Xem nhanh giỏ hàng' }))
-    expect(panel().textContent).toMatch(/Mua thêm 1\.000₫ để được miễn\s*phí giao hàng/)
+    expect(panel().textContent).toContain('FREESHIP cho đơn từ 199k. Mua thêm 1.000₫ để được miễn phí giao hàng!!')
+    expect(within(panel()).getByText('FREESHIP').tagName).toBe('STRONG')
+    expect(within(panel()).getByText('1.000₫').tagName).toBe('STRONG')
     expect(container.querySelector('.bg-brand-500[style*="width"]')).toBeTruthy()
     expect(within(panel()).queryByText('Miễn phí giao hàng toàn quốc')).toBeNull()
   })

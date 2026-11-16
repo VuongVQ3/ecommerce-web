@@ -14,6 +14,7 @@ import { provinceChoices, wardChoices } from '../lib/addressSearch'
 import { useProvinces } from '../lib/adminUnits'
 import { useMediaQuery } from '../lib/media'
 import { FREE_FOR_ALL_CHECKOUT_NOTE, useSiteInfo } from '../lib/siteInfo'
+import FreeShippingNudge from '../cart/FreeShippingNudge'
 import { api, type CartView, type Shortage } from '../lib/api'
 import { formatPrice } from '../lib/format'
 import { normalizePhone } from '../lib/phone'
@@ -117,9 +118,10 @@ function Summary({ view, inline = false }: { view: CartView; inline?: boolean })
           <dt className="text-stone-600">Tạm tính</dt>
           <dd className="tabular-nums">{formatPrice(view.subtotal)}</dd>
         </div>
-        <div className="flex justify-between">
+        <div className="flex flex-wrap justify-between gap-y-2">
           <dt className="text-stone-600">Phí giao hàng</dt>
           <dd className="tabular-nums">{view.shippingFee === 0 ? 'Miễn phí' : formatPrice(view.shippingFee)}</dd>
+          <FreeShippingNudge view={view} as="dd" className="basis-full rounded-xl bg-brand-50 px-3 py-2 text-brand-800" />
         </div>
         <div className="flex justify-between border-t border-stone-100 pt-2 text-base">
           <dt className="font-semibold">Tổng cộng</dt>
