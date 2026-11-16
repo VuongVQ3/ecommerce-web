@@ -12,7 +12,7 @@ import { api } from '../lib/api'
 import { categoryEmoji } from '../lib/categoryStyle'
 import { useCountUpProgress, useInView } from '../lib/motion'
 import { MIN_PRODUCTS_WITH_NUTRITION, withNutrition } from '../lib/nutrition'
-import { SHIPPING_PROMISE } from '../lib/siteInfo'
+import { useShippingPromise } from '../lib/siteInfo'
 import { useAsync } from '../lib/useAsync'
 
 const HEADLINE = ['Hạt', 'dinh', 'dưỡng', '&', 'đặc', 'sản', 'chọn', 'lọc']
@@ -57,6 +57,7 @@ const STEPS = [
 ]
 
 function Hero({ productCount }: { productCount?: number }) {
+  const shipping = useShippingPromise()
   return (
     <section className="relative isolate overflow-hidden bg-cream">
       {/* Drifting color blobs */}
@@ -110,7 +111,7 @@ function Hero({ productCount }: { productCount?: number }) {
           </div>
           {productCount !== undefined && (
             <p className="word-in mt-6 text-sm text-muted" style={{ animationDelay: '1150ms' }}>
-              {productCount} sản phẩm · {SHIPPING_PROMISE.short}
+              {productCount} sản phẩm{shipping && ` · ${shipping.short}`}
             </p>
           )}
         </div>
@@ -159,12 +160,14 @@ function Stats() {
   // The numbers count up together when the band comes into view (one clock: they land on the same frame); a word
   // (Freeship) is shown as it is
   const [band, visible] = useInView<HTMLDivElement>()
+  // Until /api/site answers (it is usually in already: the footer asks for it first), a tile that is always true
+  const shipping = useShippingPromise()?.stat ?? { value: 'Toàn quốc', label: 'giao hàng tận nơi', short: 'giao tận nơi' }
   const progress = useCountUpProgress(visible)
   const items: Stat[] = [
     { value: 100, suffix: '%', label: 'hạt tuyển chọn' },
     VISITS_PLACEHOLDER ?? ORIGIN_STAT,
     { value: 7, suffix: ' ngày', label: 'đổi trả dễ dàng' },
-    { ...SHIPPING_PROMISE.stat, short: 'toàn quốc' },
+    shipping,
   ]
   const valueClass = 'block text-[clamp(1.5rem,7vw,1.875rem)] font-extrabold whitespace-nowrap text-brand-700 md:text-4xl'
   return (
@@ -236,6 +239,7 @@ function Steps() {
 }
 
 export default function HomePage() {
+  const shipping = useShippingPromise()
   // Shared: StrictMode's double effect or a remount (session refresh) reuses the request in flight
   const categories = useAsync(() => sharedRequest('categories', () => api.categories()), [])
   // One request feeds the hero count, ticker, nutrition chart and featured grid; the shop's own order (sort_order)
@@ -384,7 +388,7 @@ export default function HomePage() {
             </span>
             <h2 className="relative text-3xl font-extrabold md:text-4xl">Đặt hàng ngay hôm nay</h2>
             <p className="relative mx-auto mt-3 max-w-xl text-brand-50">
-              {SHIPPING_PROMISE.cta}
+              {shipping?.cta ?? 'Đóng gói 500 g, giao tận nơi toàn quốc.'}
             </p>
             <Link
               to="/san-pham"

@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast'
 import type { CartLine, CartView } from '../lib/api'
 import { PriceTag } from '../components/Price'
 import { formatPrice } from '../lib/format'
-import { SHIPPING_PROMISE } from '../lib/siteInfo'
+import { FREE_FOR_ALL_SHORT } from '../lib/siteInfo'
 import { useCart } from './CartContext'
 import QuantityStepper from './QuantityStepper'
 
@@ -166,7 +166,7 @@ export function CartSummary({ view, onCheckout }: { view: CartView; onCheckout: 
       {view.freeShippingForAll ? (
         <p className="text-xs text-stone-600">
           <span aria-hidden>🚚 </span>
-          {SHIPPING_PROMISE.short}
+          {FREE_FOR_ALL_SHORT}
         </p>
       ) : (
         view.amountToFreeShipping > 0 && (

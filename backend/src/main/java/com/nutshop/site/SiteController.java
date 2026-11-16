@@ -1,5 +1,6 @@
 package com.nutshop.site;
 
+import com.nutshop.cart.CartProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.CacheControl;
@@ -28,14 +29,16 @@ public class SiteController {
 	private static final MediaType TEXT_UTF8 = MediaType.parseMediaType("text/plain;charset=UTF-8");
 
 	private final SiteProperties site;
+	private final CartProperties cart;
 	private final JdbcTemplate jdbc;
 	private final Clock clock;
 
 	private volatile String sitemap;
 	private volatile Instant sitemapBuiltAt = Instant.EPOCH;
 
-	public SiteController(SiteProperties site, JdbcTemplate jdbc, Clock clock) {
+	public SiteController(SiteProperties site, CartProperties cart, JdbcTemplate jdbc, Clock clock) {
 		this.site = site;
+		this.cart = cart;
 		this.jdbc = jdbc;
 		this.clock = clock;
 	}
@@ -59,9 +62,17 @@ public class SiteController {
 	 * @param contact links for the floating contact button (null fields = not configured)
 	 * @param social footer icons (null fields = not configured)
 	 * @param policyVersion {@link PolicyVersion#CURRENT}: checkout compares it with the account's consent
+	 * @param shipping what pages promise about standard shipping, from the same setting carts and orders charge
 	 */
 	public record SiteInfo(String siteUrl, Map<String, String> business, SiteProperties.Contact contact,
-			SiteProperties.SocialLinks social, String policyVersion) {
+			SiteProperties.SocialLinks social, String policyVersion, Shipping shipping) {
+	}
+
+	/**
+	 * @param fee standard shipping fee (VND) below the threshold; 0 = free on every order
+	 * @param freeThreshold subtotal (VND) from which shipping is free; 0 = no threshold
+	 */
+	public record Shipping(long fee, long freeThreshold) {
 	}
 
 	/** Business details for the footer and contact page (only the filled-in fields), and the contact links. */
@@ -70,7 +81,7 @@ public class SiteController {
 		return ResponseEntity.ok()
 			.cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePublic())
 			.body(new SiteInfo(site.url(), site.business().filled(), site.business().contact(), site.socialLinks(),
-					PolicyVersion.CURRENT));
+					PolicyVersion.CURRENT, new Shipping(cart.shippingFee(), cart.freeShippingThreshold())));
 	}
 
 	@GetMapping("/robots.txt")

@@ -6,7 +6,7 @@ import ProductImage from '../components/ProductImage'
 import { useToast } from '../components/Toast'
 import type { CartLine } from '../lib/api'
 import { formatPrice } from '../lib/format'
-import { SHIPPING_PROMISE } from '../lib/siteInfo'
+import { FREE_FOR_ALL_SHORT } from '../lib/siteInfo'
 import { useCart } from './CartContext'
 import { onAdded } from './quickCartEvents'
 
@@ -247,7 +247,7 @@ export default function QuickCart() {
                   {view.freeShippingForAll ? (
                     <p className="mt-2 text-xs text-stone-700">
                       <span aria-hidden>🚚 </span>
-                      {SHIPPING_PROMISE.short}
+                      {FREE_FOR_ALL_SHORT}
                     </p>
                   ) : (
                     <>

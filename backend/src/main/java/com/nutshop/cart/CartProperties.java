@@ -4,8 +4,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * Shipping is a server setting (application.properties, or the CART_SHIPPING_FEE / CART_FREE_SHIPPING_THRESHOLD
- * environment variables), never an admin screen. Since 11/2026 standard shipping is free on every order (fee 0); the
- * rule below can be switched back on without code changes.
+ * environment variables), never an admin screen. Since 16/11/2026 standard shipping costs 30.000đ below a 199.000đ
+ * subtotal and is free from it. Pages read both numbers from /api/site.
  *
  * @param maxQtyPerItem most units of one product per cart (DB hard cap is 99)
  * @param freeShippingThreshold subtotal (VND) from which shipping is free; 0 = no threshold: with a fee above 0, every
@@ -28,7 +28,7 @@ public record CartProperties(int maxQtyPerItem, long freeShippingThreshold, long
 		}
 	}
 
-	/** No shipping fee at all: carts and pages then show "Miễn phí giao hàng toàn quốc" instead of a threshold. */
+	/** No shipping fee at all (fee 0): carts then say "Miễn phí giao hàng toàn quốc" instead of a progress bar. */
 	public boolean freeShippingForAll() {
 		return shippingFee == 0;
 	}

@@ -41,7 +41,7 @@ function viewOf(items: CartLineInput[]): CartView {
     discountTotal: 0,
     shippingFee: 0,
     amountToFreeShipping: 0,
-    freeShippingThreshold: 500_000,
+    freeShippingThreshold: 199_000,
     total: subtotal,
     canCheckout: lines.length > 0,
     freeShippingForAll: true,

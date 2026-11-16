@@ -70,12 +70,12 @@ Hạt Lành (xuất kho từ TP.HCM) hiện cung cấp 2 phương thức giao h�
 
 ### 2. Chi phí vận chuyển (Phí Ship)
 - **Giao Hỏa tốc:** Phí vận chuyển tính theo cước phí thực tế của ứng dụng giao hàng tại thời điểm đặt. Nhân viên Hạt Lành sẽ gọi điện thông báo chính xác cước phí cho quý khách trước khi gửi.
-- **Giao Tiêu chuẩn toàn quốc:** MIỄN PHÍ cho mọi đơn hàng, không phân biệt giá trị đơn, khối lượng hay địa chỉ nhận hàng. Bước Thanh toán hiển thị "Phí giao hàng: Miễn phí" trước khi quý khách bấm "Đặt hàng".
+- **Giao Tiêu chuẩn toàn quốc:** 30.000đ cho đơn hàng có tổng giá trị dưới 199.000đ; miễn phí cho đơn từ 199.000đ trở lên (xem mục 3). Phí áp dụng như nhau cho mọi khối lượng và địa chỉ nhận hàng. Bước Thanh toán hiển thị phí giao hàng của đơn trước khi quý khách bấm "Đặt hàng".
 
-> Website: cấu hình `cart.shipping-fee` = 0 (từ 11/2026, xem `docs/cart.md`). Bật lại phí bằng biến môi trường `CART_SHIPPING_FEE` / `CART_FREE_SHIPPING_THRESHOLD`, và khi đó phải viết lại mục 2–3 này cùng trang `/chinh-sach-van-chuyen`.
+> Website: `cart.shipping-fee=30000`, `cart.free-shipping-threshold=199000` trong `application.properties` (từ 16/11/2026, xem `docs/cart.md`). Đổi hai số này thì phải viết lại mục 2–3 cùng trang `/chinh-sach-van-chuyen`; trang chủ, giỏ hàng và thanh toán tự lấy số từ `/api/site` và giỏ hàng.
 
 ### 3. Chính sách Miễn phí vận chuyển (Freeship)
-Hạt Lành miễn phí giao hàng tiêu chuẩn toàn quốc cho mọi đơn hàng, không cần đạt giá trị tối thiểu. Quý khách chỉ thanh toán đúng số tiền hiển thị ở bước Thanh toán, không trả thêm phí giao hàng khi nhận hàng.
+Hạt Lành miễn phí giao hàng tiêu chuẩn toàn quốc cho đơn hàng có tổng giá trị từ 199.000đ trở lên. Tổng giá trị đơn là tiền hàng sau khuyến mại, chưa gồm phí giao hàng. Giỏ hàng cho biết quý khách cần mua thêm bao nhiêu để được miễn phí. Quý khách chỉ thanh toán đúng số tiền hiển thị ở bước Thanh toán, không trả thêm phí giao hàng khi nhận hàng.
 
 Giao hỏa tốc nội thành TP.HCM không nằm trong chương trình này: phí tính theo cước thực tế như mục 2, nhân viên Hạt Lành gọi báo phí trước khi gửi.
 
@@ -206,6 +206,8 @@ Bạn có các quyền sau đối với dữ liệu cá nhân của mình:
 
 ## Lịch sử sửa đổi
 Mỗi lần sửa: đổi ngày "Cập nhật lần cuối" của trang đó (`UPDATED` trong frontend/src/lib/policyDates.ts). Chỉ khi khách phải đồng ý lại (Chính sách bảo mật, phần B của Điều khoản) mới đổi thêm `PolicyVersion.CURRENT` (backend/src/main/java/com/nutshop/site/PolicyVersion.java): đó là phiên bản lưu kèm sự đồng ý, tài khoản đã đồng ý bản cũ sẽ được hỏi lại khi đặt hàng.
+
+- **2026-11-16 (vận chuyển):** Giao tiêu chuẩn: phí 30.000 VNĐ cho đơn dưới 199.000 VNĐ, miễn phí từ 199.000 VNĐ (thay cho miễn phí mọi đơn). Mục 2–3 viết lại, giao hỏa tốc giữ nguyên. Chỉ đổi ngày của trang này; `PolicyVersion.CURRENT` giữ 2026-11-03: phí hiện rõ ở bước Thanh toán trước khi đặt và chỉ áp dụng cho đơn đặt sau ngày này, không phải điều khoản cần xin đồng ý lại.
 
 - **2026-11-04 (vận chuyển):** Miễn phí giao hàng tiêu chuẩn toàn quốc cho mọi đơn: mục 2–3 viết lại, bỏ ngưỡng 500.000 VNĐ, phí 30.000 VNĐ và "hỗ trợ tối đa 30.000 VNĐ" phí hỏa tốc. Chỉ đổi ngày của trang này; `PolicyVersion.CURRENT` giữ 2026-11-03 (có lợi cho khách, không cần xin đồng ý lại).
 

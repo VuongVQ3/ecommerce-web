@@ -49,16 +49,16 @@ describe('policy pages', () => {
   })
 
   it('dates each page by its own last change, not by the consent version', () => {
-    // The consent version (mocked /api/site) stays 2026-11-03; free shipping moved only the shipping page
+    // The consent version (mocked /api/site) stays 2026-11-03; shipping fee changes moved only the shipping page
     const dated = (path: string) => renderAt(path).container.textContent?.match(/Cập nhật lần cuối: (\d{2}\/\d{2}\/\d{4})/)?.[1]
-    expect(dated('/chinh-sach-van-chuyen')).toBe('04/11/2026')
+    expect(dated('/chinh-sach-van-chuyen')).toBe('16/11/2026')
     cleanup()
     expect(dated('/chinh-sach-doi-tra')).toBe('03/11/2026')
     cleanup()
     expect(dated('/dieu-khoan-giao-dich')).toBe('03/11/2026')
     cleanup()
     expect(dated('/lien-he')).toBe('03/11/2026')
-    expect(UPDATED.shipping).toBe('2026-11-04')
+    expect(UPDATED.shipping).toBe('2026-11-16')
   })
 
   it('formats ISO dates only', () => {
@@ -108,14 +108,15 @@ describe('policy pages', () => {
     expect(text).toContain('chỉ áp dụng cho các đơn hàng đặt từ ngày có hiệu lực đó trở đi')
   })
 
-  it('states one shipping rule, the one the checkout applies: standard delivery free on every order', () => {
+  it('states one shipping rule, the one the checkout applies: 30.000đ below 199.000đ, free from it', () => {
     const { container } = renderAt('/chinh-sach-van-chuyen')
     const text = container.textContent ?? ''
     expect(text).not.toContain('Hoặc:')
-    expect(text).toContain('Giao Tiêu chuẩn toàn quốc: MIỄN PHÍ cho mọi đơn hàng, không phân biệt giá trị đơn, khối lượng hay địa chỉ')
+    expect(text).toContain('Giao Tiêu chuẩn toàn quốc: 30.000đ cho đơn hàng có tổng giá trị dưới 199.000đ; miễn phí cho đơn từ')
+    expect(text).toMatch(/miễn phí giao hàng tiêu chuẩn toàn quốc cho đơn hàng có tổng giá trị từ 199\.000đ trở lên/)
     expect(text).toContain('Phí vận chuyển tính theo cước phí thực tế của ứng dụng giao hàng')
-    // No threshold and no capped express support any more
-    expect(text).not.toMatch(/500\.000|30\.000|Hỗ trợ tối đa/)
+    // Neither the old threshold, nor free shipping on every order, nor a capped express support
+    expect(text).not.toMatch(/500\.000|cho mọi đơn hàng|Hỗ trợ tối đa/)
   })
 
   it('keeps the 72-hour limit for transport damage, wrong or missing items, and quality defects until the expiry date', () => {

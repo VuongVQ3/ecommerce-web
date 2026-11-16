@@ -13,7 +13,7 @@ import ProductImage from '../components/ProductImage'
 import { provinceChoices, wardChoices } from '../lib/addressSearch'
 import { useProvinces } from '../lib/adminUnits'
 import { useMediaQuery } from '../lib/media'
-import { SHIPPING_PROMISE, useSiteInfo } from '../lib/siteInfo'
+import { FREE_FOR_ALL_CHECKOUT_NOTE, useSiteInfo } from '../lib/siteInfo'
 import { api, type CartView, type Shortage } from '../lib/api'
 import { formatPrice } from '../lib/format'
 import { normalizePhone } from '../lib/phone'
@@ -128,7 +128,7 @@ function Summary({ view, inline = false }: { view: CartView; inline?: boolean })
       </dl>
       <p className="mt-3 text-xs text-stone-600">
         {view.freeShippingForAll
-          ? SHIPPING_PROMISE.checkout
+          ? FREE_FOR_ALL_CHECKOUT_NOTE
           : 'Phí trên là giao tiêu chuẩn. Giao hỏa tốc trong nội thành TP.HCM tính phí riêng theo cước thực tế; nhân viên sẽ gọi xác nhận phí trước khi gửi hàng'}{' '}
         (
         <Link to="/chinh-sach-van-chuyen" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">

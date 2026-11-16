@@ -43,13 +43,13 @@ const view: CartView = {
   totalQuantity: 2,
   subtotal: 258_000,
   discountTotal: 0,
-  // Free standard shipping on every order (the current setting)
+  // From 199.000₫ standard shipping is free (the current setting)
   shippingFee: 0,
   amountToFreeShipping: 0,
-  freeShippingThreshold: 0,
+  freeShippingThreshold: 199_000,
   total: 258_000,
   canCheckout: true,
-  freeShippingForAll: true,
+  freeShippingForAll: false,
 }
 vi.mock('../cart/CartContext', () => ({ useCart: () => ({ view, loading: false, resetAfterOrder }) }))
 
@@ -224,21 +224,34 @@ describe('CheckoutPage', () => {
     expect(screen.getByRole('link', { name: /Điều khoản giao dịch chung/ }).getAttribute('href')).toBe('/dieu-khoan-giao-dich')
   })
 
-  it('says under the total that standard shipping is free and express delivery in HCMC is charged, confirmed by phone', async () => {
+  it('says under the total that the fee is standard shipping and express delivery in HCMC is charged, confirmed by phone', async () => {
     renderCheckout()
-    const note = await screen.findByText(/Miễn phí giao hàng tiêu chuẩn toàn quốc\. Giao hỏa tốc nội thành TP\.HCM tính theo cước thực tế/)
-    expect(note.textContent).toContain('nhân viên sẽ gọi báo phí trước khi gửi')
-    expect(note.textContent).not.toMatch(/30\.000|500\.000/)
+    const note = await screen.findByText(/Phí trên là giao tiêu chuẩn\. Giao hỏa tốc trong nội thành TP\.HCM tính phí riêng theo cước thực tế/)
+    expect(note.textContent).toContain('nhân viên sẽ gọi xác nhận phí trước khi gửi hàng')
+    // 258.000₫ is above the 199.000₫ threshold
     const fee = screen.getByText('Phí giao hàng').parentElement!
     expect(fee.textContent).toBe('Phí giao hàngMiễn phí')
     expect(screen.getByRole('link', { name: /Chính sách vận chuyển/ }).getAttribute('target')).toBe('_blank')
     expect(screen.getByRole('link', { name: /Chính sách vận chuyển/ }).getAttribute('href')).toBe('/chinh-sach-van-chuyen')
   })
 
+  it('a 198.000₫ subtotal pays the 30.000₫ standard shipping fee', async () => {
+    const saved = { ...view }
+    Object.assign(view, { subtotal: 198_000, shippingFee: 30_000, amountToFreeShipping: 1_000, total: 228_000 })
+    try {
+      renderCheckout()
+      const fee = (await screen.findByText('Phí giao hàng')).parentElement!
+      expect(fee.textContent).toBe('Phí giao hàng30.000₫')
+      expect(screen.getByText('Tổng cộng').parentElement!.textContent).toBe('Tổng cộng228.000₫')
+    } finally {
+      Object.assign(view, saved)
+    }
+  })
+
   it('below 1024px puts the order summary (fees, express note) above the privacy box and "Đặt hàng"', () => {
     // jsdom has no matchMedia: the narrow layout
     renderCheckout()
-    const express = screen.getByText(/Giao hỏa tốc nội thành TP.HCM tính theo cước thực tế/)
+    const express = screen.getByText(/Giao hỏa tốc trong nội thành TP\.HCM tính phí riêng theo cước thực tế/)
     const total = screen.getByText('Tổng cộng')
     const button = screen.getByRole('button', { name: /Đặt hàng/ })
     const follows = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
@@ -266,7 +279,7 @@ describe('CheckoutPage', () => {
   })
 
   it('does not ask again because a policy page got a newer date: only the consent version counts', () => {
-    // The shipping page now says 04/11/2026 (free shipping); the consent version is still the one this account agreed to
+    // The shipping page now says 16/11/2026 (new shipping fee); the consent version is still the one this account agreed to
     expect(UPDATED.shipping > CURRENT_POLICY).toBe(true)
     auth.current = {
       user: { ...ADMIN, role: 'CUSTOMER', privacyConsentRequired: false, policyVersion: CURRENT_POLICY },

@@ -51,7 +51,8 @@ public class PageMetaService {
 		pages.put("/chinh-sach-doi-tra", PageMeta.page("Chính sách đổi trả và Đồng kiểm | " + BRAND,
 				"Đồng kiểm khi nhận hàng, điều kiện, thời hạn và cách đổi trả sản phẩm tại " + BRAND + ".", "/chinh-sach-doi-tra"));
 		pages.put("/chinh-sach-van-chuyen", PageMeta.page("Chính sách vận chuyển và Giao nhận | " + BRAND,
-				"Phương thức, thời gian, phí giao hàng và chính sách freeship của " + BRAND + ".", "/chinh-sach-van-chuyen"));
+				"Phương thức, thời gian, phí giao hàng và điều kiện miễn phí giao hàng của " + BRAND + ".",
+				"/chinh-sach-van-chuyen"));
 		PageMeta terms = PageMeta.page("Điều khoản giao dịch chung và Chính sách bảo mật | " + BRAND,
 				"Điều khoản đặt hàng, thanh toán, huỷ đơn, khiếu nại và cách " + BRAND
 						+ " thu thập, sử dụng, bảo vệ thông tin cá nhân.",

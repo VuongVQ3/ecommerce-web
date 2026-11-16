@@ -40,7 +40,7 @@ Mọi endpoint cần đăng nhập, trừ `POST /validate`. Các request `POST/P
     "status": "PRICE_CHANGED"
   }],
   "totalQuantity": 2, "subtotal": 498000, "shippingFee": 0, "amountToFreeShipping": 0,
-  "freeShippingThreshold": 0, "total": 498000, "canCheckout": true, "freeShippingForAll": true
+  "freeShippingThreshold": 199000, "total": 498000, "canCheckout": true, "freeShippingForAll": false
 }
 ```
 
@@ -56,23 +56,26 @@ Mọi endpoint cần đăng nhập, trừ `POST /validate`. Các request `POST/P
 
 ### Phí giao hàng
 
-**Từ 11/2026: miễn phí giao hàng tiêu chuẩn toàn quốc cho mọi đơn** (quyết định của chủ shop; chi phí ship đã tính vào
-giá bán). Cấu hình `cart.shipping-fee=0`, `cart.free-shipping-threshold=0`: mọi giỏ có `shippingFee = 0`,
-`amountToFreeShipping = 0`, `freeShippingForAll = true`. Giỏ nhanh và trang giỏ hàng hiện "🚚 Miễn phí giao hàng toàn
-quốc" thay cho thanh tiến độ "Mua thêm …". Giao hỏa tốc nội thành TP.HCM không qua website: nhân viên gọi báo cước thực
-tế.
+**Từ 16/11/2026: giao tiêu chuẩn 30.000₫ cho đơn dưới 199.000₫, miễn phí từ 199.000₫** (trước đó, từ 04/11/2026,
+miễn phí mọi đơn). Cấu hình trong `application.properties`: `cart.shipping-fee=30000`,
+`cart.free-shipping-threshold=199000`, không đặt qua biến môi trường trên Render. Tạm tính 198.000₫: `shippingFee = 30000`,
+`amountToFreeShipping = 1000`, giỏ hiện "Mua thêm 1.000₫ để được miễn phí giao hàng" kèm thanh tiến độ; tạm tính
+199.000₫: miễn phí. Giao hỏa tốc nội thành TP.HCM không qua website: nhân viên gọi báo cước thực tế.
 
-Quy tắc chung (`CartProperties.shippingFeeFor`, dùng cho cả giỏ và đơn hàng), vẫn giữ để bật lại phí không cần sửa code:
+`GET /api/site` trả `shipping: { fee, freeThreshold }` (cùng hai giá trị trên): trang chủ dựng câu "Miễn phí giao hàng cho
+đơn từ 199.000₫" từ đó (`shippingPromise` trong `frontend/src/lib/siteInfo.ts`), không viết cứng con số.
+
+Quy tắc chung (`CartProperties.shippingFeeFor`, dùng cho cả giỏ và đơn hàng):
 - Giỏ trống, hoặc `cart.shipping-fee = 0`: `shippingFee = 0`.
 - `cart.free-shipping-threshold > 0` và `subtotal ≥ threshold`: `shippingFee = 0`.
 - Ngược lại: `shippingFee = cart.shipping-fee` (threshold `0` cùng phí > 0 = đơn nào cũng tính phí).
 - `amountToFreeShipping = threshold - subtotal` khi còn phải trả phí và có threshold; ngược lại `0`.
 - `total = subtotal + shippingFee`.
 
-**Bật lại phí** (ví dụ quy tắc cũ): đặt biến môi trường trên Render `CART_SHIPPING_FEE=30000` và
-`CART_FREE_SHIPPING_THRESHOLD=500000` rồi deploy lại. Giỏ tự hiện lại thanh tiến độ (`freeShippingForAll = false`);
-các câu chữ tĩnh thì phải sửa tay: `SHIPPING_PROMISE` trong `frontend/src/lib/siteInfo.ts` (trang chủ, ghi chú ở trang
-thanh toán) và trang Chính sách vận chuyển (`PolicyPages.tsx`, `docs/chinh-sach-noi-dung.md`).
+**Đổi phí hoặc ngưỡng:** sửa hai giá trị trong `application.properties` rồi deploy. Giỏ, thanh toán và trang chủ tự theo;
+chỉ trang Chính sách vận chuyển phải sửa tay (`PolicyPages.tsx`, `docs/chinh-sach-noi-dung.md` mục 2–3, kèm ngày cập nhật).
+`cart.shipping-fee=0` = miễn phí mọi đơn: giỏ hiện "🚚 Miễn phí giao hàng toàn quốc" thay cho thanh tiến độ
+(`freeShippingForAll = true`).
 
 ### Lỗi
 
@@ -99,8 +102,8 @@ Lỗi trả về theo chuẩn RFC 9457, có `code` và `message` (tiếng Việt
 | Khoá | Mặc định | |
 |---|---|---|
 | `cart.max-qty-per-item` | `10` | 1–99 |
-| `cart.free-shipping-threshold` | `0` | đồng; `0` = không có ngưỡng. Env `CART_FREE_SHIPPING_THRESHOLD` |
-| `cart.shipping-fee` | `0` | đồng; `0` = miễn phí mọi đơn. Env `CART_SHIPPING_FEE` |
+| `cart.free-shipping-threshold` | `199000` | đồng; `0` = không có ngưỡng. Env `CART_FREE_SHIPPING_THRESHOLD` |
+| `cart.shipping-fee` | `30000` | đồng; `0` = miễn phí mọi đơn. Env `CART_SHIPPING_FEE` |
 | `app.rate-limit.cart-validate.max-requests` / `.window` | `60` / `PT1M` | Giới hạn theo IP cho `POST /validate` |
 
 ## Database

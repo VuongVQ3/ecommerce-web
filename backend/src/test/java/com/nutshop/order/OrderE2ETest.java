@@ -2,9 +2,11 @@ package com.nutshop.order;
 
 import com.nutshop.IntegrationTest;
 import com.nutshop.auth.AuthCookies;
+import com.nutshop.auth.TokenService;
 import com.nutshop.mail.EmailMessage;
 import com.nutshop.security.RateLimiter;
 import com.nutshop.site.PolicyVersion;
+import com.nutshop.user.UserRepository;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,8 +49,8 @@ class OrderE2ETest {
 	/** Thành phố Hà Nội → Phường Ba Đình (vn-admin-units.json). */
 	private static final int HANOI = 1;
 	private static final int BA_DINH = 4;
-	/** Free standard shipping on every order since 11/2026 (cart.shipping-fee=0) */
-	private static final long FEE = 0;
+	/** Standard shipping: free from a 199.000đ subtotal (cart.free-shipping-threshold), 30.000đ below it */
+	private static final long FEE = 30_000;
 
 	@Autowired
 	MockMvc mvc;
@@ -58,6 +60,12 @@ class OrderE2ETest {
 
 	@Autowired
 	CapturingEmailSender mailbox;
+
+	@Autowired
+	UserRepository users;
+
+	@Autowired
+	TokenService tokens;
 
 	@Autowired
 	RateLimiter orderCreateRateLimiter;
@@ -154,8 +162,8 @@ class OrderE2ETest {
 			.andExpect(jsonPath("$.statusLabel").value("Chờ xác nhận"))
 			.andExpect(jsonPath("$.items[0].unitPrice").value(120_000))
 			.andExpect(jsonPath("$.subtotal").value(240_000))
-			.andExpect(jsonPath("$.shippingFee").value(FEE))
-			.andExpect(jsonPath("$.total").value(240_000 + FEE))
+			.andExpect(jsonPath("$.shippingFee").value(0))
+			.andExpect(jsonPath("$.total").value(240_000))
 			.andExpect(jsonPath("$.phone").value("0912345678"))
 			.andExpect(jsonPath("$.province").value("Thành phố Hà Nội"))
 			.andExpect(jsonPath("$.ward").value("Phường Ba Đình"))
@@ -165,7 +173,7 @@ class OrderE2ETest {
 		assertThat(reserved(id)).isEqualTo(2);
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM orders o JOIN order_items i ON i.order_id = o.id "
 				+ "WHERE i.product_id = ? AND o.user_id IS NULL", Integer.class, id)).isEqualTo(1);
-		// Stored as such: no fee, the total is the goods
+		// Stored as such: above the threshold, no fee, the total is the goods
 		assertThat(jdbc.queryForObject("SELECT o.shipping_fee || ' ' || o.subtotal || ' ' || o.total FROM orders o "
 				+ "JOIN order_items i ON i.order_id = o.id WHERE i.product_id = ?", String.class, id))
 			.isEqualTo("0 240000 240000");
@@ -419,6 +427,43 @@ class OrderE2ETest {
 		return mvc.perform(post("/api/orders/lookup").header("X-Requested-With", "XMLHttpRequest")
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"code\":\"%s\",\"phone\":\"%s\"}".formatted(code, phone)));
+	}
+
+	/** 198.000đ pays the fee, everywhere the order is shown; 199.000đ ships free. */
+	@Test
+	void ordersBelowTheThresholdPayTheShippingFee() throws Exception {
+		long id = product(99_000, 10);
+		String code = place(body(key(), "0912345678", line(id, 2))).andExpect(status().isCreated())
+			.andExpect(jsonPath("$.subtotal").value(198_000))
+			.andExpect(jsonPath("$.shippingFee").value(FEE))
+			.andExpect(jsonPath("$.total").value(198_000 + FEE))
+			.andReturn().getResponse().getContentAsString().replaceAll(".*\"code\":\"([A-Z0-9]+)\".*", "$1");
+		assertThat(jdbc.queryForObject("SELECT shipping_fee || ' ' || subtotal || ' ' || total FROM orders WHERE code = ?",
+				String.class, code)).isEqualTo("30000 198000 228000");
+
+		EmailMessage mail = mailbox.next(Duration.ofSeconds(5));
+		assertThat(mail).isNotNull();
+		assertThat(mail.text()).contains("Phí giao hàng: 30.000₫").contains("228.000₫");
+		assertThat(mail.html()).contains("30.000₫").contains("228.000₫");
+
+		mvc.perform(get("/api/admin/orders/" + code).header("X-Requested-With", "XMLHttpRequest").cookie(admin()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.order.shippingFee").value(FEE))
+			.andExpect(jsonPath("$.order.total").value(228_000));
+
+		long exact = product(199_000, 10);
+		place(body(key(), "0912345678", line(exact, 1))).andExpect(status().isCreated())
+			.andExpect(jsonPath("$.shippingFee").value(0))
+			.andExpect(jsonPath("$.total").value(199_000));
+	}
+
+	private Cookie admin() throws Exception {
+		String email = "admin-" + UUID.randomUUID() + "@example.com";
+		mvc.perform(post("/api/auth/register").header("X-Requested-With", "XMLHttpRequest")
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(RegisterJson.of("Quản Trị", email, "matkhau123"))).andExpect(status().isCreated());
+		jdbc.update("UPDATE users SET role = 'ADMIN' WHERE email = ?", email);
+		return new Cookie(AuthCookies.ACCESS_COOKIE, tokens.issueAccessToken(users.findByEmail(email).orElseThrow()));
 	}
 
 	@Test
