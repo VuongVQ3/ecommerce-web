@@ -256,8 +256,9 @@ ngược lại là giới hạn mỗi sản phẩm trong giỏ (10); giỏ hàng
 đồ theo ngày và tối đa 10 sản phẩm sắp hết.
 
 "Giá trị đơn" và "doanh thu" tính theo `orders.total` (tiền hàng + phí ship đã thu). Đơn đặt trước khi freeship
-(11/2026) có phí ship trong `total` (thường 30.000₫), đơn sau đó thì không: so doanh thu hai giai đoạn nên nhớ khoản
-chênh này. Chi tiết đơn cũ vẫn hiện "Phí giao hàng: 30.000₫", đơn mới hiện "Miễn phí".
+(04/11/2026) có phí ship trong `total` (thường 30.000₫); từ 04/11 đến 16/11/2026 mọi đơn miễn phí; từ 16/11/2026 đơn dưới
+199.000₫ có 30.000₫ phí ship trong `total`. So doanh thu các giai đoạn nên nhớ khoản chênh này. Chi tiết đơn hiện đúng phí đã
+lưu lúc đặt ("Phí giao hàng: 30.000₫" hoặc "Miễn phí").
 
 ## Giao diện trên điện thoại / tablet
 

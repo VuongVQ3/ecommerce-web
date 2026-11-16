@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** The shipping rule, under the current setting (free for all) and the ones it can be switched back to. */
+/** The shipping rule, under the current setting (30.000đ below 199.000đ) and the other ones it supports. */
 class CartPropertiesTest {
 
 	@Test
@@ -19,15 +19,17 @@ class CartPropertiesTest {
 		assertThat(new CartProperties(10, 500_000, 0).shippingFeeFor(10_000)).isZero();
 	}
 
-	/** The rule before 11/2026: CART_SHIPPING_FEE=30000, CART_FREE_SHIPPING_THRESHOLD=500000 */
+	/** The rule since 16/11/2026: cart.shipping-fee=30000, cart.free-shipping-threshold=199000 */
 	@Test
 	void aFlatFeeBelowTheThreshold() {
-		var props = new CartProperties(10, 500_000, 30_000);
+		var props = new CartProperties(10, 199_000, 30_000);
 		assertThat(props.freeShippingForAll()).isFalse();
-		assertThat(props.shippingFeeFor(240_000)).isEqualTo(30_000);
-		assertThat(props.amountToFreeShipping(240_000)).isEqualTo(260_000);
-		assertThat(props.shippingFeeFor(499_999)).isEqualTo(30_000);
-		assertThat(props.shippingFeeFor(500_000)).isZero();
+		assertThat(props.shippingFeeFor(120_000)).isEqualTo(30_000);
+		assertThat(props.amountToFreeShipping(120_000)).isEqualTo(79_000);
+		assertThat(props.shippingFeeFor(198_000)).isEqualTo(30_000);
+		assertThat(props.amountToFreeShipping(198_000)).isEqualTo(1_000);
+		assertThat(props.shippingFeeFor(199_000)).isZero();
+		assertThat(props.amountToFreeShipping(199_000)).isZero();
 		assertThat(props.amountToFreeShipping(600_000)).isZero();
 		// An empty cart pays nothing
 		assertThat(props.shippingFeeFor(0)).isZero();

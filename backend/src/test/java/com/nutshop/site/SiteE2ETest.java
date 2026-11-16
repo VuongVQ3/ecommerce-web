@@ -250,7 +250,10 @@ class SiteE2ETest {
 		mvc.perform(get("/api/site")).andExpect(status().isOk()).andExpect(jsonPath("$.business").isMap())
 			.andExpect(jsonPath("$.contact").isMap())
 			.andExpect(jsonPath("$.social").isMap())
-			.andExpect(jsonPath("$.policyVersion").value(PolicyVersion.CURRENT));
+			.andExpect(jsonPath("$.policyVersion").value(PolicyVersion.CURRENT))
+			// The shipping promise on pages comes from the setting carts and orders charge
+			.andExpect(jsonPath("$.shipping.fee").value(30_000))
+			.andExpect(jsonPath("$.shipping.freeThreshold").value(199_000));
 	}
 
 	@Test

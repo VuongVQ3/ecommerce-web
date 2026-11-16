@@ -88,8 +88,8 @@ public final class CartDtos {
 	 * @param discountTotal Σ (regular − sale price) × quantity: shown as "Đã giảm"
 	 * @param amountToFreeShipping how much more to spend for free shipping (0 when already free or cart is empty)
 	 * @param canCheckout false when empty or any line is OUT_OF_STOCK / UNAVAILABLE
-	 * @param freeShippingForAll no shipping fee on any order (CartProperties#freeShippingForAll): pages show "Miễn
-	 * phí giao hàng toàn quốc" instead of a progress towards the threshold
+	 * @param freeShippingForAll no shipping fee on any order (CartProperties#freeShippingForAll, fee 0): carts show
+	 * "Miễn phí giao hàng toàn quốc" instead of a progress towards the threshold
 	 */
 	public record CartView(List<CartLine> items, int totalQuantity, long subtotal, long discountTotal,
 			long shippingFee, long amountToFreeShipping, long freeShippingThreshold, long total, boolean canCheckout,

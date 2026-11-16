@@ -179,7 +179,7 @@ export function ReturnPolicyPage() {
 
 export function ShippingPolicyPage() {
   return (
-    <PolicyPage title="Chính sách vận chuyển và Giao nhận" updatedAt={UPDATED.shipping} description={`Phương thức, thời gian, phí giao hàng và chính sách freeship của ${BRAND}.`}>
+    <PolicyPage title="Chính sách vận chuyển và Giao nhận" updatedAt={UPDATED.shipping} description={`Phương thức, thời gian, phí giao hàng và điều kiện miễn phí giao hàng của ${BRAND}.`}>
       <section>
         <h2>1. Phương thức và Thời gian giao hàng</h2>
         <p>
@@ -212,20 +212,22 @@ export function ShippingPolicyPage() {
             <strong>Giao Hỏa tốc:</strong> Phí vận chuyển tính theo cước phí thực tế của ứng dụng giao hàng tại thời điểm đặt. Nhân
             viên Hạt Lành sẽ gọi điện thông báo chính xác cước phí cho quý khách trước khi gửi.
           </li>
-          {/* What CartProperties#shippingFeeFor charges: nothing since 11/2026 (cart.shipping-fee=0). Switching a fee back on
-              (CART_SHIPPING_FEE / CART_FREE_SHIPPING_THRESHOLD) means rewriting this item and section 3, and SHIPPING_PROMISE
-              in lib/siteInfo.ts. */}
+          {/* What CartProperties#shippingFeeFor charges (cart.shipping-fee=30000, cart.free-shipping-threshold=199000 in
+              application.properties). Changing those means rewriting this item and section 3; the other pages word their
+              promise from /api/site on their own. */}
           <li>
-            <strong>Giao Tiêu chuẩn toàn quốc:</strong> MIỄN PHÍ cho mọi đơn hàng, không phân biệt giá trị đơn, khối lượng hay địa chỉ
-            nhận hàng. Bước Thanh toán hiển thị "Phí giao hàng: Miễn phí" trước khi quý khách bấm "Đặt hàng".
+            <strong>Giao Tiêu chuẩn toàn quốc:</strong> 30.000đ cho đơn hàng có tổng giá trị dưới 199.000đ; miễn phí cho đơn từ
+            199.000đ trở lên (xem mục 3). Phí áp dụng như nhau cho mọi khối lượng và địa chỉ nhận hàng. Bước Thanh toán hiển thị
+            phí giao hàng của đơn trước khi quý khách bấm "Đặt hàng".
           </li>
         </ul>
       </section>
       <section>
         <h2>3. Chính sách Miễn phí vận chuyển (Freeship)</h2>
         <p>
-          Hạt Lành miễn phí giao hàng tiêu chuẩn toàn quốc cho mọi đơn hàng, không cần đạt giá trị tối thiểu. Quý khách chỉ thanh
-          toán đúng số tiền hiển thị ở bước Thanh toán, không trả thêm phí giao hàng khi nhận hàng.
+          Hạt Lành miễn phí giao hàng tiêu chuẩn toàn quốc cho đơn hàng có tổng giá trị từ 199.000đ trở lên. Tổng giá trị đơn là
+          tiền hàng sau khuyến mại, chưa gồm phí giao hàng. Giỏ hàng cho biết quý khách cần mua thêm bao nhiêu để được miễn phí.
+          Quý khách chỉ thanh toán đúng số tiền hiển thị ở bước Thanh toán, không trả thêm phí giao hàng khi nhận hàng.
         </p>
         <p>
           Giao hỏa tốc nội thành TP.HCM không nằm trong chương trình này: phí tính theo cước thực tế như mục 2, nhân viên Hạt Lành
